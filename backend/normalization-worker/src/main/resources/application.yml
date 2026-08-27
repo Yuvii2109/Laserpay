@@ -1,0 +1,128 @@
+# =====================================================================================
+# normalization-worker  |  PLATFORM-CONTRACT section 2 (port 8082), section 15 (env vars)
+#
+# Consumes pdei.raw.events.v1, produces pdei.canonical.events.v1, dead-letters to pdei.dlq.v1.
+# Every externally-configurable value reads an env var with the contract's name and falls back
+# to the local docker-compose value, so the same image runs locally and in a cluster.
+# =====================================================================================
+server:
+  port: 8082
+  shutdown: graceful
+
+spring:
+  application:
+    name: normalization-worker
+  main:
+    banner-mode: off
+  lifecycle:
+    # Long enough for an in-flight poll batch to finish and commit its offsets.
+    timeout-per-shutdown-phase: 30s
+
+  datasource:
+    url: ${PDEI_POSTGRES_URL:jdbc:postgresql://postgres:5432/pdei}
+    username: ${PDEI_POSTGRES_USER:pdei}
+    password: ${PDEI_POSTGRES_PASSWORD:pdei}
+    hikari:
+      # One connection per consumer thread plus headroom for actuator health checks.
+      maximum-pool-size: 8
+      pool-name: pdei-normalization-pool
+
+  jpa:
+    # Flyway (platform-persistence) owns the schema; Hibernate must never touch DDL.
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    # Migrations ship inside platform-persistence and are idempotent, so any service may run
+    # them. Set false when a dedicated migration job owns schema evolution in your environment.
+    enabled: true
+    locations: classpath:db/migration
+
+  data:
+    redis:
+      url: ${PDEI_REDIS_URL:redis://redis:6379}
+      timeout: 2s
+      connect-timeout: 2s
+
+  kafka:
+    bootstrap-servers: ${PDEI_KAFKA_BOOTSTRAP:kafka:9092}
+    consumer:
+      # Group id, deserializers and offset policy are set explicitly in KafkaConsumerConfig;
+      # what is here is the connection-level baseline.
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      properties:
+        # A poll batch may spend time on database and broker round trips; give it room before
+        # the coordinator decides this consumer is dead and rebalances.
+        max.poll.interval.ms: 300000
+        session.timeout.ms: 45000
+    producer:
+      acks: all
+      properties:
+        enable.idempotence: true
+        delivery.timeout.ms: 120000
+
+# --- application tunables (NormalizationProperties) ----------------------------------
+pdei:
+  normalization:
+    # Fallback currency when a source system omits one on a monetary field.
+    default-currency: ${PDEI_DEFAULT_CURRENCY:INR}
+    publish-timeout: 10s
+    lateness-warn-threshold: 30m
+    concurrency: 3
+    max-poll-records: 100
+    retry:
+      max-attempts: 4
+      initial-interval: 1s
+      multiplier: 2.0
+      max-interval: 30s
+    idempotency:
+      redis-enabled: true
+      # Matches the pdei:idem:{eventId} TTL in PLATFORM-CONTRACT section 12.
+      ttl: 7d
+
+# --- observability (PLATFORM-CONTRACT section 13) ------------------------------------
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics,loggers
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when_authorized
+  metrics:
+    tags:
+      # Matches OTEL_SERVICE_NAME so metrics, traces and logs join on one identity.
+      service: normalization-worker
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+  health:
+    redis:
+      # Redis is a latency optimisation here, never a correctness dependency: its absence must
+      # not take the worker out of the load balancer.
+      enabled: false
+
+otel:
+  service:
+    name: ${OTEL_SERVICE_NAME:normalization-worker}
+  exporter:
+    otlp:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://otel-collector:4318}
+
+logging:
+  level:
+    root: INFO
+    com.laserpay.pdei: INFO
+    org.apache.kafka.clients.consumer.internals: WARN
+  pattern:
+    # traceId/spanId/merchantId/correlationId come from the MDC set by KafkaTracing.
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%X{traceId:-},%X{spanId:-}] [%X{merchantId:-}] %logger{36} - %msg%n"

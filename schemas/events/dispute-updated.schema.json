@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pdei.laserpay.com/events/dispute-updated.schema.json",
+  "title": "DisputeUpdated payload",
+  "description": "Dispute status or deadline changed. Delivered to the running workflow as the disputeUpdated signal.",
+  "x-pdei-event-type": "DisputeUpdated",
+  "x-pdei-aggregate-type": "DISPUTE",
+  "x-pdei-origin": "EXTERNAL",
+  "x-pdei-schema-version": 1,
+  "type": "object",
+  "required": [
+    "disputeId",
+    "status",
+    "updatedAt"
+  ],
+  "properties": {
+    "disputeId": {
+      "$ref": "#/$defs/prefixedId"
+    },
+    "previousStatus": {
+      "$ref": "#/$defs/disputeStatus"
+    },
+    "status": {
+      "$ref": "#/$defs/disputeStatus"
+    },
+    "deadlineAt": {
+      "$ref": "#/$defs/instant"
+    },
+    "note": {
+      "type": "string"
+    },
+    "updatedAt": {
+      "$ref": "#/$defs/instant"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "disputeStatus": {
+      "enum": [
+        "OPEN",
+        "EVIDENCE_GATHERING",
+        "UNDER_INVESTIGATION",
+        "AWAITING_HUMAN_REVIEW",
+        "REPRESENTMENT_PREPARED",
+        "SUBMITTED",
+        "WON",
+        "LOST",
+        "EXPIRED",
+        "WITHDRAWN"
+      ]
+    },
+    "instant": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 instant in UTC, e.g. 2026-08-26T10:15:30.123Z."
+    },
+    "prefixedId": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64,
+      "pattern": "^[A-Z]{2,4}-[A-Za-z0-9._:-]+$",
+      "description": "Human-readable prefixed identifier (PLATFORM-CONTRACT section 5)."
+    }
+  }
+}

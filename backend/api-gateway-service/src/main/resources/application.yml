@@ -1,0 +1,243 @@
+# =====================================================================================
+# PDEI api-gateway-service
+#
+# Port, actuator exposure, datasource, Kafka, Redis, MinIO, AI service URL and OTel, all
+# bound to the environment variable names of PLATFORM-CONTRACT.md section 15. Every value
+# has a localhost default so `mvn spring-boot:run` works against a laptop docker-compose
+# without an env file, while the container defaults come from the compose environment.
+# =====================================================================================
+
+server:
+  port: 8080
+  shutdown: graceful
+  error:
+    # Errors are rendered by GlobalExceptionHandler into the shared ErrorResponse shape.
+    # The servlet container's own /error page must never be able to leak a stack trace.
+    include-stacktrace: never
+    include-message: never
+    whitelabel:
+      enabled: false
+  # Enough for the SSE and WebSocket connections of a demo audience plus REST traffic.
+  tomcat:
+    threads:
+      max: 200
+    max-connections: 8192
+
+spring:
+  application:
+    name: api-gateway-service
+
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+
+  # --- PostgreSQL (schema owned by platform-persistence) ------------------------------
+  datasource:
+    url: ${PDEI_POSTGRES_URL:jdbc:postgresql://localhost:5432/pdei}
+    username: ${PDEI_POSTGRES_USER:pdei}
+    password: ${PDEI_POSTGRES_PASSWORD:pdei}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      pool-name: pdei-api-pool
+      maximum-pool-size: 20
+      minimum-idle: 4
+      connection-timeout: 3000
+      # Longer than any single request; a gateway request that needs more than this is stuck.
+      validation-timeout: 2000
+
+  jpa:
+    # OSIV off: a lazy association resolved during view rendering is a query nobody planned.
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        default_schema: pdei
+        jdbc:
+          time_zone: UTC
+          batch_size: 50
+        format_sql: false
+
+  flyway:
+    # Migrations live in platform-persistence. Any service that starts may apply them; Flyway's
+    # own lock makes concurrent starts safe. Set false where a separate migration job runs first.
+    enabled: ${PDEI_FLYWAY_ENABLED:true}
+    schemas: pdei
+    default-schema: pdei
+    create-schemas: true
+
+  # --- Redis (rate limit + stream dedupe, contract section 12) ------------------------
+  data:
+    redis:
+      url: ${PDEI_REDIS_URL:redis://localhost:6379}
+      timeout: 2s
+      connect-timeout: 2s
+      lettuce:
+        pool:
+          enabled: true
+          max-active: 16
+          max-idle: 8
+
+  # --- Kafka (control-tower fan-out consumer) -----------------------------------------
+  kafka:
+    bootstrap-servers: ${PDEI_KAFKA_BOOTSTRAP:localhost:29092}
+    consumer:
+      group-id: pdei-api-gateway-service
+      # The control tower shows what is happening now. Replaying a week of history into a
+      # browser on every restart would be noise, so a new group starts at the tail.
+      auto-offset-reset: latest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      # Deserialised by hand with Json.mapper() so the gateway shares one mapper with every
+      # other service and one unreadable record cannot poison the listener.
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      max-poll-records: 200
+      properties:
+        spring.json.use.type.headers: false
+    listener:
+      ack-mode: record
+      # A missing topic must not stop the API from starting: REST works without Kafka.
+      missing-topics-fatal: false
+      concurrency: 2
+    properties:
+      client.id: pdei-api-gateway-service
+
+  # --- Uploads (POST /api/v1/evidence) ------------------------------------------------
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 25MB
+      max-request-size: 30MB
+      file-size-threshold: 1MB
+
+  mvc:
+    # SSE emitters carry their own timeout; the MVC async timeout must not pre-empt them.
+    async:
+      request-timeout: -1
+    problemdetails:
+      # Off: errors use the shared ErrorResponse shape from platform-common, not RFC 7807.
+      enabled: false
+
+  threads:
+    virtual:
+      enabled: false
+
+# --- evidence-core -------------------------------------------------------------------
+pdei:
+  core:
+    storage:
+      endpoint: ${PDEI_MINIO_ENDPOINT:http://localhost:9000}
+      access-key: ${PDEI_MINIO_ACCESS_KEY:pdei-minio}
+      secret-key: ${PDEI_MINIO_SECRET_KEY:pdei-minio-secret}
+      # The gateway presigns downloads; it does not bootstrap buckets. The services that
+      # write evidence do that, and doing it twice races on startup.
+      ensure-buckets-on-startup: false
+      presign-ttl: 15m
+    ai:
+      service-url: ${PDEI_AI_SERVICE_URL:http://localhost:8000}
+      service-token: ${PDEI_SERVICE_TOKEN:dev-service-token}
+    readiness:
+      expiring-soon-days: 7
+      cache-ttl: 10m
+    audit:
+      # The gateway audits human case decisions; publishing them keeps audit-service in step.
+      publish-to-kafka: true
+
+  # --- this module ---------------------------------------------------------------------
+  api:
+    service-token: ${PDEI_SERVICE_TOKEN:dev-service-token}
+    cors:
+      allowed-origins:
+        - ${PDEI_FRONTEND_ORIGIN:http://localhost:3000}
+      allowed-methods: [GET, POST, PUT, DELETE, OPTIONS]
+      allow-credentials: true
+      max-age: 1h
+    rate-limit:
+      enabled: ${PDEI_RATE_LIMIT_ENABLED:true}
+      requests-per-window: 600
+      window: 1m
+      exempt-path-prefixes:
+        - /actuator
+        - /ws
+        - /api/v1/ai-tools
+        - /swagger-ui
+        - /v3/api-docs
+    stream:
+      kafka-enabled: ${PDEI_STREAM_KAFKA_ENABLED:true}
+      heartbeat-interval: 15s
+      sse-timeout: 30m
+      max-sessions-per-merchant: 50
+      dedupe-ttl: 7d
+      local-dedupe-capacity: 20000
+    orchestrator:
+      enabled: ${PDEI_ORCHESTRATOR_ENABLED:true}
+      base-url: ${PDEI_ORCHESTRATOR_URL:http://localhost:8085}
+      connect-timeout: 2s
+      read-timeout: 10s
+    paging:
+      default-size: 25
+      max-size: 200
+
+# --- Actuator (contract section 2: health,info,prometheus,metrics,loggers) -------------
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics,loggers
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when-authorized
+  health:
+    # Redis, Kafka and MinIO being down degrade the gateway; they do not make it unhealthy,
+    # and letting them fail the liveness probe would restart a service that is serving fine.
+    redis:
+      enabled: false
+  metrics:
+    tags:
+      application: api-gateway-service
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+  tracing:
+    sampling:
+      probability: 1.0
+
+# --- OpenTelemetry (contract section 15) ----------------------------------------------
+otel:
+  service:
+    name: ${OTEL_SERVICE_NAME:api-gateway-service}
+  exporter:
+    otlp:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}
+      protocol: http/protobuf
+  traces:
+    exporter: otlp
+  metrics:
+    # Metrics go to Prometheus through Micrometer; exporting them twice would double-count.
+    exporter: none
+  logs:
+    exporter: none
+  propagators: tracecontext,baggage
+
+# --- OpenAPI ---------------------------------------------------------------------------
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+
+# --- Logging (contract section 13: traceId, spanId, merchantId, correlationId) ---------
+logging:
+  level:
+    root: INFO
+    com.laserpay.pdei: INFO
+    org.springframework.web.socket: WARN
+    org.apache.kafka.clients.NetworkClient: ERROR
+  pattern:
+    console: >-
+      %d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [${OTEL_SERVICE_NAME:api-gateway-service}]
+      [%X{traceId:-},%X{spanId:-}] [%X{correlationId:-}] [%X{merchantId:-}] %logger{36} - %msg%n

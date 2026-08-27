@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pdei.laserpay.com/events/canonical-event.schema.json",
+  "title": "CanonicalEvent",
+  "description": "The canonical event envelope (PLATFORM-CONTRACT section 3). Everything downstream of normalization-worker speaks this type and nothing else. Mirrors com.laserpay.pdei.common.event.CanonicalEvent, pdei_ai.models.events.CanonicalEvent and frontend/src/lib/types/events.ts - the three MUST stay field-identical.",
+  "type": "object",
+  "required": [
+    "eventId",
+    "eventType",
+    "schemaVersion",
+    "aggregateType",
+    "aggregateId",
+    "merchantId",
+    "correlationId",
+    "occurredAt",
+    "observedAt",
+    "source",
+    "idempotencyKey",
+    "payload"
+  ],
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Unique id of this delivery of this fact. UUID string by convention."
+    },
+    "eventType": {
+      "enum": [
+        "PaymentCreated",
+        "PaymentAuthorized",
+        "PaymentCaptured",
+        "PaymentFailed",
+        "OrderCreated",
+        "OrderFulfilled",
+        "OrderCancelled",
+        "ShipmentCreated",
+        "ShipmentDispatched",
+        "ShipmentDelivered",
+        "RefundCreated",
+        "RefundProcessed",
+        "CommunicationCreated",
+        "CommunicationReceived",
+        "EvidenceAdded",
+        "EvidenceExpired",
+        "EvidenceInvalidated",
+        "DisputeCreated",
+        "DisputeUpdated",
+        "DisputeClosed",
+        "ReadinessRecomputed",
+        "ReadinessGapDetected",
+        "CaseOpened",
+        "CaseEvidenceAttached",
+        "CaseInvestigated",
+        "CasePrepared",
+        "CaseEscalated",
+        "CaseSubmitted",
+        "CaseClosed",
+        "AuditRecorded"
+      ],
+      "description": "PLATFORM-CONTRACT section 3.1. PascalCase wire values, identical in Java, Python and TypeScript."
+    },
+    "schemaVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 1
+    },
+    "aggregateType": {
+      "enum": [
+        "MERCHANT",
+        "CUSTOMER",
+        "TRANSACTION",
+        "PAYMENT",
+        "ORDER",
+        "SHIPMENT",
+        "DELIVERY",
+        "REFUND",
+        "COMMUNICATION",
+        "EVIDENCE",
+        "POLICY",
+        "DISPUTE",
+        "CASE"
+      ]
+    },
+    "aggregateId": {
+      "$ref": "#/$defs/prefixedId"
+    },
+    "merchantId": {
+      "$ref": "#/$defs/merchantId"
+    },
+    "correlationId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "causationId": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128
+    },
+    "occurredAt": {
+      "$ref": "#/$defs/instant",
+      "description": "When the fact happened in the source system."
+    },
+    "observedAt": {
+      "$ref": "#/$defs/instant",
+      "description": "When PDEI saw it. observedAt - occurredAt is lateness and is never collapsed."
+    },
+    "source": {
+      "enum": [
+        "PSP_ADAPTER",
+        "ORDER_SYSTEM",
+        "LOGISTICS",
+        "CRM",
+        "SIMULATOR",
+        "INTERNAL",
+        "MERCHANT_PORTAL"
+      ]
+    },
+    "idempotencyKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Stable, source-derived string. Redelivery under a fresh eventId still collapses to one state change."
+    },
+    "payload": {
+      "type": "object",
+      "description": "Event-type specific body; validated against <event-type>.schema.json in this directory."
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "instant": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 instant in UTC, e.g. 2026-08-26T10:15:30.123Z."
+    },
+    "merchantId": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 64,
+      "pattern": "^MER-[A-Za-z0-9._:-]+$"
+    },
+    "prefixedId": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64,
+      "pattern": "^[A-Z]{2,4}-[A-Za-z0-9._:-]+$",
+      "description": "Human-readable prefixed identifier (PLATFORM-CONTRACT section 5)."
+    }
+  }
+}

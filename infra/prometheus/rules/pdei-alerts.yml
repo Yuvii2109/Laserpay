@@ -1,0 +1,113 @@
+# PDEI - recording and alerting rules.
+#
+# There is no Alertmanager in the local stack, so alerts are visible in Prometheus
+# (/alerts) and Grafana rather than paging anyone. They exist because an alert is a
+# falsifiable statement about the system: each one below encodes a property the
+# architecture claims to have.
+
+groups:
+
+  # ---------------------------------------------------------------------------
+  # Recording rules - the expressions the dashboards would otherwise repeat.
+  # ---------------------------------------------------------------------------
+  - name: pdei-recording
+    interval: 15s
+    rules:
+      - record: pdei:events_processed:rate5m
+        expr: sum by (service, type) (rate(pdei_events_processed_total[5m]))
+
+      - record: pdei:events_failed:rate5m
+        expr: sum by (service) (rate(pdei_events_processed_total{outcome!="SUCCESS"}[5m]))
+
+      - record: pdei:event_processing_latency_p99
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum by (service, le) (rate(pdei_event_processing_latency_seconds_bucket[5m]))
+          )
+
+      - record: pdei:kafka_consumer_lag:max
+        expr: max by (group, topic) (pdei_kafka_consumer_lag)
+
+      - record: pdei:ai_admission_rate:ratio5m
+        expr: |
+          sum(rate(pdei_ai_admission_total{decision="ADMIT"}[5m]))
+          /
+          clamp_min(sum(rate(pdei_ai_admission_total[5m])), 0.0001)
+
+  # ---------------------------------------------------------------------------
+  # Alerting rules
+  # ---------------------------------------------------------------------------
+  - name: pdei-alerts
+    interval: 30s
+    rules:
+      - alert: PdeiServiceDown
+        expr: up{job=~"pdei-spring|pdei-ai-reasoning-service"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.service }} is not being scraped"
+          description: "Prometheus cannot reach {{ $labels.instance }}. The container is down, or Actuator is not exposing /actuator/prometheus."
+
+      - alert: PdeiConsumerLagGrowing
+        expr: pdei:kafka_consumer_lag:max > 5000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Consumer group {{ $labels.group }} is behind on {{ $labels.topic }}"
+          description: "Lag has exceeded 5000 records for 5 minutes. Either a consumer is stuck or the simulator is outrunning the pipeline."
+
+      # Duplicates are expected and correct (chaos injects them deliberately). What is NOT
+      # expected is duplicates arriving with no successful processing at all - that means
+      # the dedupe path is swallowing real work.
+      - alert: PdeiAllEventsDeduplicated
+        expr: |
+          sum by (service) (rate(pdei_events_duplicate_total[5m])) > 0
+          and
+          sum by (service) (rate(pdei_events_processed_total{outcome="SUCCESS"}[5m])) == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.service }} is deduplicating everything and processing nothing"
+
+      - alert: PdeiEventProcessingSlow
+        expr: pdei:event_processing_latency_p99 > 2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "p99 event processing latency above 2s in {{ $labels.service }}"
+
+      # Contract section 9.3: an unsupported claim is a safety-gate rejection. A nonzero
+      # rate is not a bug, but a sustained one means the prompt or the context builder is
+      # feeding the model evidence it cannot actually cite.
+      - alert: PdeiUnsupportedAiClaims
+        expr: rate(pdei_ai_unsupported_claims_total[15m]) > 0.05
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "AI results are being rejected for unsupported claims"
+          description: "Sustained rejections by AiResultValidator. Inspect the investigation payloads before trusting any narrative output."
+
+      - alert: PdeiWorkflowFailures
+        expr: increase(pdei_workflow_failures_total[15m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "DisputeCaseWorkflow failures in the last 15 minutes"
+          description: "Check the Temporal UI at http://localhost:8233 for the failing workflow id (case-*)."
+
+      # The economic claim of the whole design: AI must not scale with event volume.
+      - alert: PdeiAiAdmissionRateHigh
+        expr: pdei:ai_admission_rate:ratio5m > 0.25
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "More than 25% of candidates are being admitted to the model"
+          description: "Admission control (contract section 9.4) is letting too much through. Either the deterministic short-circuits are not firing or the priority threshold has drifted."

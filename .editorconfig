@@ -1,0 +1,116 @@
+# PDEI - editor configuration
+# https://editorconfig.org
+#
+# The point of this file is that a Java developer on IntelliJ, a frontend developer in
+# VS Code and a CI linter all produce byte-identical files. Anything that disagrees with
+# a language's own formatter (ruff, prettier, spotless) should be changed here, not there.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+max_line_length = 120
+
+# ---------------------------------------------------------------------------
+# JVM
+# ---------------------------------------------------------------------------
+[*.java]
+indent_size = 4
+max_line_length = 120
+ij_java_class_count_to_use_import_on_demand = 999
+ij_java_names_count_to_use_import_on_demand = 999
+
+[*.{kt,kts,groovy,gradle}]
+indent_size = 4
+
+[*.{xml,pom}]
+indent_size = 2
+max_line_length = 160
+
+[pom.xml]
+indent_size = 2
+
+# ---------------------------------------------------------------------------
+# Web
+# ---------------------------------------------------------------------------
+[*.{js,jsx,ts,tsx,mjs,cjs,mts,cts}]
+indent_size = 2
+max_line_length = 100
+
+[*.{json,jsonc,json5}]
+indent_size = 2
+# Grafana dashboards and JSON Schemas are generated/exported; do not reflow them.
+max_line_length = off
+
+[*.{css,scss,sass,less}]
+indent_size = 2
+
+[*.{html,htm,vue,svelte}]
+indent_size = 2
+
+# ---------------------------------------------------------------------------
+# Python (ruff defaults: 4 spaces, 88 columns)
+# ---------------------------------------------------------------------------
+[*.py]
+indent_size = 4
+max_line_length = 88
+
+[*.pyi]
+indent_size = 4
+
+# ---------------------------------------------------------------------------
+# Config & infrastructure
+# ---------------------------------------------------------------------------
+[*.{yml,yaml}]
+indent_size = 2
+max_line_length = 140
+
+[*.{toml,ini,cfg}]
+indent_size = 4
+
+[*.sql]
+indent_size = 2
+max_line_length = 120
+
+[{Dockerfile,Dockerfile.*,*.dockerfile}]
+indent_size = 4
+
+[*.{sh,bash}]
+indent_size = 2
+# POSIX requires LF; a CRLF here produces the classic
+# "bad interpreter: /usr/bin/env bash^M" on Linux containers.
+end_of_line = lf
+
+[*.ps1]
+# PowerShell is happiest with CRLF on Windows and tolerates it everywhere.
+end_of_line = crlf
+indent_size = 4
+
+[Makefile]
+indent_style = tab
+
+# ---------------------------------------------------------------------------
+# Docs
+# ---------------------------------------------------------------------------
+[*.md]
+indent_size = 2
+max_line_length = 100
+# Two trailing spaces are a hard line break in Markdown.
+trim_trailing_whitespace = false
+
+[*.{txt,csv,ndjson}]
+insert_final_newline = false
+trim_trailing_whitespace = false
+
+# ---------------------------------------------------------------------------
+# Do not touch
+# ---------------------------------------------------------------------------
+[{package-lock.json,uv.lock,*.min.js,*.min.css}]
+indent_size = off
+insert_final_newline = false
+trim_trailing_whitespace = false

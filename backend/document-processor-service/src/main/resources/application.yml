@@ -1,0 +1,176 @@
+# =====================================================================================
+# document-processor-service  |  port 8086  |  com.laserpay.pdei.docproc
+#
+# Every infrastructure coordinate resolves from the shared PDEI_* environment variables
+# (PLATFORM-CONTRACT.md section 15) with the docker-compose hostnames as defaults, so the
+# container needs no configuration and a laptop run needs only the host overrides.
+# =====================================================================================
+server:
+  port: 8086
+  shutdown: graceful
+  error:
+    include-message: never
+    include-stacktrace: never
+
+spring:
+  application:
+    name: document-processor-service
+
+  datasource:
+    url: ${PDEI_POSTGRES_URL:jdbc:postgresql://postgres:5432/pdei}
+    username: ${PDEI_POSTGRES_USER:pdei}
+    password: ${PDEI_POSTGRES_PASSWORD:pdei}
+    hikari:
+      # Extraction is CPU-bound, not connection-bound: a small pool is plenty and keeps this
+      # worker from starving the services that actually need connections.
+      maximum-pool-size: 8
+      minimum-idle: 2
+      pool-name: docproc-hikari
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      # Flyway (platform-persistence) owns the schema. Hibernate never touches DDL.
+      ddl-auto: none
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+          batch_size: 25
+
+  flyway:
+    # platform-persistence ships db/migration and owns the pdei schema; this service runs the
+    # migrations only when explicitly told to, so nine services do not race on startup.
+    enabled: ${PDEI_FLYWAY_ENABLED:false}
+    schemas: pdei
+
+  data:
+    redis:
+      url: ${PDEI_REDIS_URL:redis://redis:6379}
+      timeout: 2s
+
+  kafka:
+    bootstrap-servers: ${PDEI_KAFKA_BOOTSTRAP:kafka:9092}
+    consumer:
+      group-id: pdei-document-processor-service
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+    producer:
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      # JsonSerializer, not StringSerializer: evidence-core's KafkaEventPublisher hands the
+      # KafkaTemplate a CanonicalEvent object, not a pre-serialised string. Its ObjectMapper is
+      # Spring Kafka's enhanced one, so Instant fields go out as ISO-8601 UTC.
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        # No __TypeId__ header: the envelope is a cross-language wire contract, and a
+        # Java-class-name header would be both noise and a coupling nobody asked for.
+        spring.json.add.type.headers: false
+        # Idempotent producer: a retried publish of the evidence-updated event cannot duplicate.
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 25MB
+
+# evidence-core: MinIO object store + the domain engine beans this service consumes.
+pdei:
+  core:
+    storage:
+      endpoint: ${PDEI_MINIO_ENDPOINT:http://minio:9000}
+      access-key: ${PDEI_MINIO_ACCESS_KEY:pdei-minio}
+      secret-key: ${PDEI_MINIO_SECRET_KEY:pdei-minio-secret}
+      ensure-buckets-on-startup: true
+    jdbc:
+      # This service reads and writes evidence through JPA repositories; it does not need the
+      # evidence-core JDBC ports, so they stay off and cost nothing.
+      enabled: false
+
+  docproc:
+    max-object-bytes: 26214400        # 25 MiB
+    max-text-chars: 500000            # ceiling for evidence.extracted_text (tsvector limit)
+    tika-write-limit-chars: 600000
+    max-pdf-pages: 500
+    extraction-timeout: 30s
+    extractor-threads: 4
+    quarantine-history-size: 100
+    reextract-unchanged: false
+    publish-evidence-events: true
+    consumer-enabled: ${PDEI_DOCPROC_CONSUMER_ENABLED:true}
+    redis-dedupe-enabled: true
+    idempotency-ttl: 7d
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics,loggers
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when-authorized
+  metrics:
+    tags:
+      service: document-processor-service
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://otel-collector:4318}/v1/traces
+  tracing:
+    sampling:
+      probability: 1.0
+
+logging:
+  level:
+    root: INFO
+    com.laserpay.pdei: INFO
+    # Tika and PDFBox are noisy about fonts and colour spaces on documents they parse fine.
+    org.apache.pdfbox: WARN
+    org.apache.tika: WARN
+    org.apache.fontbox: ERROR
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%X{traceId:-},%X{spanId:-}] [%X{merchantId:-}] %logger{36} - %msg%n"
+
+---
+# Local development: infrastructure on localhost, chatty logs, no consumer unless asked.
+spring:
+  config:
+    activate:
+      on-profile: local
+  datasource:
+    url: jdbc:postgresql://localhost:5432/pdei
+  data:
+    redis:
+      url: redis://localhost:6379
+  kafka:
+    bootstrap-servers: localhost:29092
+
+pdei:
+  core:
+    storage:
+      endpoint: http://localhost:9000
+
+logging:
+  level:
+    com.laserpay.pdei.docproc: DEBUG
+
+---
+# Test slice: no broker, no object store, no database calls on startup.
+spring:
+  config:
+    activate:
+      on-profile: test
+  flyway:
+    enabled: false
+
+pdei:
+  docproc:
+    consumer-enabled: false
+    redis-dedupe-enabled: false
+    publish-evidence-events: false

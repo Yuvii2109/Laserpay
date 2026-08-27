@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.laserpay.pdei</groupId>
+    <artifactId>pdei-backend</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>ingestion-service</artifactId>
+  <name>ingestion-service</name>
+  <description>
+    PDEI ingestion-service (port 8081): the only write door into the platform for external events.
+    Validates raw source events against registered JSON Schemas, deduplicates them, and publishes
+    them to pdei.raw.events.v1. See PLATFORM-CONTRACT.md sections 2, 4, 8.2, 12 and 13.
+  </description>
+
+  <properties>
+    <!--
+      networknt json-schema-validator is NOT managed by the reactor parent (it is used by this
+      module only), so the version is pinned here. Draft 2020-12 support and the
+      getInstanceLocation()/getEvaluationPath() ValidationMessage API both require >= 1.1.0.
+    -->
+    <networknt-json-schema-validator.version>1.5.2</networknt-json-schema-validator.version>
+    <!--
+      The canonical JSON Schemas live once, at the repository root, and are shared with the
+      simulator, the Python service and the frontend. They are copied into this jar at build time
+      rather than duplicated in src/main/resources - see <resources> below.
+    -->
+    <pdei.schemas.events.dir>${project.basedir}/../../schemas/events</pdei.schemas.events.dir>
+  </properties>
+
+  <dependencies>
+    <!-- Shared PDEI modules -->
+    <dependency>
+      <groupId>com.laserpay.pdei</groupId>
+      <artifactId>platform-common</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <!-- Brings spring-boot-starter-data-jpa, Flyway and the Postgres driver transitively.
+         Used here only for ProcessedEventRepository (the durable idempotency fallback). -->
+    <dependency>
+      <groupId>com.laserpay.pdei</groupId>
+      <artifactId>platform-persistence</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <!-- Web tier -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-validation</artifactId>
+    </dependency>
+
+    <!-- Health, metrics, loggers (PLATFORM-CONTRACT section 2) -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-registry-prometheus</artifactId>
+    </dependency>
+
+    <!-- Event publication to pdei.raw.events.v1 and pdei.dlq.v1 -->
+    <dependency>
+      <groupId>org.springframework.kafka</groupId>
+      <artifactId>spring-kafka</artifactId>
+    </dependency>
+
+    <!-- Fast-path idempotency: Redis SETNX on pdei:idem:{eventId} -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-redis</artifactId>
+    </dependency>
+
+    <!-- JSON Schema validation of raw source events -->
+    <dependency>
+      <groupId>com.networknt</groupId>
+      <artifactId>json-schema-validator</artifactId>
+      <version>${networknt-json-schema-validator.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-configuration-processor</artifactId>
+      <optional>true</optional>
+    </dependency>
+
+    <!-- Test -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <resources>
+      <!-- Default location, re-declared because adding a second <resource> replaces the default. -->
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>false</filtering>
+      </resource>
+      <!--
+        Bundle the repository-root JSON Schemas into the jar under schemas/events/. The registry
+        also reads /schemas/events at runtime (see ingestion.schemas.directories) so an operator can
+        drop in a new source schema without a rebuild; the external copy wins over the bundled one.
+      -->
+      <resource>
+        <directory>${pdei.schemas.events.dir}</directory>
+        <targetPath>schemas/events</targetPath>
+        <filtering>false</filtering>
+        <includes>
+          <include>*.schema.json</include>
+        </includes>
+      </resource>
+    </resources>
+
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>

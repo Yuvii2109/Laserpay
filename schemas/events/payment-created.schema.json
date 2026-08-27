@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pdei.laserpay.com/events/payment-created.schema.json",
+  "title": "PaymentCreated payload",
+  "description": "A payment intent was created by the PSP. Start of a dispute-eligible transaction.",
+  "x-pdei-event-type": "PaymentCreated",
+  "x-pdei-aggregate-type": "PAYMENT",
+  "x-pdei-origin": "EXTERNAL",
+  "x-pdei-schema-version": 1,
+  "type": "object",
+  "required": [
+    "paymentId",
+    "transactionId",
+    "amount",
+    "createdAt"
+  ],
+  "properties": {
+    "paymentId": {
+      "$ref": "#/$defs/prefixedId"
+    },
+    "transactionId": {
+      "$ref": "#/$defs/prefixedId"
+    },
+    "customerId": {
+      "$ref": "#/$defs/prefixedId"
+    },
+    "amount": {
+      "$ref": "#/$defs/money"
+    },
+    "method": {
+      "enum": [
+        "CARD",
+        "UPI",
+        "NETBANKING",
+        "WALLET"
+      ]
+    },
+    "cardLast4": {
+      "type": "string",
+      "pattern": "^[0-9]{4}$"
+    },
+    "cardNetwork": {
+      "type": "string"
+    },
+    "createdAt": {
+      "$ref": "#/$defs/instant"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "instant": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 instant in UTC, e.g. 2026-08-26T10:15:30.123Z."
+    },
+    "money": {
+      "type": "object",
+      "title": "Money",
+      "description": "Monetary value in minor units. PLATFORM-CONTRACT section 5: never float, never decimal, never a bare number.",
+      "required": [
+        "amountMinor",
+        "currency"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "amountMinor": {
+          "type": "integer",
+          "description": "Amount in the currency's minor unit (paise, cents)."
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$",
+          "description": "ISO-4217 alphabetic code."
+        }
+      }
+    },
+    "prefixedId": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64,
+      "pattern": "^[A-Z]{2,4}-[A-Za-z0-9._:-]+$",
+      "description": "Human-readable prefixed identifier (PLATFORM-CONTRACT section 5)."
+    }
+  }
+}

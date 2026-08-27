@@ -1,0 +1,137 @@
+# =====================================================================================
+# state-builder-worker  |  PLATFORM-CONTRACT section 2 (port 8083), section 15 (env vars)
+#
+# Consumes pdei.canonical.events.v1. Produces:
+#   * PostgreSQL projections (payments, orders, order_lines, shipments, deliveries,
+#     refunds, communications, disputes, transactions)
+#   * pdei.evidence.events.v1  (EvidenceAdded, via evidence-core's publisher, plus forwards)
+#   * pdei.dispute.events.v1   (DISPUTE events forwarded to the orchestrator)
+#   * pdei.audit.events.v1     (via evidence-core's AuditRecorder)
+#   * pdei.dlq.v1              (anything unprocessable)
+# =====================================================================================
+server:
+  port: 8083
+  shutdown: graceful
+
+spring:
+  application:
+    name: state-builder-worker
+  main:
+    banner-mode: off
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
+  datasource:
+    url: ${PDEI_POSTGRES_URL:jdbc:postgresql://postgres:5432/pdei}
+    username: ${PDEI_POSTGRES_USER:pdei}
+    password: ${PDEI_POSTGRES_PASSWORD:pdei}
+    hikari:
+      # Each consumer thread holds a connection for the length of its transaction, and
+      # evidence-core's JDBC ports borrow from the same pool inside that transaction.
+      maximum-pool-size: 12
+      pool-name: pdei-state-builder-pool
+
+  jpa:
+    hibernate:
+      # Flyway (platform-persistence) owns the schema; Hibernate must never touch DDL.
+      ddl-auto: none
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+          batch_size: 25
+        order_inserts: true
+        order_updates: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  data:
+    redis:
+      url: ${PDEI_REDIS_URL:redis://redis:6379}
+      timeout: 2s
+      connect-timeout: 2s
+
+  kafka:
+    bootstrap-servers: ${PDEI_KAFKA_BOOTSTRAP:kafka:9092}
+    consumer:
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      properties:
+        max.poll.interval.ms: 300000
+        session.timeout.ms: 45000
+    producer:
+      acks: all
+      properties:
+        enable.idempotence: true
+        delivery.timeout.ms: 120000
+
+# --- application tunables (StateBuilderProperties) -----------------------------------
+pdei:
+  state-builder:
+    default-currency: ${PDEI_DEFAULT_CURRENCY:INR}
+    publish-timeout: 10s
+    # Ordering is per partition and the key is merchantId:aggregateId, so raising concurrency
+    # parallelises across aggregates and never reorders one aggregate's events.
+    concurrency: 3
+    max-poll-records: 50
+    derive-evidence: true
+    retry:
+      max-attempts: 5
+      initial-interval: 1s
+      multiplier: 2.0
+      max-interval: 30s
+    idempotency:
+      redis-enabled: true
+      ttl: 7d
+
+  # evidence-core (CoreProperties). Derived evidence is written to MinIO through these.
+  core:
+    storage:
+      endpoint: ${PDEI_MINIO_ENDPOINT:http://minio:9000}
+      access-key: ${PDEI_MINIO_ACCESS_KEY:pdei-minio}
+      secret-key: ${PDEI_MINIO_SECRET_KEY:pdei-minio-secret}
+      ensure-buckets-on-startup: true
+      versioning-enabled: true
+    audit:
+      publish-to-kafka: true
+
+# --- observability (PLATFORM-CONTRACT section 13) ------------------------------------
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics,loggers
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when_authorized
+  metrics:
+    tags:
+      service: state-builder-worker
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+  health:
+    redis:
+      # Redis is a latency optimisation, never a correctness dependency.
+      enabled: false
+
+otel:
+  service:
+    name: ${OTEL_SERVICE_NAME:state-builder-worker}
+  exporter:
+    otlp:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://otel-collector:4318}
+
+logging:
+  level:
+    root: INFO
+    com.laserpay.pdei: INFO
+    org.apache.kafka.clients.consumer.internals: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%X{traceId:-},%X{spanId:-}] [%X{merchantId:-}] %logger{36} - %msg%n"

@@ -1,0 +1,63 @@
+# PDEI - generic image for any of the nine Spring Boot services.
+#
+# Build context is the REPO ROOT (compose sets context: ..), because the Maven build is a
+# multi-module reactor: building api-gateway-service requires platform-common,
+# platform-persistence and evidence-core to be present in the same source tree.
+#
+#   docker build -f infra/docker/Dockerfile.spring-service \
+#                --build-arg MODULE=readiness-worker -t pdei/readiness-worker:dev .
+#
+# One Dockerfile serves all nine services deliberately: they differ only by module name and
+# port, and a per-module Dockerfile would be nine copies of the same file drifting apart.
+# If a module later needs something bespoke, add backend/<module>/Dockerfile and point that
+# service's compose "dockerfile:" key at it.
+
+# --------------------------------------------------------------------------- build
+FROM maven:3.9-eclipse-temurin-21 AS build
+
+ARG MODULE
+RUN test -n "$MODULE" || (echo "ERROR: --build-arg MODULE=<service> is required" && exit 1)
+
+WORKDIR /workspace
+
+# The whole reactor is needed: -am builds platform-common, platform-persistence and
+# evidence-core from source. The BuildKit cache mount below is what keeps rebuilds fast.
+COPY backend/ ./backend/
+
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn -B -f backend/pom.xml -pl "${MODULE}" -am -DskipTests \
+        -Dmaven.test.skip=true package
+
+# Normalise the artifact name so the runtime stage does not need the module name.
+RUN set -eux; \
+    jar="$(find "backend/${MODULE}/target" -maxdepth 1 -name '*.jar' \
+             ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name 'original-*' | head -n1)"; \
+    test -n "$jar"; \
+    cp "$jar" /workspace/app.jar
+
+# --------------------------------------------------------------------------- runtime
+FROM eclipse-temurin:21-jre
+
+ARG MODULE
+ENV PDEI_MODULE=${MODULE} \
+    OTEL_SERVICE_NAME=${MODULE} \
+    JAVA_OPTS="-XX:MaxRAMPercentage=70 -XX:+ExitOnOutOfMemoryError -Duser.timezone=UTC -Dfile.encoding=UTF-8" \
+    TZ=UTC
+
+# curl is used by the compose healthcheck against /actuator/health.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends curl tini \
+ && rm -rf /var/lib/apt/lists/* \
+ && useradd --system --create-home --uid 10001 pdei
+
+WORKDIR /app
+COPY --from=build --chown=pdei:pdei /workspace/app.jar /app/app.jar
+
+USER pdei
+
+# Ports 8080-8088 depending on MODULE; compose publishes the right one. EXPOSE is
+# documentation only, so listing the whole range is honest rather than wrong.
+EXPOSE 8080 8081 8082 8083 8084 8085 8086 8087 8088
+
+ENTRYPOINT ["/usr/bin/tini", "--", "/bin/sh", "-c"]
+CMD ["exec java $JAVA_OPTS -jar /app/app.jar"]

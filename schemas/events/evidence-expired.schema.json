@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pdei.laserpay.com/events/evidence-expired.schema.json",
+  "title": "EvidenceExpired payload",
+  "description": "Evidence passed its retention window. Produced by the readiness-worker expiry sweep.",
+  "x-pdei-event-type": "EvidenceExpired",
+  "x-pdei-aggregate-type": "EVIDENCE",
+  "x-pdei-origin": "INTERNAL",
+  "x-pdei-schema-version": 1,
+  "type": "object",
+  "required": [
+    "evidenceId",
+    "transactionId",
+    "expiredAt"
+  ],
+  "properties": {
+    "evidenceId": {
+      "$ref": "#/$defs/prefixedId"
+    },
+    "transactionId": {
+      "$ref": "#/$defs/prefixedId"
+    },
+    "type": {
+      "$ref": "#/$defs/evidenceType"
+    },
+    "previousStatus": {
+      "$ref": "#/$defs/evidenceStatus"
+    },
+    "expiredAt": {
+      "$ref": "#/$defs/instant"
+    },
+    "reason": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "evidenceStatus": {
+      "enum": [
+        "PENDING",
+        "ACTIVE",
+        "EXPIRING",
+        "EXPIRED",
+        "INVALIDATED",
+        "SUPERSEDED"
+      ]
+    },
+    "evidenceType": {
+      "enum": [
+        "PAYMENT_PROOF",
+        "INVOICE",
+        "ORDER_RECORD",
+        "SHIPPING_RECORD",
+        "DELIVERY_PROOF",
+        "REFUND_RECEIPT",
+        "CUSTOMER_COMMUNICATION",
+        "MERCHANT_POLICY",
+        "TERMS_OF_SERVICE",
+        "AVS_CVV_RESULT",
+        "DEVICE_FINGERPRINT",
+        "PRIOR_TRANSACTION_HISTORY",
+        "SIGNED_CONTRACT"
+      ],
+      "description": "EvidenceType (PLATFORM-CONTRACT section 6)."
+    },
+    "instant": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 instant in UTC, e.g. 2026-08-26T10:15:30.123Z."
+    },
+    "prefixedId": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64,
+      "pattern": "^[A-Z]{2,4}-[A-Za-z0-9._:-]+$",
+      "description": "Human-readable prefixed identifier (PLATFORM-CONTRACT section 5)."
+    }
+  }
+}

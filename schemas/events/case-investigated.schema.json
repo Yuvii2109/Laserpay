@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pdei.laserpay.com/events/case-investigated.schema.json",
+  "title": "CaseInvestigated payload",
+  "description": "investigate activity returned. aiInvoked=false with a populated bypassReason is how the funnel proves the deterministic short-circuits are working.",
+  "x-pdei-event-type": "CaseInvestigated",
+  "x-pdei-aggregate-type": "CASE",
+  "x-pdei-origin": "INTERNAL",
+  "x-pdei-schema-version": 1,
+  "type": "object",
+  "required": [
+    "caseId",
+    "investigationId",
+    "classification",
+    "aiInvoked"
+  ],
+  "properties": {
+    "caseId": {
+      "$ref": "#/$defs/prefixedId"
+    },
+    "investigationId": {
+      "$ref": "#/$defs/prefixedId"
+    },
+    "classification": {
+      "$ref": "#/$defs/investigationClassification"
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "aiInvoked": {
+      "type": "boolean"
+    },
+    "bypassReason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "investigatedAt": {
+      "$ref": "#/$defs/instant"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "instant": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 instant in UTC, e.g. 2026-08-26T10:15:30.123Z."
+    },
+    "investigationClassification": {
+      "enum": [
+        "DEFENDABLE",
+        "WEAK",
+        "INDEFENSIBLE",
+        "INSUFFICIENT_EVIDENCE",
+        "AMBIGUOUS"
+      ]
+    },
+    "prefixedId": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64,
+      "pattern": "^[A-Z]{2,4}-[A-Za-z0-9._:-]+$",
+      "description": "Human-readable prefixed identifier (PLATFORM-CONTRACT section 5)."
+    }
+  }
+}

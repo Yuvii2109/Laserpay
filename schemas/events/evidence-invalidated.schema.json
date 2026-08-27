@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pdei.laserpay.com/events/evidence-invalidated.schema.json",
+  "title": "EvidenceInvalidated payload",
+  "description": "Evidence can no longer be relied on. Always triggers readiness recomputation and an audit entry.",
+  "x-pdei-event-type": "EvidenceInvalidated",
+  "x-pdei-aggregate-type": "EVIDENCE",
+  "x-pdei-origin": "INTERNAL",
+  "x-pdei-schema-version": 1,
+  "type": "object",
+  "required": [
+    "evidenceId",
+    "transactionId",
+    "reason",
+    "invalidatedAt"
+  ],
+  "properties": {
+    "evidenceId": {
+      "$ref": "#/$defs/prefixedId"
+    },
+    "transactionId": {
+      "$ref": "#/$defs/prefixedId"
+    },
+    "reason": {
+      "enum": [
+        "HASH_MISMATCH",
+        "SOURCE_RETRACTED",
+        "SUPERSEDED",
+        "MANUAL"
+      ]
+    },
+    "expectedSha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "actualSha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "invalidatedAt": {
+      "$ref": "#/$defs/instant"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "instant": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 instant in UTC, e.g. 2026-08-26T10:15:30.123Z."
+    },
+    "prefixedId": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64,
+      "pattern": "^[A-Z]{2,4}-[A-Za-z0-9._:-]+$",
+      "description": "Human-readable prefixed identifier (PLATFORM-CONTRACT section 5)."
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "Lowercase hex SHA-256 digest."
+    }
+  }
+}

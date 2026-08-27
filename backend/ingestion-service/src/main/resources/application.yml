@@ -1,0 +1,226 @@
+# =====================================================================================
+# ingestion-service  |  PDEI (Pre-Dispute Evidence Intelligence)
+# Contract: docs/PLATFORM-CONTRACT.md  sections 2 (port), 4 (topics), 8.2 (routes),
+#           12 (Redis keys), 13 (metrics), 15 (env var names).
+# Every environment variable below uses the shared PDEI_* name from section 15; the
+# defaults are the localhost values so `mvn spring-boot:run` works against a dev stack.
+# =====================================================================================
+
+server:
+  port: 8081
+  shutdown: graceful
+  error:
+    include-message: never          # errors are rendered by IngestionExceptionHandler
+    include-stacktrace: never
+  tomcat:
+    # A batch of 1000 events with realistic bodies is a few megabytes; the 2MB default
+    # would reject legitimate submissions with an opaque error.
+    max-swallow-size: 16MB
+    max-http-form-post-size: 16MB
+
+spring:
+  application:
+    name: ingestion-service
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+  main:
+    banner-mode: "off"
+
+  # --- Kafka: producer only. ingestion-service consumes nothing. -----------------------
+  kafka:
+    bootstrap-servers: ${PDEI_KAFKA_BOOTSTRAP:localhost:29092}
+    # Durability settings that matter are pinned in KafkaProducerConfig, not here, so they
+    # cannot be weakened by an environment override without a code change.
+
+  # --- Redis: idempotency fast path, pdei:idem:{eventId} -------------------------------
+  data:
+    redis:
+      url: ${PDEI_REDIS_URL:redis://localhost:6379}
+      timeout: 2s
+      connect-timeout: 2s
+      lettuce:
+        shutdown-timeout: 200ms
+
+  # --- Postgres: durable idempotency ledger (pdei.processed_events) only ---------------
+  datasource:
+    url: ${PDEI_POSTGRES_URL:jdbc:postgresql://localhost:5432/pdei}
+    username: ${PDEI_POSTGRES_USER:pdei}
+    password: ${PDEI_POSTGRES_PASSWORD:pdei}
+    hikari:
+      pool-name: pdei-ingestion-pool
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 5000
+      # The pool must not block startup: Redis is the fast path and ingestion should come up
+      # and serve even if Postgres is still starting.
+      initialization-fail-timeout: -1
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none                # Flyway owns the schema; Hibernate never touches DDL
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  # Migrations are owned by platform-persistence. Exactly one service should apply them per
+  # environment; ingestion is not that service. Set PDEI_FLYWAY_ENABLED=true to run this
+  # service standalone against an empty database.
+  flyway:
+    enabled: ${PDEI_FLYWAY_ENABLED:false}
+
+# --- Actuator: health, info, prometheus, metrics, loggers (contract section 2) ---------
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics,loggers
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when-authorized
+  health:
+    # Redis and Postgres are both degradable here (see IdempotencyService): losing them
+    # reduces the dedupe guarantee, it does not stop ingestion from accepting facts. They
+    # must not take the pod out of the load balancer.
+    redis:
+      enabled: false
+    db:
+      enabled: false
+  metrics:
+    tags:
+      service: ingestion-service
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}/v1/traces
+
+# --- Ingestion behaviour (com.laserpay.pdei.ingestion.config.IngestionProperties) ------
+ingestion:
+  batch:
+    max-size: 1000                  # PLATFORM-CONTRACT section 8.2
+
+  schemas:
+    # Bundled in the jar from /schemas/events by this module's POM <resources> block.
+    classpath-location: "classpath*:schemas/events/*.schema.json"
+    # Mount the repository's /schemas/events here to override without a rebuild.
+    directories:
+      - ${PDEI_SCHEMAS_DIR:/schemas/events}
+    validate-envelope: true
+    # False by design: ingestion preserves facts for replay; normalization-worker owns the
+    # source-to-canonical mapping and dead-letters what it cannot map.
+    fail-on-unknown-event-type: ${PDEI_INGEST_STRICT_SCHEMAS:false}
+    aliases:
+      # Source vocabulary -> registered schema, matched case/separator-insensitively.
+      # Keys are bracket-quoted: a map key containing '.' must be, or Spring's relaxed
+      # binding reads it as a nested map and the Map<String,String> binding fails.
+      "[payment_intent.created]": PaymentCreated
+      "[payment_intent.authorized]": PaymentAuthorized
+      "[payment_intent.succeeded]": PaymentCaptured
+      "[payment_intent.payment_failed]": PaymentFailed
+      "[charge.refunded]": RefundProcessed
+      "[charge.dispute.created]": DisputeCreated
+      "[charge.dispute.updated]": DisputeUpdated
+      "[charge.dispute.closed]": DisputeClosed
+      "[order.created]": OrderCreated
+      "[order.fulfilled]": OrderFulfilled
+      "[order.cancelled]": OrderCancelled
+      "[shipment.created]": ShipmentCreated
+      "[shipment.dispatched]": ShipmentDispatched
+      "[shipment.delivered]": ShipmentDelivered
+      "[message.sent]": CommunicationCreated
+      "[message.received]": CommunicationReceived
+
+  dedupe:
+    enabled: true
+    key-prefix: "pdei:idem:"        # PLATFORM-CONTRACT section 12
+    ttl: 7d
+    redis-enabled: true
+    postgres-fallback-enabled: true
+    fail-open: true
+
+  publisher:
+    send-timeout: 10s
+    dlq-enabled: true
+    create-topics: true
+
+  webhook:
+    # MUST stay true outside local development: the HMAC is the only authentication on
+    # POST /ingest/v1/events/{sourceSystem}/webhook.
+    signature-verification-enabled: ${PDEI_WEBHOOK_VERIFY:true}
+    signature-header: X-PDEI-Signature
+    timestamp-header: X-PDEI-Timestamp
+    event-type-header: X-PDEI-Event-Type
+    merchant-header: X-PDEI-Merchant-Id
+    algorithm: HmacSHA256
+    tolerance: 5m
+    secrets:
+      # Dev-only shared secrets. Override per source in the deployment environment, e.g.
+      # PDEI_WEBHOOK_SECRET_PSP_ADAPTER -> ingestion.webhook.secrets.psp-adapter
+      psp-adapter: ${PDEI_WEBHOOK_SECRET_PSP_ADAPTER:dev-psp-secret}
+      order-system: ${PDEI_WEBHOOK_SECRET_ORDER_SYSTEM:dev-order-secret}
+      logistics: ${PDEI_WEBHOOK_SECRET_LOGISTICS:dev-logistics-secret}
+      crm: ${PDEI_WEBHOOK_SECRET_CRM:dev-crm-secret}
+
+logging:
+  level:
+    root: INFO
+    com.laserpay.pdei: ${PDEI_LOG_LEVEL:INFO}
+    org.apache.kafka.clients.NetworkClient: WARN
+    org.apache.kafka.clients.producer.ProducerConfig: WARN
+  pattern:
+    # traceId/spanId are populated by Micrometer Tracing; merchantId/correlationId are put
+    # on the MDC per request. See "Known gaps" in context.md: structured JSON logging is a
+    # platform-wide concern and is not configured per service yet.
+    level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
+
+---
+# =====================================================================================
+# dev profile: unauthenticated webhooks and a chattier log. Never activate outside a laptop.
+# =====================================================================================
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+ingestion:
+  webhook:
+    signature-verification-enabled: false
+
+logging:
+  level:
+    com.laserpay.pdei: DEBUG
+
+---
+# =====================================================================================
+# test profile: no infrastructure. Dedupe runs in fail-open mode with both stores absent,
+# and topic creation is off so a context can start without a broker.
+# =====================================================================================
+spring:
+  config:
+    activate:
+      on-profile: test
+  autoconfigure:
+    exclude:
+      - com.laserpay.pdei.persistence.config.PersistenceAutoConfiguration
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+      - org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+
+ingestion:
+  publisher:
+    create-topics: false
+  webhook:
+    signature-verification-enabled: true
+    secrets:
+      psp-adapter: test-secret

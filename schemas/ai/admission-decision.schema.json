@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pdei.laserpay.com/schemas/ai/admission-decision.schema.json",
+  "title": "AdmissionDecision",
+  "description": "Result of AI admission control (platform contract 9.4). Advisory when produced by the Python service: core.ai.AdmissionController owns the authoritative decision.",
+  "$defs": {
+    "RecommendedAction": {
+      "enum": [
+        "PREPARE_REPRESENTMENT",
+        "GATHER_MORE_EVIDENCE",
+        "ACCEPT_LIABILITY",
+        "ESCALATE_TO_HUMAN",
+        "REQUEST_POLICY_REVIEW"
+      ],
+      "title": "RecommendedAction",
+      "type": "string"
+    },
+    "ShortCircuit": {
+      "description": "Why a case did not reach the model.\n\nMirrors ``com.laserpay.pdei.core.ai.ShortCircuit``. The first three are the\ndeterministic short-circuits mandated by contract 9.4 - cases whose answer\nis already known and which MUST bypass AI entirely. The rest are throttles.",
+      "enum": [
+        "NONE",
+        "ALL_REQUIREMENTS_SATISFIED",
+        "NO_EVIDENCE",
+        "PAST_DEADLINE",
+        "BELOW_PRIORITY_THRESHOLD",
+        "RATE_LIMITED",
+        "BUDGET_EXHAUSTED",
+        "PROVIDER_UNAVAILABLE"
+      ],
+      "title": "ShortCircuit",
+      "type": "string"
+    }
+  },
+  "properties": {
+    "admit": {
+      "title": "Admit",
+      "type": "boolean"
+    },
+    "priority": {
+      "maximum": 100,
+      "minimum": 0,
+      "title": "Priority",
+      "type": "integer"
+    },
+    "reason": {
+      "title": "Reason",
+      "type": "string"
+    },
+    "shortCircuit": {
+      "$ref": "#/$defs/ShortCircuit",
+      "default": "NONE"
+    },
+    "deterministicAction": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RecommendedAction"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "financialImpact": {
+      "default": 0.0,
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Financialimpact",
+      "type": "number"
+    },
+    "deadlineUrgency": {
+      "default": 0.0,
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Deadlineurgency",
+      "type": "number"
+    },
+    "ambiguityScore": {
+      "default": 0.0,
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Ambiguityscore",
+      "type": "number"
+    },
+    "deterministicConfidence": {
+      "default": 0.0,
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Deterministicconfidence",
+      "type": "number"
+    },
+    "threshold": {
+      "default": 55,
+      "maximum": 100,
+      "minimum": 0,
+      "title": "Threshold",
+      "type": "integer"
+    },
+    "evaluatedAt": {
+      "description": "ISO-8601 UTC instant, e.g. 2026-08-26T10:15:30.123Z",
+      "format": "date-time",
+      "title": "Evaluatedat",
+      "type": "string"
+    }
+  },
+  "required": [
+    "admit",
+    "priority",
+    "reason"
+  ],
+  "type": "object"
+}

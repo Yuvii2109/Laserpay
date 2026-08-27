@@ -1,0 +1,24 @@
+# PDEI - Grafana dashboard provisioning.
+#
+# Loads every *.json under /var/lib/grafana/dashboards (bind-mounted from
+# infra/grafana/dashboards). foldersFromFilesStructure is off: all four dashboards belong
+# in one folder, and the folder is what people navigate to during a demo.
+#
+# allowUiUpdates is true so a dashboard can be tweaked live, but note that those edits are
+# NOT written back to the JSON files - export from the UI and commit the file if you want
+# a change to survive `docker compose down`.
+
+apiVersion: 1
+
+providers:
+  - name: pdei
+    orgId: 1
+    folder: PDEI
+    folderUid: pdei-dashboards
+    type: file
+    disableDeletion: false
+    allowUiUpdates: true
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

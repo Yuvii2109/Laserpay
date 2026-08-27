@@ -1,0 +1,370 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: "21"
+  NODE_VERSION: "20"
+  PYTHON_VERSION: "3.11"
+  # Testcontainers pulls images; keep it quiet and skip the startup checks that only
+  # matter on developer laptops.
+  TESTCONTAINERS_RYUK_DISABLED: "false"
+  TESTCONTAINERS_CHECKS_DISABLE: "true"
+  MAVEN_ARGS: "-B -ntp"
+
+jobs:
+
+  # ---------------------------------------------------------------------------
+  # Which parts of the monorepo actually exist yet? The repository is built module
+  # by module, so a job whose source tree is not there yet must skip rather than
+  # fail - otherwise CI is red for reasons unrelated to the change being tested.
+  # ---------------------------------------------------------------------------
+  detect:
+    name: Detect modules
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.check.outputs.backend }}
+      python: ${{ steps.check.outputs.python }}
+      frontend: ${{ steps.check.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: check
+        name: Look for buildable trees
+        run: |
+          set -euo pipefail
+          backend=false; python=false; frontend=false
+          [ -f backend/pom.xml ] && backend=true
+          [ -f ai-reasoning-service/pyproject.toml ] && python=true
+          [ -f frontend/package.json ] && frontend=true
+          echo "backend=$backend"   >> "$GITHUB_OUTPUT"
+          echo "python=$python"     >> "$GITHUB_OUTPUT"
+          echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Detected modules"
+            echo ""
+            echo "| Tree | Present |"
+            echo "|---|---|"
+            echo "| backend (Maven reactor) | $backend |"
+            echo "| ai-reasoning-service (Python) | $python |"
+            echo "| frontend (Next.js) | $frontend |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
+  # JVM: the Maven reactor. Two suites in a matrix - fast unit tests, and the
+  # Testcontainers integration tests that need a real Postgres/Kafka/Redis.
+  # ---------------------------------------------------------------------------
+  backend:
+    name: Backend (${{ matrix.suite }})
+    needs: detect
+    if: needs.detect.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: unit
+            goals: "test"
+            extra: "-DskipITs=true"
+          - suite: integration
+            goals: "verify"
+            extra: "-DskipUTs=true -Dsurefire.failIfNoSpecifiedTests=false"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      - name: Show toolchain
+        run: |
+          java -version
+          mvn -v
+
+      # Testcontainers needs a Docker daemon. ubuntu-latest runners ship one, but
+      # pre-pulling the images the ITs use makes the first test far less flaky.
+      - name: Pre-pull Testcontainers images
+        if: matrix.suite == 'integration'
+        run: |
+          docker pull postgres:16-alpine &
+          docker pull redis:7-alpine &
+          docker pull apache/kafka:3.8.1 &
+          wait
+
+      - name: Build reactor
+        working-directory: backend
+        run: mvn $MAVEN_ARGS ${{ matrix.goals }} ${{ matrix.extra }}
+
+      - name: Upload surefire/failsafe reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-${{ matrix.suite }}-reports
+          path: |
+            backend/**/target/surefire-reports/**
+            backend/**/target/failsafe-reports/**
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # Python: the AI reasoning service. Lint, type-check, test - in that order, so a
+  # formatting failure does not hide behind a test failure.
+  # ---------------------------------------------------------------------------
+  python:
+    name: AI service (ruff + mypy + pytest)
+    needs: detect
+    if: needs.detect.outputs.python == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: ai-reasoning-service
+    env:
+      # The AI service must be testable with no network and no API key: the mock
+      # reasoner is deterministic and seeded (contract section 9.5).
+      PDEI_AI_PROVIDER: mock
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Sync dependencies
+        run: |
+          if [ -f uv.lock ]; then
+            uv sync --all-extras --dev --frozen
+          else
+            uv sync --all-extras --dev
+          fi
+
+      - name: ruff (lint)
+        run: uv run ruff check .
+
+      - name: ruff (format check)
+        run: uv run ruff format --check .
+
+      - name: mypy
+        run: uv run mypy .
+
+      - name: pytest
+        run: uv run pytest -q --junitxml=pytest-report.xml
+
+      - name: Upload pytest report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-test-report
+          path: ai-reasoning-service/pytest-report.xml
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # Node: the Next.js frontend.
+  # ---------------------------------------------------------------------------
+  frontend:
+    name: Frontend (lint + typecheck + build)
+    needs: detect
+    if: needs.detect.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8080/api/v1
+      NEXT_PUBLIC_WS_URL: ws://localhost:8080/ws/control-tower
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: |
+          if npm run | grep -qE '^\s*typecheck'; then
+            npm run typecheck
+          else
+            npx --yes tsc --noEmit
+          fi
+
+      - name: Build
+        run: npm run build
+
+  # ---------------------------------------------------------------------------
+  # Infrastructure: the compose file, the config files and the shell scripts are
+  # code too, and they break the same way code does.
+  # ---------------------------------------------------------------------------
+  infra:
+    name: Infra (compose config + configs + scripts)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Docker Compose version
+        run: docker compose version
+
+      - name: Create .env from the example
+        run: cp infra/.env.example infra/.env
+
+      - name: Validate compose (every profile)
+        working-directory: infra
+        run: |
+          set -euo pipefail
+          docker compose --profile core --profile app --profile obs config --quiet
+          echo "services resolved:"
+          docker compose --profile core --profile app --profile obs config --services | sort
+
+      - name: Validate compose (core profile alone)
+        working-directory: infra
+        run: docker compose --profile core config --quiet
+
+      - name: Validate the override example
+        working-directory: infra
+        run: |
+          cp docker-compose.override.yml.example docker-compose.override.yml
+          docker compose --profile core --profile app config --quiet
+          rm docker-compose.override.yml
+
+      - name: Contract conformance - ports and topics
+        run: |
+          set -euo pipefail
+          fail=0
+          # Contract section 2: every service must publish its documented host port.
+          for entry in \
+            "api-gateway-service:8080" "ingestion-service:8081" "normalization-worker:8082" \
+            "state-builder-worker:8083" "readiness-worker:8084" "case-orchestrator-service:8085" \
+            "document-processor-service:8086" "audit-service:8087" "simulator-service:8088" \
+            "ai-reasoning-service:8000" "frontend:3000"; do
+            port="${entry##*:}"
+            if ! grep -q "\"${port}:${port}\"" infra/docker-compose.yml; then
+              echo "::error::port mapping ${port}:${port} missing from infra/docker-compose.yml (${entry%%:*})"
+              fail=1
+            fi
+          done
+          # Contract section 4: all eight topics must be created by the bootstrap script.
+          for topic in pdei.raw.events.v1 pdei.canonical.events.v1 pdei.evidence.events.v1 \
+                       pdei.readiness.events.v1 pdei.dispute.events.v1 pdei.case.events.v1 \
+                       pdei.audit.events.v1 pdei.dlq.v1; do
+            if ! grep -q "${topic}" infra/kafka/create-topics.sh; then
+              echo "::error::topic ${topic} is not created by infra/kafka/create-topics.sh"
+              fail=1
+            fi
+          done
+          exit $fail
+
+      - name: Validate Grafana dashboard JSON
+        run: |
+          set -euo pipefail
+          for f in infra/grafana/dashboards/*.json; do
+            node -e "
+              const d = require('fs').readFileSync('$f', 'utf8');
+              const j = JSON.parse(d);
+              if (!j.uid || !j.title || !Array.isArray(j.panels)) {
+                console.error('$f is missing uid/title/panels');
+                process.exit(1);
+              }
+              console.log('ok  $f  (' + j.panels.length + ' panels)');
+            "
+          done
+
+      - name: Validate YAML configs
+        run: |
+          python3 -m pip install --quiet --disable-pip-version-check pyyaml
+          python3 - <<'PY'
+          import glob, sys, yaml
+          bad = 0
+          files = sorted(
+              glob.glob("infra/**/*.yml", recursive=True)
+              + glob.glob("infra/**/*.yaml", recursive=True)
+              + glob.glob(".github/workflows/*.yml")
+          )
+          for f in files:
+              try:
+                  list(yaml.safe_load_all(open(f, encoding="utf-8")))
+                  print(f"ok   {f}")
+              except Exception as e:
+                  print(f"FAIL {f}: {e}")
+                  bad = 1
+          sys.exit(bad)
+          PY
+
+      - name: shellcheck
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          # SC1091: sourced files are resolved at runtime, not by the linter.
+          shellcheck --external-sources --exclude=SC1091 scripts/*.sh infra/kafka/*.sh
+
+      - name: Lint Dockerfiles
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          recursive: true
+          dockerfile: "infra/docker/Dockerfile.*"
+          failure-threshold: error
+          ignore: DL3008,DL3018,DL3059
+
+  # ---------------------------------------------------------------------------
+  # Single required check: green here means every job that had work to do passed.
+  # ---------------------------------------------------------------------------
+  ci:
+    name: CI
+    runs-on: ubuntu-latest
+    needs: [detect, backend, python, frontend, infra]
+    if: always()
+    steps:
+      - name: Aggregate results
+        run: |
+          set -euo pipefail
+          declare -A results=(
+            [detect]="${{ needs.detect.result }}"
+            [backend]="${{ needs.backend.result }}"
+            [python]="${{ needs.python.result }}"
+            [frontend]="${{ needs.frontend.result }}"
+            [infra]="${{ needs.infra.result }}"
+          )
+          fail=0
+          {
+            echo "### CI result"
+            echo ""
+            echo "| Job | Result |"
+            echo "|---|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
+          for job in detect backend python frontend infra; do
+            r="${results[$job]}"
+            echo "| $job | $r |" >> "$GITHUB_STEP_SUMMARY"
+            case "$r" in
+              success|skipped) ;;
+              *) echo "::error::job $job finished with result $r"; fail=1 ;;
+            esac
+          done
+          exit $fail

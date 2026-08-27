@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pdei.laserpay.com/events/audit-recorded.schema.json",
+  "title": "AuditRecorded payload",
+  "description": "Hash-chained audit record. Note: topic pdei.audit.events.v1 carries the AuditEvent record itself, not a CanonicalEvent; this payload schema describes the canonical mirror.",
+  "x-pdei-event-type": "AuditRecorded",
+  "x-pdei-aggregate-type": "MERCHANT",
+  "x-pdei-origin": "INTERNAL",
+  "x-pdei-schema-version": 1,
+  "type": "object",
+  "required": [
+    "auditId",
+    "entityType",
+    "entityId",
+    "action",
+    "actor",
+    "occurredAt",
+    "hash"
+  ],
+  "properties": {
+    "auditId": {
+      "$ref": "#/$defs/prefixedId"
+    },
+    "entityType": {
+      "type": "string"
+    },
+    "entityId": {
+      "type": "string"
+    },
+    "merchantId": {
+      "$ref": "#/$defs/merchantId"
+    },
+    "action": {
+      "type": "string"
+    },
+    "actor": {
+      "type": "string"
+    },
+    "actorType": {
+      "enum": [
+        "SYSTEM",
+        "MERCHANT_USER",
+        "OPERATOR",
+        "AI_SERVICE",
+        "SIMULATOR"
+      ]
+    },
+    "occurredAt": {
+      "$ref": "#/$defs/instant"
+    },
+    "correlationId": {
+      "type": "string"
+    },
+    "previousHash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "hash": {
+      "$ref": "#/$defs/sha256"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "instant": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 instant in UTC, e.g. 2026-08-26T10:15:30.123Z."
+    },
+    "merchantId": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 64,
+      "pattern": "^MER-[A-Za-z0-9._:-]+$"
+    },
+    "prefixedId": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64,
+      "pattern": "^[A-Z]{2,4}-[A-Za-z0-9._:-]+$",
+      "description": "Human-readable prefixed identifier (PLATFORM-CONTRACT section 5)."
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "Lowercase hex SHA-256 digest."
+    }
+  }
+}

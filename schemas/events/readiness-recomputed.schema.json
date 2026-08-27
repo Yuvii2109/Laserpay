@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pdei.laserpay.com/events/readiness-recomputed.schema.json",
+  "title": "ReadinessRecomputed payload",
+  "description": "Deterministic readiness score recomputed. Drives the READINESS_UPDATED WebSocket frame.",
+  "x-pdei-event-type": "ReadinessRecomputed",
+  "x-pdei-aggregate-type": "TRANSACTION",
+  "x-pdei-origin": "INTERNAL",
+  "x-pdei-schema-version": 1,
+  "type": "object",
+  "required": [
+    "transactionId",
+    "merchantId",
+    "score",
+    "band",
+    "computedAt"
+  ],
+  "properties": {
+    "transactionId": {
+      "$ref": "#/$defs/prefixedId"
+    },
+    "merchantId": {
+      "$ref": "#/$defs/merchantId"
+    },
+    "score": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "band": {
+      "$ref": "#/$defs/readinessBand"
+    },
+    "previousScore": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 100
+    },
+    "previousBand": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/readinessBand"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "reasonCodeProfile": {
+      "type": "string"
+    },
+    "satisfiedRequirements": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "totalRequirements": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "penaltiesApplied": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "type",
+          "points"
+        ],
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "points": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "policyVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "computedAt": {
+      "$ref": "#/$defs/instant"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "instant": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 instant in UTC, e.g. 2026-08-26T10:15:30.123Z."
+    },
+    "merchantId": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 64,
+      "pattern": "^MER-[A-Za-z0-9._:-]+$"
+    },
+    "prefixedId": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64,
+      "pattern": "^[A-Z]{2,4}-[A-Za-z0-9._:-]+$",
+      "description": "Human-readable prefixed identifier (PLATFORM-CONTRACT section 5)."
+    },
+    "readinessBand": {
+      "enum": [
+        "READY",
+        "NEARLY_READY",
+        "AT_RISK",
+        "NOT_READY"
+      ]
+    }
+  }
+}

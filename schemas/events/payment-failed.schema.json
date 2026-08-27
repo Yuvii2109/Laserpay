@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pdei.laserpay.com/events/payment-failed.schema.json",
+  "title": "PaymentFailed payload",
+  "description": "Payment failed. Failed payments do not create dispute-eligible transactions.",
+  "x-pdei-event-type": "PaymentFailed",
+  "x-pdei-aggregate-type": "PAYMENT",
+  "x-pdei-origin": "EXTERNAL",
+  "x-pdei-schema-version": 1,
+  "type": "object",
+  "required": [
+    "paymentId",
+    "transactionId",
+    "failureCode",
+    "failedAt"
+  ],
+  "properties": {
+    "paymentId": {
+      "$ref": "#/$defs/prefixedId"
+    },
+    "transactionId": {
+      "$ref": "#/$defs/prefixedId"
+    },
+    "failureCode": {
+      "type": "string"
+    },
+    "failureReason": {
+      "type": "string"
+    },
+    "failedAt": {
+      "$ref": "#/$defs/instant"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "instant": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 instant in UTC, e.g. 2026-08-26T10:15:30.123Z."
+    },
+    "prefixedId": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64,
+      "pattern": "^[A-Z]{2,4}-[A-Za-z0-9._:-]+$",
+      "description": "Human-readable prefixed identifier (PLATFORM-CONTRACT section 5)."
+    }
+  }
+}

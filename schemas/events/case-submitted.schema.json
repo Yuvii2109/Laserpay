@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pdei.laserpay.com/events/case-submitted.schema.json",
+  "title": "CaseSubmitted payload",
+  "description": "submitRepresentment activity succeeded.",
+  "x-pdei-event-type": "CaseSubmitted",
+  "x-pdei-aggregate-type": "CASE",
+  "x-pdei-origin": "INTERNAL",
+  "x-pdei-schema-version": 1,
+  "type": "object",
+  "required": [
+    "caseId",
+    "submissionReference",
+    "submittedAt"
+  ],
+  "properties": {
+    "caseId": {
+      "$ref": "#/$defs/prefixedId"
+    },
+    "submissionReference": {
+      "type": "string"
+    },
+    "submittedAt": {
+      "$ref": "#/$defs/instant"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "instant": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 instant in UTC, e.g. 2026-08-26T10:15:30.123Z."
+    },
+    "prefixedId": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64,
+      "pattern": "^[A-Z]{2,4}-[A-Za-z0-9._:-]+$",
+      "description": "Human-readable prefixed identifier (PLATFORM-CONTRACT section 5)."
+    }
+  }
+}

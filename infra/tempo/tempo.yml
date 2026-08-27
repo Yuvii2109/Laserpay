@@ -1,0 +1,79 @@
+# PDEI - Tempo, single-binary local trace store.
+#
+# Receives OTLP from otel-collector only (services never talk to Tempo directly, so the
+# collector stays the single place where sampling or redaction could ever be added).
+#
+# The trace that matters for this project spans:
+#   ingestion -> Kafka -> normalization -> Kafka -> state-builder -> readiness
+#   -> orchestrator (Temporal) -> ai-reasoning-service -> Gemini
+# which is exactly the "AI scales with ambiguity" claim made visible, so span metrics are
+# generated here and scraped from Prometheus.
+
+stream_over_http_enabled: true
+
+server:
+  http_listen_port: 3200
+  grpc_listen_port: 9095
+  log_level: warn
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+
+ingester:
+  max_block_duration: 5m       # short blocks so traces are searchable during a live demo
+  complete_block_timeout: 15m
+
+compactor:
+  compaction:
+    block_retention: 48h       # long enough for a benchmark run, short enough for a laptop
+
+metrics_generator:
+  registry:
+    external_labels:
+      source: tempo
+      cluster: pdei-local
+  storage:
+    path: /var/tempo/generator/wal
+    remote_write:
+      - url: http://prometheus:9090/api/v1/write
+        send_exemplars: true
+  traces_storage:
+    path: /var/tempo/generator/traces
+  processor:
+    service_graphs:
+      dimensions: [service.namespace]
+    span_metrics:
+      dimensions: [service.name, span.name, status.code]
+
+storage:
+  trace:
+    backend: local
+    wal:
+      path: /var/tempo/wal
+    local:
+      path: /var/tempo/blocks
+    pool:
+      max_workers: 50
+      queue_depth: 2000
+
+query_frontend:
+  search:
+    duration_slo: 5s
+    throughput_bytes_slo: 1073741824
+  trace_by_id:
+    duration_slo: 5s
+
+overrides:
+  defaults:
+    metrics_generator:
+      processors: [service-graphs, span-metrics, local-blocks]
+      generate_native_histograms: both
+
+usage_report:
+  reporting_enabled: false

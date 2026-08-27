@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pdei.laserpay.com/events/raw-event.schema.json",
+  "title": "RawEventEnvelope",
+  "description": "Untranslated source event: what ingestion-service accepts on POST /ingest/v1/events and what it publishes to pdei.raw.events.v1. Mirrors com.laserpay.pdei.common.event.RawEventEnvelope. The body is kept exactly as the source system sent it so that a normalisation bug can be fixed and the stream replayed without asking the source systems for anything.",
+  "type": "object",
+  "required": [
+    "sourceSystem",
+    "sourceEventType",
+    "merchantId"
+  ],
+  "anyOf": [
+    {
+      "required": [
+        "body"
+      ]
+    },
+    {
+      "required": [
+        "payload"
+      ]
+    }
+  ],
+  "properties": {
+    "rawEventId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Assigned by ingestion-service when the submitter omits it. Present on every record published to pdei.raw.events.v1."
+    },
+    "sourceSystem": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Adapter identity, e.g. psp-adapter, order-system, logistics, crm."
+    },
+    "sourceEventType": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Source vocabulary (e.g. payment_intent.succeeded), NOT an EventType. normalization-worker owns the mapping."
+    },
+    "merchantId": {
+      "$ref": "#/$defs/merchantId"
+    },
+    "aggregateId": {
+      "type": "string",
+      "maxLength": 64,
+      "description": "Optional. When present, ingestion keys the Kafka record merchantId + ':' + aggregateId exactly as PLATFORM-CONTRACT section 4 requires; otherwise it resolves one from the body and finally falls back to the idempotency key."
+    },
+    "correlationId": {
+      "type": "string",
+      "maxLength": 128
+    },
+    "causationId": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128
+    },
+    "occurredAt": {
+      "$ref": "#/$defs/instant",
+      "description": "Source-side time of the fact. Optional on submission."
+    },
+    "receivedAt": {
+      "$ref": "#/$defs/instant",
+      "description": "Stamped by ingestion-service on acceptance."
+    },
+    "idempotencyKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Stable per-fact key. The HTTP Idempotency-Key header wins over this field."
+    },
+    "headers": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Flat string map of source transport headers plus PDEI-resolved hints."
+    },
+    "body": {
+      "type": "object",
+      "description": "The source payload, kept verbatim. Alias: payload."
+    },
+    "payload": {
+      "type": "object",
+      "description": "Accepted alias for body."
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "instant": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 instant in UTC, e.g. 2026-08-26T10:15:30.123Z."
+    },
+    "merchantId": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 64,
+      "pattern": "^MER-[A-Za-z0-9._:-]+$"
+    }
+  }
+}

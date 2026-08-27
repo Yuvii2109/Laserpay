@@ -1,0 +1,143 @@
+# ---------------------------------------------------------------------------
+# PDEI - repository ignore rules
+# ---------------------------------------------------------------------------
+
+# ===== Java / Maven =====
+target/
+!**/src/**/target/
+*.class
+*.jar
+!**/.mvn/wrapper/maven-wrapper.jar
+*.war
+*.ear
+*.nar
+hs_err_pid*
+replay_pid*
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+release.properties
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+
+# ===== Node / Next.js =====
+node_modules/
+.pnp
+.pnp.js
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.next/
+out/
+build/
+dist/
+.turbo/
+*.tsbuildinfo
+next-env.d.ts
+.eslintcache
+.npm/
+.vercel
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+.eggs/
+*.egg-info/
+*.egg
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pytest_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+.ipynb_checkpoints/
+uv-cache/
+
+# ===== Environment & secrets =====
+# .env files hold dev-only credentials, but they are still per-machine state.
+# The committed source of truth is infra/.env.example.
+.env
+.env.*
+!.env.example
+!infra/.env.example
+*.local
+secrets/
+*.pem
+*.key
+!**/src/**/*.key
+
+# ===== Docker / local infrastructure =====
+# The compose override is a personal file; the .example is the committed one.
+infra/docker-compose.override.yml
+infra/data/
+infra/volumes/
+docker-volumes/
+.docker/
+
+# ===== Build & test output =====
+*.log
+logs/
+surefire-reports/
+failsafe-reports/
+jacoco.exec
+*.hprof
+test-results/
+playwright-report/
+pytest-report.xml
+benchmark-results/
+
+# ===== IDE & editors =====
+.idea/
+!.idea/runConfigurations
+*.iml
+*.ipr
+*.iws
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.example.json
+.settings/
+.project
+.classpath
+.factorypath
+*.sublime-workspace
+*.sublime-project
+.netbeans/
+nbproject/
+.history/
+
+# ===== OS =====
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# ===== Scratch =====
+tmp/
+temp/
+scratch/
+*.bak
+*.orig
+*.rej
+*.swp
+*~

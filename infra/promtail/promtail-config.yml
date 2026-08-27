@@ -1,0 +1,185 @@
+# PDEI - Promtail: Docker service discovery -> JSON parsing -> Loki.
+#
+# Contract section 13: services log structured JSON to stdout, and every line carries
+# traceId / spanId / merchantId / correlationId when available. This config turns the
+# useful subset of those into Loki labels so a demo question like
+#
+#   {service="readiness-worker", merchantId="MER-0001"} |= "ReadinessRecomputed"
+#
+# is answerable without a full-text scan.
+#
+# LABEL DISCIPLINE: traceId and correlationId are deliberately NOT labels. They are
+# high-cardinality (one value per request) and would blow up Loki's index; they are kept
+# as structured metadata and queried with a line filter or via the Tempo trace link.
+# merchantId IS a label - cardinality is bounded by the number of merchants (single
+# digits in the demo, hundreds at worst).
+
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+  log_level: warn
+
+positions:
+  filename: /var/lib/promtail/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+    batchwait: 1s
+    batchsize: 1048576
+    backoff_config:
+      min_period: 500ms
+      max_period: 30s
+      max_retries: 10
+
+scrape_configs:
+
+  # ---------------------------------------------------------------------------
+  # Every container on the pdei compose project, discovered live from the Docker
+  # daemon (the socket is bind-mounted read-only).
+  # ---------------------------------------------------------------------------
+  - job_name: pdei-containers
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 10s
+        filters:
+          - name: label
+            values: ["com.docker.compose.project=pdei"]
+
+    relabel_configs:
+      # /pdei-readiness-worker -> readiness-worker
+      - source_labels: ["__meta_docker_container_name"]
+        regex: "/?(?:pdei-)?(.*)"
+        target_label: "service"
+      - source_labels: ["__meta_docker_container_label_com_docker_compose_service"]
+        target_label: "compose_service"
+      - source_labels: ["__meta_docker_container_id"]
+        target_label: "container_id"
+      - source_labels: ["__meta_docker_container_log_stream"]
+        target_label: "stream"
+      - target_label: "job"
+        replacement: "pdei-containers"
+      - target_label: "env"
+        replacement: "dev"
+
+    pipeline_stages:
+      # -----------------------------------------------------------------
+      # 1. Docker wraps each line as {"log":"...","stream":"...","time":"..."}.
+      #    Unwrap it first; the application JSON is inside "log".
+      # -----------------------------------------------------------------
+      - docker: {}
+
+      # -----------------------------------------------------------------
+      # 2. Application JSON (Logback JSON encoder / structlog). Missing keys are
+      #    tolerated - infrastructure containers log plain text and simply fall
+      #    through this stage with everything empty.
+      # -----------------------------------------------------------------
+      - json:
+          expressions:
+            level: level
+            logger: logger_name
+            thread: thread_name
+            message: message
+            timestamp: "@timestamp"
+            traceId: traceId
+            spanId: spanId
+            merchantId: merchantId
+            correlationId: correlationId
+            eventId: eventId
+            eventType: eventType
+            serviceName: service
+
+      # Python structlog and some Spring encoders use different key names; a second
+      # pass fills in whatever the first one missed.
+      - json:
+          expressions:
+            level_alt: levelname
+            message_alt: event
+            timestamp_alt: timestamp
+            traceId_alt: trace_id
+            spanId_alt: span_id
+            merchantId_alt: merchant_id
+            correlationId_alt: correlation_id
+          drop_malformed: false
+
+      - template:
+          source: level
+          template: '{{ if .level }}{{ .level }}{{ else }}{{ .level_alt }}{{ end }}'
+      - template:
+          source: merchantId
+          template: '{{ if .merchantId }}{{ .merchantId }}{{ else }}{{ .merchantId_alt }}{{ end }}'
+      - template:
+          source: traceId
+          template: '{{ if .traceId }}{{ .traceId }}{{ else }}{{ .traceId_alt }}{{ end }}'
+      - template:
+          source: correlationId
+          template: '{{ if .correlationId }}{{ .correlationId }}{{ else }}{{ .correlationId_alt }}{{ end }}'
+
+      # -----------------------------------------------------------------
+      # 3. Normalise the level so {level="ERROR"} matches regardless of source.
+      # -----------------------------------------------------------------
+      - template:
+          source: level
+          template: '{{ ToUpper .Value }}'
+
+      # -----------------------------------------------------------------
+      # 4. Use the application timestamp when present, so late-arriving log lines
+      #    are placed at the time the service says they happened.
+      # -----------------------------------------------------------------
+      - timestamp:
+          source: timestamp
+          format: RFC3339Nano
+          fallback_formats:
+            - RFC3339
+            - UnixMs
+          action_on_failure: fudge
+
+      # -----------------------------------------------------------------
+      # 5. Labels: bounded cardinality only.
+      # -----------------------------------------------------------------
+      - labels:
+          level:
+          merchantId:
+          eventType:
+
+      # -----------------------------------------------------------------
+      # 6. High-cardinality correlation fields travel as structured metadata,
+      #    which Loki 3.x indexes separately from stream labels. This is what
+      #    makes the Grafana "Logs for this trace" link work.
+      # -----------------------------------------------------------------
+      - structured_metadata:
+          traceId:
+          spanId:
+          correlationId:
+          eventId:
+          logger:
+          thread:
+
+      # -----------------------------------------------------------------
+      # 7. Cheap operational counters straight off the log stream.
+      # -----------------------------------------------------------------
+      - match:
+          selector: '{job="pdei-containers"} |~ "(?i)exception|stack ?trace"'
+          stages:
+            - metrics:
+                pdei_log_exceptions_total:
+                  type: Counter
+                  description: "Log lines containing an exception, by service"
+                  config:
+                    action: inc
+
+      - match:
+          selector: '{level="ERROR"}'
+          stages:
+            - metrics:
+                pdei_log_errors_total:
+                  type: Counter
+                  description: "ERROR-level log lines, by service"
+                  config:
+                    action: inc
+
+      # -----------------------------------------------------------------
+      # 8. Ship the message alone when we successfully parsed one; otherwise the
+      #    original line survives untouched (infrastructure containers).
+      # -----------------------------------------------------------------
+      - output:
+          source: message

@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.laserpay.pdei</groupId>
+    <artifactId>pdei-backend</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>readiness-worker</artifactId>
+  <packaging>jar</packaging>
+
+  <name>readiness-worker</name>
+  <description>
+    PDEI readiness worker (port 8084). Keeps evidence readiness continuously current: consumes
+    pdei.evidence.events.v1 and pdei.canonical.events.v1, debounces recomputation per transaction
+    behind pdei:lock:readiness:{txId}, runs the deterministic evidence-core ReadinessEngine,
+    persists readiness_snapshots + readiness_gaps, caches pdei:readiness:{transactionId} and
+    publishes ReadinessRecomputed / ReadinessGapDetected to pdei.readiness.events.v1.
+    Also owns the nightly expiry sweep and the at-risk feed scan.
+  </description>
+
+  <dependencies>
+    <!-- Shared PDEI modules (docs/SHARED-LIBRARY-API.md) -->
+    <dependency>
+      <groupId>com.laserpay.pdei</groupId>
+      <artifactId>platform-common</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.laserpay.pdei</groupId>
+      <artifactId>platform-persistence</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.laserpay.pdei</groupId>
+      <artifactId>evidence-core</artifactId>
+    </dependency>
+
+    <!--
+      A worker, not a server: spring-boot-starter (no servlet container) plus the actuator, which
+      brings its own lightweight HTTP endpoint requirement. The contract mandates
+      /actuator/health and /actuator/prometheus on port 8084, so the web starter IS required -
+      but nothing in this module maps an @RestController.
+    -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-jpa</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-redis</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-validation</artifactId>
+    </dependency>
+
+    <!-- Kafka consumers + DLQ producer -->
+    <dependency>
+      <groupId>org.springframework.kafka</groupId>
+      <artifactId>spring-kafka</artifactId>
+    </dependency>
+
+    <!-- Postgres + Flyway (schema owned by platform-persistence) -->
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-database-postgresql</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+
+    <!-- Prometheus scrape endpoint: /actuator/prometheus -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-registry-prometheus</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-configuration-processor</artifactId>
+      <optional>true</optional>
+    </dependency>
+
+    <!-- Test -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.awaitility</groupId>
+      <artifactId>awaitility</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <finalName>readiness-worker</finalName>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>

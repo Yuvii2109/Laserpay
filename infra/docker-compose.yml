@@ -1,0 +1,865 @@
+# PDEI - Pre-Dispute Evidence Intelligence
+# Full zero-cost local stack. Normative source: docs/PLATFORM-CONTRACT.md section 2 (ports),
+# section 4 (topics), section 11 (MinIO), section 15 (env vars).
+#
+#   docker compose --profile core up -d                              infrastructure only
+#   docker compose --profile core --profile app up -d                + the 11 services
+#   docker compose --profile core --profile app --profile obs up -d  + observability
+#
+# Compose v2.24+ auto-enables the profiles of anything reachable through depends_on, so
+# "--profile app" alone also works; the scripts in scripts/ always pass profiles explicitly.
+
+name: pdei
+
+# ---------------------------------------------------------------------------
+# Shared fragments
+# ---------------------------------------------------------------------------
+
+x-pdei-env: &pdei-env
+  PDEI_POSTGRES_URL: ${PDEI_POSTGRES_URL:-jdbc:postgresql://postgres:5432/pdei}
+  PDEI_POSTGRES_USER: ${PDEI_POSTGRES_USER:-pdei}
+  PDEI_POSTGRES_PASSWORD: ${PDEI_POSTGRES_PASSWORD:-pdei}
+  PDEI_KAFKA_BOOTSTRAP: ${PDEI_KAFKA_BOOTSTRAP:-kafka:9092}
+  PDEI_REDIS_URL: ${PDEI_REDIS_URL:-redis://redis:6379}
+  PDEI_MINIO_ENDPOINT: ${PDEI_MINIO_ENDPOINT:-http://minio:9000}
+  PDEI_MINIO_ACCESS_KEY: ${PDEI_MINIO_ACCESS_KEY:-pdei-minio}
+  PDEI_MINIO_SECRET_KEY: ${PDEI_MINIO_SECRET_KEY:-pdei-minio-secret}
+  PDEI_TEMPORAL_TARGET: ${PDEI_TEMPORAL_TARGET:-temporal:7233}
+  PDEI_TEMPORAL_NAMESPACE: ${PDEI_TEMPORAL_NAMESPACE:-pdei}
+  PDEI_AI_SERVICE_URL: ${PDEI_AI_SERVICE_URL:-http://ai-reasoning-service:8000}
+  PDEI_AI_PROVIDER: ${PDEI_AI_PROVIDER:-mock}
+  PDEI_API_BASE_URL: ${PDEI_API_BASE_URL:-http://api-gateway-service:8080}
+  PDEI_SERVICE_TOKEN: ${PDEI_SERVICE_TOKEN:-dev-service-token}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+  OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+  SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
+  TZ: UTC
+
+x-spring-build: &spring-build
+  context: ..
+  dockerfile: infra/docker/Dockerfile.spring-service
+
+x-json-logging: &json-logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "3"
+
+x-spring-service: &spring-service
+  restart: unless-stopped
+  profiles: ["app"]
+  networks: [pdei-net]
+  logging: *json-logging
+
+x-infra-deps: &infra-deps
+  postgres:
+    condition: service_healthy
+  redis:
+    condition: service_healthy
+  kafka:
+    condition: service_healthy
+  kafka-init:
+    condition: service_completed_successfully
+
+# ---------------------------------------------------------------------------
+# Services
+# ---------------------------------------------------------------------------
+
+services:
+
+  # ======================= core: data infrastructure =======================
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: pdei-postgres
+    profiles: ["core"]
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: pdei
+      POSTGRES_USER: ${PDEI_POSTGRES_USER:-pdei}
+      POSTGRES_PASSWORD: ${PDEI_POSTGRES_PASSWORD:-pdei}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+      TZ: UTC
+      PGTZ: UTC
+    command:
+      - postgres
+      - -c
+      - max_connections=300
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - log_timezone=UTC
+      - -c
+      - timezone=UTC
+    ports:
+      - "${PDEI_POSTGRES_HOST_PORT:-5432}:5432"
+    volumes:
+      - pdei-postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PDEI_POSTGRES_USER:-pdei} -d pdei"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    networks: [pdei-net]
+    logging: *json-logging
+
+  redis:
+    image: redis:7-alpine
+    container_name: pdei-redis
+    profiles: ["core"]
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1000"]
+    ports:
+      - "${PDEI_REDIS_HOST_PORT:-6379}:6379"
+    volumes:
+      - pdei-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    networks: [pdei-net]
+    logging: *json-logging
+
+  kafka:
+    image: apache/kafka:3.8.1
+    container_name: pdei-kafka
+    profiles: ["core"]
+    restart: unless-stopped
+    # Named volumes are created root-owned, and the default "appuser" in this image cannot
+    # write to KAFKA_LOG_DIRS. Running as root is the least-surprising fix for a dev stack.
+    user: root
+    environment:
+      CLUSTER_ID: ${PDEI_KAFKA_CLUSTER_ID:-pdei-local-cluster-00}
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: 12
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_HEAP_OPTS: "-Xmx1G -Xms512M"
+    ports:
+      - "${PDEI_KAFKA_HOST_PORT:-29092}:29092"
+    volumes:
+      - pdei-kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1 || exit 1
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 20s
+    networks: [pdei-net]
+    logging: *json-logging
+
+  # One-shot: creates the eight topics of contract section 4 with their partition counts.
+  kafka-init:
+    image: apache/kafka:3.8.1
+    container_name: pdei-kafka-init
+    profiles: ["core"]
+    user: root
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      PDEI_KAFKA_BOOTSTRAP: kafka:9092
+      KAFKA_BIN: /opt/kafka/bin
+    entrypoint: ["/bin/bash", "/scripts/create-topics.sh"]
+    volumes:
+      - ./kafka:/scripts:ro
+    restart: "no"
+    networks: [pdei-net]
+    logging: *json-logging
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    container_name: pdei-kafka-ui
+    profiles: ["core"]
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_CLUSTERS_0_NAME: pdei-local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      DYNAMIC_CONFIG_ENABLED: "true"
+      AUTH_TYPE: DISABLED
+    ports:
+      - "${PDEI_KAFKA_UI_HOST_PORT:-8090}:8080"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -qO- http://localhost:8080/actuator/health >/dev/null 2>&1 || exit 1
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 30s
+    networks: [pdei-net]
+    logging: *json-logging
+
+  minio:
+    image: minio/minio:latest
+    container_name: pdei-minio
+    profiles: ["core"]
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${PDEI_MINIO_ACCESS_KEY:-pdei-minio}
+      MINIO_ROOT_PASSWORD: ${PDEI_MINIO_SECRET_KEY:-pdei-minio-secret}
+      MINIO_PROMETHEUS_AUTH_TYPE: public
+      MINIO_BROWSER_REDIRECT_URL: http://localhost:${PDEI_MINIO_CONSOLE_HOST_PORT:-9001}
+    ports:
+      - "${PDEI_MINIO_HOST_PORT:-9000}:9000"
+      - "${PDEI_MINIO_CONSOLE_HOST_PORT:-9001}:9001"
+    volumes:
+      - pdei-minio-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "mc ready local || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 15s
+    networks: [pdei-net]
+    logging: *json-logging
+
+  # One-shot: the two buckets of contract section 11, versioning ON.
+  minio-init:
+    image: minio/mc:latest
+    container_name: pdei-minio-init
+    profiles: ["core"]
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${PDEI_MINIO_ACCESS_KEY:-pdei-minio}
+      MINIO_SECRET_KEY: ${PDEI_MINIO_SECRET_KEY:-pdei-minio-secret}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        echo "[minio-init] waiting for MinIO ..."
+        until mc alias set pdei "$$MINIO_ENDPOINT" "$$MINIO_ACCESS_KEY" "$$MINIO_SECRET_KEY" >/dev/null 2>&1; do
+          sleep 2
+        done
+        for bucket in pdei-evidence pdei-packages; do
+          if mc ls "pdei/$$bucket" >/dev/null 2>&1; then
+            echo "[minio-init] bucket $$bucket already exists"
+          else
+            mc mb "pdei/$$bucket"
+            echo "[minio-init] created bucket $$bucket"
+          fi
+          mc version enable "pdei/$$bucket"
+          mc anonymous set none "pdei/$$bucket" >/dev/null 2>&1 || true
+          echo "[minio-init] versioning enabled on $$bucket"
+        done
+        echo "[minio-init] done"
+    restart: "no"
+    networks: [pdei-net]
+    logging: *json-logging
+
+  # ======================= core: Temporal =======================
+
+  temporal:
+    image: temporalio/auto-setup:1.25.1
+    container_name: pdei-temporal
+    profiles: ["core"]
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB: postgres12
+      DB_PORT: 5432
+      POSTGRES_SEEDS: postgres
+      POSTGRES_USER: ${PDEI_POSTGRES_USER:-pdei}
+      POSTGRES_PWD: ${PDEI_POSTGRES_PASSWORD:-pdei}
+      DBNAME: temporal
+      VISIBILITY_DBNAME: temporal_visibility
+      DEFAULT_NAMESPACE: ${PDEI_TEMPORAL_NAMESPACE:-pdei}
+      DEFAULT_NAMESPACE_RETENTION: 72h
+      SKIP_DEFAULT_NAMESPACE_CREATION: "false"
+      ENABLE_ES: "false"
+      DYNAMIC_CONFIG_FILE_PATH: config/dynamicconfig/development-sql.yaml
+      TEMPORAL_ADDRESS: temporal:7233
+    ports:
+      - "${PDEI_TEMPORAL_HOST_PORT:-7233}:7233"
+    volumes:
+      - ./temporal/dynamicconfig:/etc/temporal/config/dynamicconfig:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - temporal operator cluster health --address temporal:7233 >/dev/null 2>&1 || exit 1
+      interval: 10s
+      timeout: 10s
+      retries: 40
+      start_period: 40s
+    networks: [pdei-net]
+    logging: *json-logging
+
+  temporal-admin-tools:
+    image: temporalio/admin-tools:1.25.1
+    container_name: pdei-temporal-admin-tools
+    profiles: ["core"]
+    restart: unless-stopped
+    depends_on:
+      temporal:
+        condition: service_healthy
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CLI_ADDRESS: temporal:7233
+      PDEI_TEMPORAL_NAMESPACE: ${PDEI_TEMPORAL_NAMESPACE:-pdei}
+    # Stays alive so "docker compose exec temporal-admin-tools temporal ..." always works.
+    # Also re-asserts the pdei namespace, which is idempotent.
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        temporal operator namespace describe --namespace "$${PDEI_TEMPORAL_NAMESPACE}" >/dev/null 2>&1 \
+          || temporal operator namespace create --namespace "$${PDEI_TEMPORAL_NAMESPACE}" --retention 72h \
+          || true
+        echo "[temporal-admin-tools] namespace $${PDEI_TEMPORAL_NAMESPACE} ready"
+        tail -f /dev/null
+    networks: [pdei-net]
+    logging: *json-logging
+
+  temporal-ui:
+    image: temporalio/ui:2.31.2
+    container_name: pdei-temporal-ui
+    profiles: ["core"]
+    restart: unless-stopped
+    depends_on:
+      temporal:
+        condition: service_healthy
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_UI_PORT: 8080
+      TEMPORAL_DEFAULT_NAMESPACE: ${PDEI_TEMPORAL_NAMESPACE:-pdei}
+      TEMPORAL_CORS_ORIGINS: http://localhost:3000,http://localhost:3001
+    ports:
+      - "${PDEI_TEMPORAL_UI_HOST_PORT:-8233}:8080"
+    networks: [pdei-net]
+    logging: *json-logging
+
+  # ======================= app: Spring services =======================
+
+  api-gateway-service:
+    <<: *spring-service
+    build:
+      <<: *spring-build
+      args:
+        MODULE: api-gateway-service
+    image: pdei/api-gateway-service:${PDEI_IMAGE_TAG:-dev}
+    container_name: pdei-api-gateway-service
+    environment:
+      <<: *pdei-env
+      SERVER_PORT: 8080
+      OTEL_SERVICE_NAME: api-gateway-service
+    ports:
+      - "8080:8080"
+    depends_on:
+      <<: *infra-deps
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+  ingestion-service:
+    <<: *spring-service
+    build:
+      <<: *spring-build
+      args:
+        MODULE: ingestion-service
+    image: pdei/ingestion-service:${PDEI_IMAGE_TAG:-dev}
+    container_name: pdei-ingestion-service
+    environment:
+      <<: *pdei-env
+      SERVER_PORT: 8081
+      OTEL_SERVICE_NAME: ingestion-service
+    ports:
+      - "8081:8081"
+    depends_on: *infra-deps
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8081/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+  normalization-worker:
+    <<: *spring-service
+    build:
+      <<: *spring-build
+      args:
+        MODULE: normalization-worker
+    image: pdei/normalization-worker:${PDEI_IMAGE_TAG:-dev}
+    container_name: pdei-normalization-worker
+    environment:
+      <<: *pdei-env
+      SERVER_PORT: 8082
+      OTEL_SERVICE_NAME: normalization-worker
+    ports:
+      - "8082:8082"
+    depends_on: *infra-deps
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8082/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+  state-builder-worker:
+    <<: *spring-service
+    build:
+      <<: *spring-build
+      args:
+        MODULE: state-builder-worker
+    image: pdei/state-builder-worker:${PDEI_IMAGE_TAG:-dev}
+    container_name: pdei-state-builder-worker
+    environment:
+      <<: *pdei-env
+      SERVER_PORT: 8083
+      OTEL_SERVICE_NAME: state-builder-worker
+    ports:
+      - "8083:8083"
+    depends_on: *infra-deps
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8083/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+  readiness-worker:
+    <<: *spring-service
+    build:
+      <<: *spring-build
+      args:
+        MODULE: readiness-worker
+    image: pdei/readiness-worker:${PDEI_IMAGE_TAG:-dev}
+    container_name: pdei-readiness-worker
+    environment:
+      <<: *pdei-env
+      SERVER_PORT: 8084
+      OTEL_SERVICE_NAME: readiness-worker
+    ports:
+      - "8084:8084"
+    depends_on: *infra-deps
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8084/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+  case-orchestrator-service:
+    <<: *spring-service
+    build:
+      <<: *spring-build
+      args:
+        MODULE: case-orchestrator-service
+    image: pdei/case-orchestrator-service:${PDEI_IMAGE_TAG:-dev}
+    container_name: pdei-case-orchestrator-service
+    environment:
+      <<: *pdei-env
+      SERVER_PORT: 8085
+      OTEL_SERVICE_NAME: case-orchestrator-service
+      PDEI_TEMPORAL_TASK_QUEUE: ${PDEI_TEMPORAL_TASK_QUEUE:-pdei-dispute-cases}
+    ports:
+      - "8085:8085"
+    depends_on:
+      <<: *infra-deps
+      temporal:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8085/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+  document-processor-service:
+    <<: *spring-service
+    build:
+      <<: *spring-build
+      args:
+        MODULE: document-processor-service
+    image: pdei/document-processor-service:${PDEI_IMAGE_TAG:-dev}
+    container_name: pdei-document-processor-service
+    environment:
+      <<: *pdei-env
+      SERVER_PORT: 8086
+      OTEL_SERVICE_NAME: document-processor-service
+    ports:
+      - "8086:8086"
+    depends_on:
+      <<: *infra-deps
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8086/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+  audit-service:
+    <<: *spring-service
+    build:
+      <<: *spring-build
+      args:
+        MODULE: audit-service
+    image: pdei/audit-service:${PDEI_IMAGE_TAG:-dev}
+    container_name: pdei-audit-service
+    environment:
+      <<: *pdei-env
+      SERVER_PORT: 8087
+      OTEL_SERVICE_NAME: audit-service
+    ports:
+      - "8087:8087"
+    depends_on: *infra-deps
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8087/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+  simulator-service:
+    <<: *spring-service
+    build:
+      <<: *spring-build
+      args:
+        MODULE: simulator-service
+    image: pdei/simulator-service:${PDEI_IMAGE_TAG:-dev}
+    container_name: pdei-simulator-service
+    environment:
+      <<: *pdei-env
+      SERVER_PORT: 8088
+      OTEL_SERVICE_NAME: simulator-service
+      PDEI_SIM_DEFAULT_SEED: ${PDEI_SIM_DEFAULT_SEED:-4281}
+    ports:
+      - "8088:8088"
+    depends_on: *infra-deps
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8088/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+  # ======================= app: Python + frontend =======================
+
+  ai-reasoning-service:
+    build:
+      context: ..
+      dockerfile: infra/docker/Dockerfile.ai-service
+    image: pdei/ai-reasoning-service:${PDEI_IMAGE_TAG:-dev}
+    container_name: pdei-ai-reasoning-service
+    profiles: ["app"]
+    restart: unless-stopped
+    environment:
+      PDEI_AI_PROVIDER: ${PDEI_AI_PROVIDER:-mock}
+      PDEI_REDIS_URL: ${PDEI_REDIS_URL:-redis://redis:6379}
+      PDEI_API_BASE_URL: ${PDEI_API_BASE_URL:-http://api-gateway-service:8080}
+      PDEI_SERVICE_TOKEN: ${PDEI_SERVICE_TOKEN:-dev-service-token}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_SERVICE_NAME: ai-reasoning-service
+      PDEI_AI_APP: ${PDEI_AI_APP:-pdei_ai.main:app}
+      TZ: UTC
+    ports:
+      - "8000:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    networks: [pdei-net]
+    logging: *json-logging
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: infra/docker/Dockerfile.frontend
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8080/api/v1}
+        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-ws://localhost:8080/ws/control-tower}
+    image: pdei/frontend:${PDEI_IMAGE_TAG:-dev}
+    container_name: pdei-frontend
+    profiles: ["app"]
+    restart: unless-stopped
+    environment:
+      # Browser-side values: they must resolve from the host, not from inside the network.
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8080/api/v1}
+      NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-ws://localhost:8080/ws/control-tower}
+      NEXT_PUBLIC_USE_MOCKS: ${NEXT_PUBLIC_USE_MOCKS:-false}
+      # Server-side (route handlers / RSC) can use the in-network address.
+      PDEI_API_BASE_URL: ${PDEI_API_BASE_URL:-http://api-gateway-service:8080}
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+      TZ: UTC
+    ports:
+      - "3000:3000"
+    depends_on:
+      api-gateway-service:
+        condition: service_started
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -qO- http://localhost:3000/api/health >/dev/null 2>&1 || exit 1
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    networks: [pdei-net]
+    logging: *json-logging
+
+  # ======================= obs: observability =======================
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.111.0
+    container_name: pdei-otel-collector
+    profiles: ["obs"]
+    restart: unless-stopped
+    command: ["--config=/etc/otel/otel-collector-config.yaml"]
+    volumes:
+      - ./otel/otel-collector-config.yaml:/etc/otel/otel-collector-config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "8889:8889"   # Prometheus exposition of forwarded metrics
+      - "13133:13133" # health_check extension
+    depends_on:
+      tempo:
+        condition: service_started
+      loki:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:13133/ >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+    networks: [pdei-net]
+    logging: *json-logging
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: pdei-prometheus
+    profiles: ["obs"]
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --web.enable-lifecycle
+      - --web.enable-remote-write-receiver
+    ports:
+      - "${PDEI_PROMETHEUS_HOST_PORT:-9090}:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+      - pdei-prometheus-data:/prometheus
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/healthy >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    networks: [pdei-net]
+    logging: *json-logging
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: pdei-grafana
+    profiles: ["obs"]
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_FEATURE_TOGGLES_ENABLE: traceqlEditor
+      GF_LOG_LEVEL: warn
+    ports:
+      - "${PDEI_GRAFANA_HOST_PORT:-3001}:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - pdei-grafana-data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    networks: [pdei-net]
+    logging: *json-logging
+
+  loki:
+    image: grafana/loki:3.1.1
+    container_name: pdei-loki
+    profiles: ["obs"]
+    restart: unless-stopped
+    user: root
+    command: ["-config.file=/etc/loki/loki-config.yml"]
+    ports:
+      - "${PDEI_LOKI_HOST_PORT:-3100}:3100"
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - pdei-loki-data:/loki
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3100/ready >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    networks: [pdei-net]
+    logging: *json-logging
+
+  promtail:
+    image: grafana/promtail:3.1.1
+    container_name: pdei-promtail
+    profiles: ["obs"]
+    restart: unless-stopped
+    user: root
+    command: ["-config.file=/etc/promtail/promtail-config.yml"]
+    volumes:
+      - ./promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - pdei-promtail-data:/var/lib/promtail
+    depends_on:
+      loki:
+        condition: service_healthy
+    networks: [pdei-net]
+    logging: *json-logging
+
+  tempo:
+    image: grafana/tempo:2.6.0
+    container_name: pdei-tempo
+    profiles: ["obs"]
+    restart: unless-stopped
+    user: root
+    command: ["-config.file=/etc/tempo/tempo.yml"]
+    ports:
+      - "${PDEI_TEMPO_HOST_PORT:-3200}:3200"
+    volumes:
+      - ./tempo/tempo.yml:/etc/tempo/tempo.yml:ro
+      - pdei-tempo-data:/var/tempo
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3200/ready >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    networks: [pdei-net]
+    logging: *json-logging
+
+  # -------- exporters (obs profile; scraped by prometheus.yml) --------
+
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:v1.7.0
+    container_name: pdei-kafka-exporter
+    profiles: ["obs"]
+    restart: unless-stopped
+    command: ["--kafka.server=kafka:9092", "--web.listen-address=:9308"]
+    ports:
+      - "9308:9308"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks: [pdei-net]
+    logging: *json-logging
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: pdei-postgres-exporter
+    profiles: ["obs"]
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${PDEI_POSTGRES_USER:-pdei}:${PDEI_POSTGRES_PASSWORD:-pdei}@postgres:5432/pdei?sslmode=disable"
+    ports:
+      - "9187:9187"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [pdei-net]
+    logging: *json-logging
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.62.0
+    container_name: pdei-redis-exporter
+    profiles: ["obs"]
+    restart: unless-stopped
+    environment:
+      REDIS_ADDR: redis://redis:6379
+    ports:
+      - "9121:9121"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks: [pdei-net]
+    logging: *json-logging
+
+# ---------------------------------------------------------------------------
+
+networks:
+  pdei-net:
+    name: pdei-net
+    driver: bridge
+
+volumes:
+  pdei-postgres-data:
+    name: pdei-postgres-data
+  pdei-redis-data:
+    name: pdei-redis-data
+  pdei-kafka-data:
+    name: pdei-kafka-data
+  pdei-minio-data:
+    name: pdei-minio-data
+  pdei-prometheus-data:
+    name: pdei-prometheus-data
+  pdei-grafana-data:
+    name: pdei-grafana-data
+  pdei-loki-data:
+    name: pdei-loki-data
+  pdei-tempo-data:
+    name: pdei-tempo-data
+  pdei-promtail-data:
+    name: pdei-promtail-data

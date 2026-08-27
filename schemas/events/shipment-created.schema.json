@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pdei.laserpay.com/events/shipment-created.schema.json",
+  "title": "ShipmentCreated payload",
+  "description": "Shipment booked with a carrier. One order may produce several shipments; partial fulfilment must not read as an evidence gap.",
+  "x-pdei-event-type": "ShipmentCreated",
+  "x-pdei-aggregate-type": "SHIPMENT",
+  "x-pdei-origin": "EXTERNAL",
+  "x-pdei-schema-version": 1,
+  "type": "object",
+  "required": [
+    "shipmentId",
+    "orderId",
+    "createdAt"
+  ],
+  "properties": {
+    "shipmentId": {
+      "$ref": "#/$defs/prefixedId"
+    },
+    "orderId": {
+      "$ref": "#/$defs/prefixedId"
+    },
+    "carrier": {
+      "type": "string"
+    },
+    "trackingNumber": {
+      "type": "string"
+    },
+    "lines": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/skuQuantity"
+      }
+    },
+    "createdAt": {
+      "$ref": "#/$defs/instant"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "instant": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 instant in UTC, e.g. 2026-08-26T10:15:30.123Z."
+    },
+    "prefixedId": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64,
+      "pattern": "^[A-Z]{2,4}-[A-Za-z0-9._:-]+$",
+      "description": "Human-readable prefixed identifier (PLATFORM-CONTRACT section 5)."
+    },
+    "skuQuantity": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "sku",
+        "quantity"
+      ],
+      "properties": {
+        "sku": {
+          "type": "string",
+          "minLength": 1
+        },
+        "quantity": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

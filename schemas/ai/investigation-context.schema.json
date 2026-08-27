@@ -1,0 +1,930 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pdei.laserpay.com/schemas/ai/investigation-context.schema.json",
+  "title": "InvestigationContext",
+  "description": "Curated context sent to the AI reasoning service (platform contract 9.1). This is the complete view of the domain the model receives; it has no database access.",
+  "$defs": {
+    "AggregateType": {
+      "enum": [
+        "MERCHANT",
+        "CUSTOMER",
+        "TRANSACTION",
+        "PAYMENT",
+        "ORDER",
+        "SHIPMENT",
+        "DELIVERY",
+        "REFUND",
+        "COMMUNICATION",
+        "EVIDENCE",
+        "POLICY",
+        "DISPUTE",
+        "CASE"
+      ],
+      "title": "AggregateType",
+      "type": "string"
+    },
+    "ContradictionRef": {
+      "description": "A conflict between two evidence items (contract 9.1 ``contradictions[]``).\n\n``left`` / ``right`` carry an evidence id (``EV-``) when the conflict is\ndocument-backed, and a domain entity id otherwise: ``ContradictionDetector.ref``\non the Java side falls back to the raw entity id (``DLV-``, ``SHP-``, ``ORD-``,\n``REF-``, ``PAY-``) when no evidence documents the entity, and several rules\npass the transaction id (``TX-``) directly. They are therefore plain strings,\nnot ``EvidenceId``. They stay optional because ``ContradictionView.narrative(...)``\non the Java side produces a description with no specific pair attached.",
+      "properties": {
+        "left": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Left side of the conflict: an evidence id when document-backed, otherwise a domain entity id.",
+          "title": "Left"
+        },
+        "right": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Right side of the conflict: an evidence id when document-backed, otherwise a domain entity id.",
+          "title": "Right"
+        },
+        "field": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Conflicting field, e.g. deliveredAt.",
+          "title": "Field"
+        },
+        "detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detail"
+        },
+        "severity": {
+          "$ref": "#/$defs/GapSeverity",
+          "default": "MEDIUM"
+        },
+        "leftValue": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Leftvalue"
+        },
+        "rightValue": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rightvalue"
+        },
+        "detectedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 UTC instant, e.g. 2026-08-26T10:15:30.123Z",
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detectedat"
+        }
+      },
+      "title": "ContradictionRef",
+      "type": "object"
+    },
+    "DisputeReasonCode": {
+      "enum": [
+        "GOODS_NOT_RECEIVED",
+        "SERVICE_NOT_RENDERED",
+        "PRODUCT_NOT_AS_DESCRIBED",
+        "DUPLICATE_PROCESSING",
+        "CREDIT_NOT_PROCESSED",
+        "SUBSCRIPTION_CANCELLED",
+        "FRAUDULENT_TRANSACTION",
+        "UNRECOGNIZED_TRANSACTION",
+        "INCORRECT_AMOUNT",
+        "PAID_BY_OTHER_MEANS"
+      ],
+      "title": "DisputeReasonCode",
+      "type": "string"
+    },
+    "EvidenceRef": {
+      "description": "One evidence item as the model sees it (contract 9.1 ``evidence[]``).\n\nThe contract's illustrative JSON carries ``evidenceId, type, status, sha256,\ncreatedAt, summary, version``; the Java ``EvidenceView`` carries more. The\nextra fields are declared optional here so provenance and quality signals\nsurvive the trip instead of being dropped by ``extra=\"ignore\"``.",
+      "properties": {
+        "evidenceId": {
+          "description": "Evidence identifier. Always prefixed EV- (platform contract section 5).",
+          "pattern": "^EV-[A-Za-z0-9._:-]{1,60}$",
+          "title": "Evidenceid",
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/EvidenceType"
+        },
+        "status": {
+          "$ref": "#/$defs/EvidenceStatus"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Content hash; provenance anchor.",
+          "title": "Sha256"
+        },
+        "createdAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 UTC instant, e.g. 2026-08-26T10:15:30.123Z",
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Createdat"
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Short human description.",
+          "title": "Summary"
+        },
+        "version": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "merchantId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Merchantid"
+        },
+        "transactionId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Transactionid"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EvidenceSource"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "objectKey": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Objectkey"
+        },
+        "filename": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Filename"
+        },
+        "contentType": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Contenttype"
+        },
+        "sizeBytes": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sizebytes"
+        },
+        "sourceEventId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sourceeventid"
+        },
+        "parentEvidenceId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parentevidenceid"
+        },
+        "relatedEntityId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Relatedentityid"
+        },
+        "qualityScore": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Qualityscore"
+        },
+        "provenanceVerified": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provenanceverified"
+        },
+        "observedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 UTC instant, e.g. 2026-08-26T10:15:30.123Z",
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observedat"
+        },
+        "expiresAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 UTC instant, e.g. 2026-08-26T10:15:30.123Z",
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expiresat"
+        }
+      },
+      "required": [
+        "evidenceId",
+        "type",
+        "status"
+      ],
+      "title": "EvidenceRef",
+      "type": "object"
+    },
+    "EvidenceSource": {
+      "enum": [
+        "PSP_ADAPTER",
+        "ORDER_SYSTEM",
+        "LOGISTICS",
+        "CRM",
+        "DOCUMENT_UPLOAD",
+        "MERCHANT_PORTAL",
+        "SIMULATOR",
+        "INTERNAL_DERIVED"
+      ],
+      "title": "EvidenceSource",
+      "type": "string"
+    },
+    "EvidenceStatus": {
+      "enum": [
+        "PENDING",
+        "ACTIVE",
+        "EXPIRING",
+        "EXPIRED",
+        "INVALIDATED",
+        "SUPERSEDED"
+      ],
+      "title": "EvidenceStatus",
+      "type": "string"
+    },
+    "EvidenceType": {
+      "enum": [
+        "PAYMENT_PROOF",
+        "INVOICE",
+        "ORDER_RECORD",
+        "SHIPPING_RECORD",
+        "DELIVERY_PROOF",
+        "REFUND_RECEIPT",
+        "CUSTOMER_COMMUNICATION",
+        "MERCHANT_POLICY",
+        "TERMS_OF_SERVICE",
+        "AVS_CVV_RESULT",
+        "DEVICE_FINGERPRINT",
+        "PRIOR_TRANSACTION_HISTORY",
+        "SIGNED_CONTRACT"
+      ],
+      "title": "EvidenceType",
+      "type": "string"
+    },
+    "GapRef": {
+      "description": "One readiness gap (contract 9.1 ``gaps[]``).",
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/GapType"
+        },
+        "evidenceType": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EvidenceType"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "severity": {
+          "$ref": "#/$defs/GapSeverity",
+          "default": "MEDIUM"
+        },
+        "gapId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Gapid"
+        },
+        "transactionId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Transactionid"
+        },
+        "evidenceId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Id of the entity this gap points at. An evidence id (EV-) when the gap is about a document; for CONTRADICTORY gaps the Java GapDetector reuses ContradictionView.left(), which is a domain entity id (DLV-, SHP-, ORD-, TX-, ...) whenever no evidence documents the entity. Not pattern-constrained for that reason.",
+          "title": "Evidenceid"
+        },
+        "detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detail"
+        },
+        "detectedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 UTC instant, e.g. 2026-08-26T10:15:30.123Z",
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detectedat"
+        },
+        "expiresAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 UTC instant, e.g. 2026-08-26T10:15:30.123Z",
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expiresat"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "GapRef",
+      "type": "object"
+    },
+    "GapSeverity": {
+      "enum": [
+        "LOW",
+        "MEDIUM",
+        "HIGH",
+        "CRITICAL"
+      ],
+      "title": "GapSeverity",
+      "type": "string"
+    },
+    "GapType": {
+      "enum": [
+        "MISSING",
+        "EXPIRED",
+        "EXPIRING_SOON",
+        "CONTRADICTORY",
+        "UNVERIFIABLE_PROVENANCE",
+        "LOW_QUALITY",
+        "VERSION_CONFLICT"
+      ],
+      "title": "GapType",
+      "type": "string"
+    },
+    "HistoricalContext": {
+      "description": "Merchant-level priors (contract 9.1 ``historicalContext``).",
+      "properties": {
+        "merchantWinRate": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Merchantwinrate",
+          "type": "number"
+        },
+        "similarCases": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Similarcases",
+          "type": "integer"
+        }
+      },
+      "title": "HistoricalContext",
+      "type": "object"
+    },
+    "Money": {
+      "description": "(amountMinor, currency) - the only monetary representation in PDEI.\n\nMirrors ``com.laserpay.pdei.common.money.Money`` and the TypeScript\n``{ amountMinor: number; currency: string }``. Formatting happens at render\ntime only; arithmetic here stays in integer minor units.",
+      "properties": {
+        "amountMinor": {
+          "description": "Amount in minor units (paise, cents). Integer, never a float.",
+          "title": "Amountminor",
+          "type": "integer"
+        },
+        "currency": {
+          "description": "ISO-4217 alphabetic code, uppercase, exactly 3 letters.",
+          "title": "Currency",
+          "type": "string"
+        }
+      },
+      "required": [
+        "amountMinor",
+        "currency"
+      ],
+      "title": "Money",
+      "type": "object"
+    },
+    "PolicyConstraints": {
+      "description": "Deterministic limits the model is told about (contract 9.1 ``policyConstraints``).\n\nTelling the model the thresholds does not give it authority over them: the\nJava policy gate re-applies every one of these after the fact. It simply\nstops the model from proposing something that is guaranteed to be refused.",
+      "properties": {
+        "autoPrepareMinConfidence": {
+          "default": 0.9,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Autoprepareminconfidence",
+          "type": "number"
+        },
+        "maxContradictions": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Maxcontradictions",
+          "type": "integer"
+        },
+        "prohibitedEvidenceTypes": {
+          "items": {
+            "$ref": "#/$defs/EvidenceType"
+          },
+          "title": "Prohibitedevidencetypes",
+          "type": "array"
+        }
+      },
+      "title": "PolicyConstraints",
+      "type": "object"
+    },
+    "RequirementRef": {
+      "description": "One evidence requirement for this reason code (contract 9.1 ``requirements[]``).",
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/EvidenceType"
+        },
+        "strength": {
+          "$ref": "#/$defs/RequirementStrength"
+        },
+        "satisfied": {
+          "default": false,
+          "title": "Satisfied",
+          "type": "boolean"
+        },
+        "satisfyingEvidenceIds": {
+          "items": {
+            "description": "Evidence identifier. Always prefixed EV- (platform contract section 5).",
+            "pattern": "^EV-[A-Za-z0-9._:-]{1,60}$",
+            "type": "string"
+          },
+          "title": "Satisfyingevidenceids",
+          "type": "array"
+        },
+        "weight": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Weight"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        }
+      },
+      "required": [
+        "type",
+        "strength"
+      ],
+      "title": "RequirementRef",
+      "type": "object"
+    },
+    "RequirementStrength": {
+      "enum": [
+        "MANDATORY",
+        "RECOMMENDED",
+        "OPTIONAL",
+        "PROHIBITED"
+      ],
+      "title": "RequirementStrength",
+      "type": "string"
+    },
+    "TimelineEntry": {
+      "description": "One entry of the unified event/evidence timeline (contract 9.1 ``timeline[]``).",
+      "properties": {
+        "at": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 UTC instant, e.g. 2026-08-26T10:15:30.123Z",
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "At"
+        },
+        "eventType": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Eventtype"
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Summary"
+        },
+        "entryId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Entryid"
+        },
+        "aggregateType": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AggregateType"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "aggregateId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Aggregateid"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source"
+        },
+        "details": {
+          "additionalProperties": true,
+          "title": "Details",
+          "type": "object"
+        }
+      },
+      "title": "TimelineEntry",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "investigationId": {
+      "pattern": "^INV-[A-Za-z0-9._:-]{1,60}$",
+      "title": "Investigationid",
+      "type": "string"
+    },
+    "caseId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Caseid"
+    },
+    "disputeId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Disputeid"
+    },
+    "merchantId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Merchantid"
+    },
+    "transactionId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Transactionid"
+    },
+    "reasonCode": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DisputeReasonCode"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "disputeAmount": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Money"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "deadlineAt": {
+      "anyOf": [
+        {
+          "description": "ISO-8601 UTC instant, e.g. 2026-08-26T10:15:30.123Z",
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Deadlineat"
+    },
+    "transactionSummary": {
+      "additionalProperties": true,
+      "title": "Transactionsummary",
+      "type": "object"
+    },
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/EvidenceRef"
+      },
+      "title": "Evidence",
+      "type": "array"
+    },
+    "requirements": {
+      "items": {
+        "$ref": "#/$defs/RequirementRef"
+      },
+      "title": "Requirements",
+      "type": "array"
+    },
+    "gaps": {
+      "items": {
+        "$ref": "#/$defs/GapRef"
+      },
+      "title": "Gaps",
+      "type": "array"
+    },
+    "contradictions": {
+      "items": {
+        "$ref": "#/$defs/ContradictionRef"
+      },
+      "title": "Contradictions",
+      "type": "array"
+    },
+    "policyConstraints": {
+      "$ref": "#/$defs/PolicyConstraints"
+    },
+    "timeline": {
+      "items": {
+        "$ref": "#/$defs/TimelineEntry"
+      },
+      "title": "Timeline",
+      "type": "array"
+    },
+    "historicalContext": {
+      "$ref": "#/$defs/HistoricalContext"
+    }
+  },
+  "required": [
+    "investigationId"
+  ],
+  "type": "object"
+}

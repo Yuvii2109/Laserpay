@@ -1,0 +1,108 @@
+[project]
+name = "pdei-ai"
+version = "0.1.0"
+description = "PDEI ai-reasoning-service — the only place AI model code lives (platform contract 8.6 / 9)."
+readme = "context.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+authors = [{ name = "Laserpay PDEI" }]
+
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.7",
+    "httpx>=0.27",
+    "google-genai>=0.3",
+    "tenacity>=8.3",
+    "redis>=5.0",
+    "prometheus-client>=0.20",
+    "opentelemetry-sdk>=1.25",
+    "opentelemetry-exporter-otlp-proto-http>=1.25",
+    "opentelemetry-instrumentation-fastapi>=0.46b0",
+    "structlog>=24.1",
+    "python-json-logger>=2.0",
+    "jsonschema>=4.22",
+]
+
+[project.scripts]
+pdei-ai = "pdei_ai.main:run"
+pdei-ai-export-schemas = "pdei_ai.schemas_export:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+    "respx>=0.21",
+    "ruff>=0.5",
+    "mypy>=1.10",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pdei_ai"]
+
+[tool.uv]
+package = true
+
+# ---------------------------------------------------------------------------
+# ruff
+# NOTE: pep8-naming (N) is deliberately NOT selected. Model field names are
+# camelCase on purpose: they must be byte-identical to platform contract 9.1 /
+# 9.2 and to the Java records in evidence-core. Cross-language field parity wins
+# over Python naming convention here.
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "W", "C4", "SIM", "RUF"]
+ignore = [
+    "B008",    # FastAPI Depends() in defaults is idiomatic
+    "RUF012",  # ClassVar annotations not required for our constant tables
+    # UP042 suggests enum.StrEnum for the `str, Enum` mixin in models/enums.py.
+    # Declined deliberately: StrEnum changes `str(member)` from
+    # "EvidenceType.DELIVERY_PROOF" to "DELIVERY_PROOF", which makes log lines
+    # and error messages ambiguous about which enum a bare wire value came from.
+    # The explicit `str` mixin also states the intent - these are wire strings
+    # shared with Java and TypeScript - at the point of declaration.
+    "UP042",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+# ---------------------------------------------------------------------------
+# mypy
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.11"
+plugins = []
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = false
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+no_implicit_optional = true
+strict_equality = true
+ignore_missing_imports = true
+exclude = "(^tests/|^build/)"
+
+[[tool.mypy.overrides]]
+module = ["google.*", "opentelemetry.*", "structlog.*", "pythonjsonlogger.*", "redis.*"]
+ignore_missing_imports = true
+
+# ---------------------------------------------------------------------------
+# pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-q --strict-markers"
+filterwarnings = ["ignore::DeprecationWarning"]

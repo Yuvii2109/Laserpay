@@ -1,0 +1,168 @@
+# =====================================================================================
+# case-orchestrator-service  |  port 8085  |  PLATFORM-CONTRACT sections 2, 4, 10, 13, 15
+#
+# Owns the long-running dispute workflow on Temporal (namespace pdei, task queue
+# pdei-dispute-cases). Every environment variable name below comes from contract section 15.
+# =====================================================================================
+
+server:
+  port: 8085
+  shutdown: graceful
+
+spring:
+  application:
+    name: case-orchestrator-service
+
+  lifecycle:
+    # Long enough for in-flight activities to finish before the worker is torn down.
+    timeout-per-shutdown-phase: 30s
+
+  datasource:
+    url: ${PDEI_POSTGRES_URL:jdbc:postgresql://localhost:5432/pdei}
+    username: ${PDEI_POSTGRES_USER:pdei}
+    password: ${PDEI_POSTGRES_PASSWORD:pdei}
+    hikari:
+      # Activity threads are the consumers of this pool; keep it comfortably above the
+      # activity slot count divided by the fraction of time an activity spends in SQL.
+      maximum-pool-size: 20
+      minimum-idle: 4
+      pool-name: pdei-orchestrator-pool
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        default_schema: pdei
+
+  flyway:
+    # platform-persistence owns the migrations (contract section 5). This service never
+    # migrates: it would race the other eleven modules on startup.
+    enabled: false
+
+  data:
+    redis:
+      url: ${PDEI_REDIS_URL:redis://localhost:6379}
+      timeout: 2s
+
+  kafka:
+    bootstrap-servers: ${PDEI_KAFKA_BOOTSTRAP:localhost:29092}
+    consumer:
+      group-id: pdei-case-orchestrator-service
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+    producer:
+      acks: all
+
+  # -----------------------------------------------------------------------------------
+  # Temporal (io.temporal:temporal-spring-boot-starter-alpha)
+  # Workers are discovered from @WorkflowImpl / @ActivityImpl in the package below.
+  # The DataConverter, worker sizing and client identity come from config.TemporalConfig.
+  # -----------------------------------------------------------------------------------
+  temporal:
+    namespace: pdei
+    connection:
+      target: ${PDEI_TEMPORAL_TARGET:localhost:7233}
+    start-workers: true
+    workers-auto-discovery:
+      packages: com.laserpay.pdei.orchestrator
+    workers:
+      - task-queue: pdei-dispute-cases
+        name: pdei-dispute-cases
+
+# -------------------------------------------------------------------------------------
+# evidence-core (see backend/evidence-core/context.md section 12)
+# -------------------------------------------------------------------------------------
+pdei:
+  core:
+    storage:
+      endpoint: ${PDEI_MINIO_ENDPOINT:http://localhost:9000}
+      access-key: ${PDEI_MINIO_ACCESS_KEY:pdei-minio}
+      secret-key: ${PDEI_MINIO_SECRET_KEY:pdei-minio-secret}
+      ensure-buckets-on-startup: true
+    ai:
+      service-url: ${PDEI_AI_SERVICE_URL:http://localhost:8000}
+      service-token: ${PDEI_SERVICE_TOKEN:dev-service-token}
+
+  # -----------------------------------------------------------------------------------
+  # Workflow behaviour. Timers are pinned into each workflow input at start time, so a
+  # change here applies to NEW cases only - a running case keeps the timings it began
+  # with, because changing them mid-flight would break its replay.
+  # -----------------------------------------------------------------------------------
+  orchestrator:
+    start-workflows-from-events: true
+    default-actor: case-orchestrator-service
+    workflow-execution-timeout: 90d
+    workflow-task-timeout: 20s
+
+    timers:
+      missing-evidence-wait: 7d        # contract section 10: step 4 is capped at 7 days
+      evidence-wait-slice: 12h         # how often step 4 re-evaluates; does not extend the budget
+      human-approval-timeout: 48h      # step 8 first window; expiry emits CaseEscalated
+      escalation-timeout: 72h          # step 8 second window; expiry closes the case
+      follow-up-interval: 24h          # step 11 tick
+      follow-up-max-duration: 45d      # step 11 ceiling
+      continue-as-new-history-threshold: 8000
+      max-assessment-rounds: 3         # how often steps 2-8 may repeat
+
+    worker:
+      max-concurrent-workflow-task-executors: 20
+      max-concurrent-activity-executors: 60
+      max-concurrent-local-activity-executors: 20
+      workflow-cache-size: 200
+      shutdown-timeout: 30s
+
+# -------------------------------------------------------------------------------------
+# Observability (contract section 13)
+# -------------------------------------------------------------------------------------
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics,loggers
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always
+  metrics:
+    tags:
+      service: case-orchestrator-service
+  tracing:
+    sampling:
+      probability: 1.0
+
+logging:
+  level:
+    root: INFO
+    com.laserpay.pdei: INFO
+    io.temporal: INFO
+    # The workflow logger is replay-aware; DEBUG here shows every step transition.
+    com.laserpay.pdei.orchestrator.workflow: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%X{traceId:-},%X{spanId:-}] %logger{36} - %msg%n"
+
+---
+# =====================================================================================
+# Local development: shorter timers so a full twelve-step case is demonstrable by hand.
+# Activate with SPRING_PROFILES_ACTIVE=local.
+# =====================================================================================
+spring:
+  config:
+    activate:
+      on-profile: local
+
+pdei:
+  orchestrator:
+    timers:
+      missing-evidence-wait: 5m
+      evidence-wait-slice: 30s
+      human-approval-timeout: 2m
+      escalation-timeout: 3m
+      follow-up-interval: 30s
+      follow-up-max-duration: 10m
+
+logging:
+  level:
+    com.laserpay.pdei.orchestrator: DEBUG

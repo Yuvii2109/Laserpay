@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.laserpay.pdei</groupId>
+    <artifactId>pdei-backend</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>normalization-worker</artifactId>
+  <packaging>jar</packaging>
+
+  <name>normalization-worker</name>
+  <description>
+    PDEI normalization-worker (port 8082). Consumes pdei.raw.events.v1, upcasts legacy schema
+    versions, translates each source system's shape into a CanonicalEvent through a SourceAdapter,
+    and publishes to pdei.canonical.events.v1. Anything unmappable goes to pdei.dlq.v1 — never
+    silently dropped.
+
+    Deliberately does NOT depend on evidence-core: normalization owns translation only. It never
+    creates evidence, never touches financial projections and never calls the AI service.
+  </description>
+
+  <dependencies>
+    <!-- Canonical envelope, enums, topics, header names, Json/Money/Ids helpers. -->
+    <dependency>
+      <groupId>com.laserpay.pdei</groupId>
+      <artifactId>platform-common</artifactId>
+    </dependency>
+
+    <!-- ProcessedEventRepository: the durable (eventId, consumerGroup) idempotency ledger. -->
+    <dependency>
+      <groupId>com.laserpay.pdei</groupId>
+      <artifactId>platform-persistence</artifactId>
+    </dependency>
+
+    <!-- Worker, not a server: plain starter, no embedded servlet container from web. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter</artifactId>
+    </dependency>
+
+    <!--
+      Actuator needs an HTTP endpoint on 8082 for /actuator/health and /actuator/prometheus
+      (PLATFORM-CONTRACT sections 2 and 13), so the web starter is required even though this
+      module exposes no application REST surface of its own.
+    -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-registry-prometheus</artifactId>
+    </dependency>
+
+    <!-- Kafka consumer (raw) + producer (canonical, DLQ). -->
+    <dependency>
+      <groupId>org.springframework.kafka</groupId>
+      <artifactId>spring-kafka</artifactId>
+    </dependency>
+
+    <!-- Redis: fast-path dedupe cache in front of processed_events (contract section 12). -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-redis</artifactId>
+    </dependency>
+
+    <!-- W3C traceparent extract/inject across the Kafka boundary (contract section 13). -->
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-api</artifactId>
+    </dependency>
+
+    <!-- test -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.kafka</groupId>
+      <artifactId>spring-kafka-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <finalName>normalization-worker</finalName>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>

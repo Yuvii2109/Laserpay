@@ -1,0 +1,126 @@
+# PDEI - OpenTelemetry Collector (contrib distribution).
+#
+# One OTLP front door for every service (contract section 13:
+# OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318), fanned out to the three
+# backends:
+#
+#   traces  -> Tempo   (OTLP gRPC)
+#   metrics -> Prometheus exposition on :8889, scraped by Prometheus
+#   logs    -> Loki    (OTLP HTTP; Loki 3.x ingests OTLP natively at /otlp)
+#
+# Everything is batched. Nothing is sampled: at local volumes a full trace is worth more
+# than a cheap one, and the sampling decision belongs in production config, not here.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+        max_recv_msg_size_mib: 16
+      http:
+        endpoint: 0.0.0.0:4318
+        cors:
+          allowed_origins:
+            - http://localhost:3000
+            - http://localhost:3001
+
+processors:
+  batch:
+    send_batch_size: 1024
+    send_batch_max_size: 2048
+    timeout: 5s
+
+  memory_limiter:
+    check_interval: 2s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+  # Stamp every signal with the deployment identity so Grafana can split dev from anything
+  # else that ever points at this collector.
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: dev
+        action: upsert
+      - key: service.namespace
+        value: pdei
+        action: upsert
+
+  # Promote the PDEI correlation attributes to resource level when a span/log carries
+  # them, so they survive into Loki labels and Tempo search.
+  attributes/pdei:
+    actions:
+      - key: pdei.merchant_id
+        action: upsert
+        from_attribute: merchantId
+      - key: pdei.correlation_id
+        action: upsert
+        from_attribute: correlationId
+
+exporters:
+  # --- traces -------------------------------------------------------------
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+    retry_on_failure:
+      enabled: true
+      initial_interval: 2s
+      max_interval: 30s
+
+  # --- metrics ------------------------------------------------------------
+  # Pull model: Prometheus scrapes this endpoint (see prometheus.yml job
+  # otel-collector-forwarded). Metric names arrive already prefixed with pdei_ by the
+  # services, so no namespace is added here - that would produce pdei_pdei_*.
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    send_timestamps: true
+    metric_expiration: 5m
+    resource_to_telemetry_conversion:
+      enabled: true
+    enable_open_metrics: true
+
+  # --- logs ---------------------------------------------------------------
+  # Loki 3.x accepts OTLP directly; the deprecated "loki" exporter is deliberately not
+  # used. Resource attributes become Loki stream labels (service_name, and the two
+  # pdei.* attributes promoted above).
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
+    tls:
+      insecure: true
+    retry_on_failure:
+      enabled: true
+
+  debug:
+    verbosity: basic
+    sampling_initial: 2
+    sampling_thereafter: 500
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  pprof:
+    endpoint: 0.0.0.0:1777
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+service:
+  extensions: [health_check, pprof, zpages]
+  telemetry:
+    logs:
+      level: warn
+    metrics:
+      address: 0.0.0.0:8888
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, attributes/pdei, batch]
+      exporters: [otlp/tempo]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, attributes/pdei, batch]
+      exporters: [otlphttp/loki]

@@ -1,0 +1,49 @@
+# PDEI - ai-reasoning-service (Python 3.11 + FastAPI, uv managed).
+# Build context is the repo root (compose sets context: ..).
+#
+#   docker build -f infra/docker/Dockerfile.ai-service -t pdei/ai-reasoning-service:dev .
+
+FROM python:3.11-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    UV_SYSTEM_PYTHON=1 \
+    TZ=UTC \
+    OTEL_SERVICE_NAME=ai-reasoning-service \
+    PDEI_AI_APP=pdei_ai.main:app
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends curl tini \
+ && rm -rf /var/lib/apt/lists/* \
+ && pip install --no-cache-dir uv \
+ && useradd --system --create-home --uid 10002 pdei
+
+WORKDIR /app
+
+# Dependency layer first: project metadata changes far less often than source.
+COPY ai-reasoning-service/pyproject.toml ai-reasoning-service/uv.lock* ai-reasoning-service/requirements*.txt* /app/
+
+RUN set -eux; \
+    if [ -f /app/pyproject.toml ]; then \
+        uv pip install --system /app 2>/dev/null || true; \
+    fi; \
+    if [ -f /app/requirements.txt ]; then \
+        uv pip install --system -r /app/requirements.txt; \
+    fi; \
+    # Guarantee the server itself is present even before the service module exists.
+    uv pip install --system "fastapi>=0.115" "uvicorn[standard]>=0.30" "pydantic>=2.9"
+
+COPY ai-reasoning-service/ /app/
+
+# Install the package itself (editable) now that the sources are in place. Tolerated as a
+# no-op while ai-reasoning-service/ is still a skeleton without a build backend.
+RUN uv pip install --system -e /app 2>/dev/null || echo "[build] editable install skipped"
+
+RUN chown -R pdei:pdei /app
+USER pdei
+
+EXPOSE 8000
+
+ENTRYPOINT ["/usr/bin/tini", "--", "/bin/sh", "-c"]
+CMD ["exec uvicorn \"$PDEI_AI_APP\" --host 0.0.0.0 --port 8000 --proxy-headers"]

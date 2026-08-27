@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.laserpay.pdei</groupId>
+    <artifactId>pdei-backend</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>api-gateway-service</artifactId>
+  <name>api-gateway-service</name>
+  <description>
+    PDEI merchant-facing REST/WebSocket/SSE gateway (PLATFORM-CONTRACT.md section 8.1, port 8080).
+    The only backend the frontend talks to, and the read-only tool surface the Python AI service
+    calls back into. Owns no domain logic: it orchestrates evidence-core services.
+  </description>
+
+  <properties>
+    <springdoc.version>2.6.0</springdoc.version>
+    <opentelemetry-instrumentation.version>2.8.0</opentelemetry-instrumentation.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <!-- OTel instrumentation BOM: the reactor root pins the OTel API/SDK BOM (1.42.1) but not
+           the Spring Boot starter, which lives in the instrumentation coordinates. -->
+      <dependency>
+        <groupId>io.opentelemetry.instrumentation</groupId>
+        <artifactId>opentelemetry-instrumentation-bom</artifactId>
+        <version>${opentelemetry-instrumentation.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+    <!-- Shared PDEI modules -->
+    <dependency>
+      <groupId>com.laserpay.pdei</groupId>
+      <artifactId>platform-common</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.laserpay.pdei</groupId>
+      <artifactId>platform-persistence</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.laserpay.pdei</groupId>
+      <artifactId>evidence-core</artifactId>
+    </dependency>
+
+    <!-- Web / streaming -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-websocket</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-validation</artifactId>
+    </dependency>
+
+    <!-- Ops -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-registry-prometheus</artifactId>
+    </dependency>
+
+    <!-- Rate limiting + stream dedupe (contract section 12 key namespace) -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-redis</artifactId>
+    </dependency>
+
+    <!-- Control-tower fan-out consumer -->
+    <dependency>
+      <groupId>org.springframework.kafka</groupId>
+      <artifactId>spring-kafka</artifactId>
+    </dependency>
+
+    <!-- API docs -->
+    <dependency>
+      <groupId>org.springdoc</groupId>
+      <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+      <version>${springdoc.version}</version>
+    </dependency>
+
+    <!-- Tracing -->
+    <dependency>
+      <groupId>io.opentelemetry.instrumentation</groupId>
+      <artifactId>opentelemetry-spring-boot-starter</artifactId>
+    </dependency>
+
+    <!-- Runtime driver (schema owned by platform-persistence) -->
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+
+    <!-- Test -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>testcontainers</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>postgresql</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <finalName>api-gateway-service</finalName>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>

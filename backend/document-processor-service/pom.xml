@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.laserpay.pdei</groupId>
+    <artifactId>pdei-backend</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>document-processor-service</artifactId>
+  <packaging>jar</packaging>
+
+  <name>document-processor-service</name>
+  <description>
+    PDEI document-processor-service (port 8086, package com.laserpay.pdei.docproc).
+    Consumes pdei.evidence.events.v1, fetches the artifact from MinIO through the evidence-core
+    ObjectStore, extracts text + metadata with Apache Tika / PDFBox / a dedicated .eml reader,
+    verifies sha256, writes the extracted text into the evidence FTS column, and re-emits an
+    EVIDENCE event so readiness recomputes against searchable text.
+  </description>
+
+  <dependencies>
+    <!--
+      evidence-core transitively supplies platform-common, platform-persistence (JPA + Flyway +
+      Postgres driver), spring-kafka, spring-data-redis, MinIO and micrometer-core. This module
+      adds only what is genuinely its own: the web layer and the document parsers.
+    -->
+    <dependency>
+      <groupId>com.laserpay.pdei</groupId>
+      <artifactId>evidence-core</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-registry-prometheus</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+
+    <!-- Document processing (reference section 25: Tika + PDFBox, no OCR). -->
+    <dependency>
+      <groupId>org.apache.tika</groupId>
+      <artifactId>tika-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.tika</groupId>
+      <artifactId>tika-parsers-standard-package</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.pdfbox</groupId>
+      <artifactId>pdfbox</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-configuration-processor</artifactId>
+      <optional>true</optional>
+    </dependency>
+
+    <!-- test -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>

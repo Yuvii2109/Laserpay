@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pdei.laserpay.com/events/readiness-gap-detected.schema.json",
+  "title": "ReadinessGapDetected payload",
+  "description": "One or more evidence gaps detected. Drives the GAP_DETECTED frame and the at-risk feed behind GET /gaps.",
+  "x-pdei-event-type": "ReadinessGapDetected",
+  "x-pdei-aggregate-type": "TRANSACTION",
+  "x-pdei-origin": "INTERNAL",
+  "x-pdei-schema-version": 1,
+  "type": "object",
+  "required": [
+    "transactionId",
+    "merchantId",
+    "gaps"
+  ],
+  "properties": {
+    "transactionId": {
+      "$ref": "#/$defs/prefixedId"
+    },
+    "merchantId": {
+      "$ref": "#/$defs/merchantId"
+    },
+    "gaps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/gap"
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "evidenceType": {
+      "enum": [
+        "PAYMENT_PROOF",
+        "INVOICE",
+        "ORDER_RECORD",
+        "SHIPPING_RECORD",
+        "DELIVERY_PROOF",
+        "REFUND_RECEIPT",
+        "CUSTOMER_COMMUNICATION",
+        "MERCHANT_POLICY",
+        "TERMS_OF_SERVICE",
+        "AVS_CVV_RESULT",
+        "DEVICE_FINGERPRINT",
+        "PRIOR_TRANSACTION_HISTORY",
+        "SIGNED_CONTRACT"
+      ],
+      "description": "EvidenceType (PLATFORM-CONTRACT section 6)."
+    },
+    "gap": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "type",
+        "severity"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "MISSING",
+            "EXPIRED",
+            "EXPIRING_SOON",
+            "CONTRADICTORY",
+            "UNVERIFIABLE_PROVENANCE",
+            "LOW_QUALITY",
+            "VERSION_CONFLICT"
+          ]
+        },
+        "evidenceType": {
+          "$ref": "#/$defs/evidenceType"
+        },
+        "severity": {
+          "enum": [
+            "LOW",
+            "MEDIUM",
+            "HIGH",
+            "CRITICAL"
+          ]
+        },
+        "detail": {
+          "type": "string"
+        },
+        "detectedAt": {
+          "$ref": "#/$defs/instant"
+        }
+      }
+    },
+    "instant": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 instant in UTC, e.g. 2026-08-26T10:15:30.123Z."
+    },
+    "merchantId": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 64,
+      "pattern": "^MER-[A-Za-z0-9._:-]+$"
+    },
+    "prefixedId": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64,
+      "pattern": "^[A-Z]{2,4}-[A-Za-z0-9._:-]+$",
+      "description": "Human-readable prefixed identifier (PLATFORM-CONTRACT section 5)."
+    }
+  }
+}

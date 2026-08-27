@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pdei.laserpay.com/events/shipment-delivered.schema.json",
+  "title": "ShipmentDelivered payload",
+  "description": "Delivery confirmed. Derives DELIVERY_PROOF - the single most decisive artifact for GOODS_NOT_RECEIVED, which is why its absence is a CRITICAL gap. Contradiction sources: deliveredAt earlier than ShipmentDispatched.dispatchedAt; deliveryAddress not matching OrderCreated.shippingAddress.",
+  "x-pdei-event-type": "ShipmentDelivered",
+  "x-pdei-aggregate-type": "SHIPMENT",
+  "x-pdei-origin": "EXTERNAL",
+  "x-pdei-schema-version": 1,
+  "type": "object",
+  "required": [
+    "shipmentId",
+    "deliveredAt"
+  ],
+  "properties": {
+    "shipmentId": {
+      "$ref": "#/$defs/prefixedId"
+    },
+    "deliveryId": {
+      "$ref": "#/$defs/prefixedId"
+    },
+    "deliveredAt": {
+      "$ref": "#/$defs/instant"
+    },
+    "signedBy": {
+      "type": "string"
+    },
+    "deliveryAddress": {
+      "$ref": "#/$defs/address"
+    },
+    "proofType": {
+      "enum": [
+        "SIGNATURE",
+        "PHOTO",
+        "OTP",
+        "GPS"
+      ]
+    },
+    "proofObjectKey": {
+      "type": "string"
+    },
+    "geo": {
+      "$ref": "#/$defs/geo"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "address": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "line1": {
+          "type": "string"
+        },
+        "line2": {
+          "type": "string"
+        },
+        "city": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "postalCode": {
+          "type": "string"
+        },
+        "country": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$"
+        }
+      }
+    },
+    "geo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lat",
+        "lon"
+      ],
+      "properties": {
+        "lat": {
+          "type": "number"
+        },
+        "lon": {
+          "type": "number"
+        }
+      },
+      "description": "Geo coordinate. Not money: a plain number is correct here."
+    },
+    "instant": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 instant in UTC, e.g. 2026-08-26T10:15:30.123Z."
+    },
+    "prefixedId": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64,
+      "pattern": "^[A-Z]{2,4}-[A-Za-z0-9._:-]+$",
+      "description": "Human-readable prefixed identifier (PLATFORM-CONTRACT section 5)."
+    }
+  }
+}

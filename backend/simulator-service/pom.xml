@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.laserpay.pdei</groupId>
+    <artifactId>pdei-backend</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>simulator-service</artifactId>
+  <packaging>jar</packaging>
+
+  <name>simulator-service</name>
+  <description>
+    PDEI simulator-service (port 8088, package com.laserpay.pdei.simulator).
+    The synthetic financial world and the chaos engine: a deterministic, seed-reproducible
+    generator of merchants, transactions, evidence and disputes; a rate-limited emitter onto
+    pdei.raw.events.v1; every ChaosType from PLATFORM-CONTRACT.md section 6; and a replay
+    service that re-consumes a topic from an offset or a timestamp.
+  </description>
+
+  <dependencies>
+    <!--
+      evidence-core transitively supplies platform-common, platform-persistence (simulation_runs
+      and chaos_injections live there), spring-kafka, spring-data-redis and the MinIO ObjectStore
+      used by the evidence-targeting chaos types and the synthetic artifact uploader.
+    -->
+    <dependency>
+      <groupId>com.laserpay.pdei</groupId>
+      <artifactId>evidence-core</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-registry-prometheus</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+
+    <!--
+      kafka-clients is declared explicitly (rather than relied on transitively through
+      spring-kafka) because ReplayService drives a raw KafkaConsumer: assign + seek + poll, with
+      no listener container. That is a direct, deliberate dependency of this module.
+    -->
+    <dependency>
+      <groupId>org.apache.kafka</groupId>
+      <artifactId>kafka-clients</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-configuration-processor</artifactId>
+      <optional>true</optional>
+    </dependency>
+
+    <!-- test -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>

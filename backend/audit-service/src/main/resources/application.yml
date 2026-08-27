@@ -1,0 +1,143 @@
+# =====================================================================================
+# audit-service | PDEI (Pre-Dispute Evidence Intelligence)
+# Port 8087 (docs/PLATFORM-CONTRACT.md section 2). Consumer group pdei-audit-service.
+# REST base path /audit/v1 (contract section 8.4).
+# =====================================================================================
+server:
+  port: 8087
+  shutdown: graceful
+# No servlet context-path: the REST base /audit/v1 is declared on AuditController instead, so
+# /actuator/health and /actuator/prometheus stay at the paths the contract fixes (section 2).
+
+spring:
+  application:
+    name: audit-service
+  main:
+    banner-mode: "off"
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
+  datasource:
+    url: ${PDEI_POSTGRES_URL:jdbc:postgresql://postgres:5432/pdei}
+    username: ${PDEI_POSTGRES_USER:pdei}
+    password: ${PDEI_POSTGRES_PASSWORD:pdei}
+    hikari:
+      pool-name: pdei-audit-pool
+      maximum-pool-size: 10
+      minimum-idle: 2
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate.jdbc.time_zone: UTC
+
+  flyway:
+    enabled: ${PDEI_FLYWAY_ENABLED:true}
+    schemas: pdei
+    default-schema: pdei
+    create-schemas: true
+    locations: classpath:db/migration
+
+  data:
+    redis:
+      url: ${PDEI_REDIS_URL:redis://redis:6379}
+      timeout: 2s
+
+  kafka:
+    bootstrap-servers: ${PDEI_KAFKA_BOOTSTRAP:kafka:9092}
+    consumer:
+      group-id: pdei-audit-service
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      max-poll-records: 200
+      properties:
+        spring.json.trusted.packages: com.laserpay.pdei.*
+        max.poll.interval.ms: 300000
+    listener:
+      ack-mode: manual_immediate
+      # Deliberately 1: appends to one merchant chain must not race each other more than the
+      # Redis lock and the unique index already tolerate. See context.md section 6.
+      concurrency: 1
+      missing-topics-fatal: false
+    producer:
+      acks: all
+      properties:
+        enable.idempotence: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics,loggers
+      base-path: /actuator
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always
+  metrics:
+    tags:
+      service: audit-service
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    metrics:
+      export:
+        enabled: false
+
+pdei:
+  core:
+    storage:
+      # audit-service stores no objects.
+      ensure-buckets-on-startup: false
+    audit:
+      lock-ttl: 30s
+      # This service IS the audit sink; re-publishing what it consumes would be a loop.
+      publish-to-kafka: false
+
+  audit:
+    # pdei:lock:audit:{merchantId} - keeps a merchant chain linear across replicas.
+    chain-lock-ttl: 30s
+    chain-lock-attempts: 5
+    chain-lock-backoff: 50ms
+    # Retries when the (merchant_id, previous_hash) unique index rejects a concurrent append.
+    append-max-attempts: 5
+    idempotency-ttl: 7d
+    # Trust a producer-supplied hash when it verifies AND links to our current chain head.
+    accept-presealed-links: true
+
+    consume:
+      audit-topic: true
+      canonical-events: true
+      evidence-events: true
+      readiness-events: true
+      dispute-events: true
+      case-events: true
+
+    api:
+      default-page-size: 50
+      max-page-size: 500
+      # Whole-chain verification is O(chain); bound what one HTTP call may walk.
+      max-verify-events: 100000
+      export-batch-size: 500
+      max-export-events: 1000000
+
+    retention:
+      # NON-DESTRUCTIVE BY DEFAULT. Deleting from a hash chain breaks it by construction;
+      # see retention/RetentionPolicy.java and context.md section 11.
+      enabled: false
+      dry-run: true
+      retain-days: 2555          # 7 years, the usual card-scheme evidence retention floor
+      report-cron: ${PDEI_AUDIT_RETENTION_CRON:0 45 3 * * *}
+      zone: UTC
+
+logging:
+  level:
+    root: INFO
+    com.laserpay.pdei: INFO
+    org.apache.kafka: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSS'Z',UTC} %-5p [audit-service] [traceId=%X{traceId:-} spanId=%X{spanId:-} merchantId=%X{merchantId:-} correlationId=%X{correlationId:-}] %logger{40} - %m%n"

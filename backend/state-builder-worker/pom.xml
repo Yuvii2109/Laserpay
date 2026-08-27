@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.laserpay.pdei</groupId>
+    <artifactId>pdei-backend</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>state-builder-worker</artifactId>
+  <packaging>jar</packaging>
+
+  <name>state-builder-worker</name>
+  <description>
+    PDEI state-builder-worker (port 8083). Consumes pdei.canonical.events.v1, maintains the
+    financial projections in PostgreSQL (payments, orders, shipments, deliveries, refunds,
+    communications, disputes, transactions), derives evidence from lifecycle facts through
+    evidence-core, and forwards evidence and dispute events onto their dedicated topics.
+
+    Out-of-order safe: every projection row carries the id and occurredAt of the last event
+    applied to it, and an older event is ignored rather than allowed to overwrite newer state.
+  </description>
+
+  <dependencies>
+    <!-- Canonical envelope, enums, topics, Money, Ids. -->
+    <dependency>
+      <groupId>com.laserpay.pdei</groupId>
+      <artifactId>platform-common</artifactId>
+    </dependency>
+
+    <!-- The projection tables and their JPA repositories. -->
+    <dependency>
+      <groupId>com.laserpay.pdei</groupId>
+      <artifactId>platform-persistence</artifactId>
+    </dependency>
+
+    <!--
+      The deterministic domain engine: EvidenceService is what turns a lifecycle fact into a
+      hashed, versioned, audited evidence artifact. This worker never writes the evidence tables
+      directly - all evidence creation goes through evidence-core so provenance and the audit
+      chain cannot be bypassed.
+    -->
+    <dependency>
+      <groupId>com.laserpay.pdei</groupId>
+      <artifactId>evidence-core</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter</artifactId>
+    </dependency>
+
+    <!-- Actuator needs an HTTP endpoint on 8083 (contract sections 2 and 13). -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-registry-prometheus</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.kafka</groupId>
+      <artifactId>spring-kafka</artifactId>
+    </dependency>
+
+    <!-- Redis: idempotency completion cache (contract section 12). -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-redis</artifactId>
+    </dependency>
+
+    <!-- W3C traceparent extract/inject across the Kafka boundary. -->
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-api</artifactId>
+    </dependency>
+
+    <!-- test -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.kafka</groupId>
+      <artifactId>spring-kafka-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <finalName>state-builder-worker</finalName>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>

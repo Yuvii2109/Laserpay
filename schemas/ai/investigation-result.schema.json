@@ -1,0 +1,300 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pdei.laserpay.com/schemas/ai/investigation-result.schema.json",
+  "title": "InvestigationResult",
+  "description": "Schema-constrained AI proposal (platform contract 9.2). A PROPOSAL, not a decision: every field is re-validated by core.safety.AiResultValidator against Postgres before any state changes.",
+  "$defs": {
+    "Citation": {
+      "description": "A factual claim bound to the evidence that supports it (contract 9.2).\n\nA citation whose ``evidenceId`` is not present in the supplied context is\ndropped by ``InvestigationService`` before the result leaves this process,\nand counted in ``pdei_ai_unsupported_claims_total``.",
+      "properties": {
+        "claim": {
+          "description": "One factual statement. No claim without proof.",
+          "minLength": 1,
+          "title": "Claim",
+          "type": "string"
+        },
+        "evidenceId": {
+          "description": "Evidence identifier. Always prefixed EV- (platform contract section 5).",
+          "pattern": "^EV-[A-Za-z0-9._:-]{1,60}$",
+          "title": "Evidenceid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "claim",
+        "evidenceId"
+      ],
+      "title": "Citation",
+      "type": "object"
+    },
+    "ContradictionRef": {
+      "description": "A conflict between two evidence items (contract 9.1 ``contradictions[]``).\n\n``left`` / ``right`` carry an evidence id (``EV-``) when the conflict is\ndocument-backed, and a domain entity id otherwise: ``ContradictionDetector.ref``\non the Java side falls back to the raw entity id (``DLV-``, ``SHP-``, ``ORD-``,\n``REF-``, ``PAY-``) when no evidence documents the entity, and several rules\npass the transaction id (``TX-``) directly. They are therefore plain strings,\nnot ``EvidenceId``. They stay optional because ``ContradictionView.narrative(...)``\non the Java side produces a description with no specific pair attached.",
+      "properties": {
+        "left": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Left side of the conflict: an evidence id when document-backed, otherwise a domain entity id.",
+          "title": "Left"
+        },
+        "right": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Right side of the conflict: an evidence id when document-backed, otherwise a domain entity id.",
+          "title": "Right"
+        },
+        "field": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Conflicting field, e.g. deliveredAt.",
+          "title": "Field"
+        },
+        "detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detail"
+        },
+        "severity": {
+          "$ref": "#/$defs/GapSeverity",
+          "default": "MEDIUM"
+        },
+        "leftValue": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Leftvalue"
+        },
+        "rightValue": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rightvalue"
+        },
+        "detectedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 UTC instant, e.g. 2026-08-26T10:15:30.123Z",
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detectedat"
+        }
+      },
+      "title": "ContradictionRef",
+      "type": "object"
+    },
+    "EvidenceType": {
+      "enum": [
+        "PAYMENT_PROOF",
+        "INVOICE",
+        "ORDER_RECORD",
+        "SHIPPING_RECORD",
+        "DELIVERY_PROOF",
+        "REFUND_RECEIPT",
+        "CUSTOMER_COMMUNICATION",
+        "MERCHANT_POLICY",
+        "TERMS_OF_SERVICE",
+        "AVS_CVV_RESULT",
+        "DEVICE_FINGERPRINT",
+        "PRIOR_TRANSACTION_HISTORY",
+        "SIGNED_CONTRACT"
+      ],
+      "title": "EvidenceType",
+      "type": "string"
+    },
+    "GapSeverity": {
+      "enum": [
+        "LOW",
+        "MEDIUM",
+        "HIGH",
+        "CRITICAL"
+      ],
+      "title": "GapSeverity",
+      "type": "string"
+    },
+    "InvestigationClassification": {
+      "enum": [
+        "DEFENDABLE",
+        "WEAK",
+        "INDEFENSIBLE",
+        "INSUFFICIENT_EVIDENCE",
+        "AMBIGUOUS"
+      ],
+      "title": "InvestigationClassification",
+      "type": "string"
+    },
+    "ModelMetadata": {
+      "description": "Provenance of the answer itself (contract 9.2 ``modelMetadata``).\n\nAlways filled in by this service, never by the model: a provider that could\ndescribe itself could also lie about being deterministic.",
+      "properties": {
+        "provider": {
+          "description": "gemini | mock | null | deterministic",
+          "title": "Provider",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "promptTokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Prompttokens",
+          "type": "integer"
+        },
+        "completionTokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Completiontokens",
+          "type": "integer"
+        },
+        "latencyMs": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Latencyms",
+          "type": "integer"
+        },
+        "attempt": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Attempt",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "provider",
+        "model"
+      ],
+      "title": "ModelMetadata",
+      "type": "object"
+    },
+    "RecommendedAction": {
+      "enum": [
+        "PREPARE_REPRESENTMENT",
+        "GATHER_MORE_EVIDENCE",
+        "ACCEPT_LIABILITY",
+        "ESCALATE_TO_HUMAN",
+        "REQUEST_POLICY_REVIEW"
+      ],
+      "title": "RecommendedAction",
+      "type": "string"
+    }
+  },
+  "properties": {
+    "investigationId": {
+      "pattern": "^INV-[A-Za-z0-9._:-]{1,60}$",
+      "title": "Investigationid",
+      "type": "string"
+    },
+    "classification": {
+      "$ref": "#/$defs/InvestigationClassification"
+    },
+    "confidence": {
+      "default": 0.0,
+      "description": "Model confidence in [0,1]. Never a percentage.",
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Confidence",
+      "type": "number"
+    },
+    "supportingEvidence": {
+      "items": {
+        "description": "Evidence identifier. Always prefixed EV- (platform contract section 5).",
+        "pattern": "^EV-[A-Za-z0-9._:-]{1,60}$",
+        "type": "string"
+      },
+      "title": "Supportingevidence",
+      "type": "array"
+    },
+    "missingEvidence": {
+      "description": "Evidence TYPES that would strengthen the case - types, not ids, because missing evidence has no id yet.",
+      "items": {
+        "$ref": "#/$defs/EvidenceType"
+      },
+      "title": "Missingevidence",
+      "type": "array"
+    },
+    "contradictions": {
+      "items": {
+        "$ref": "#/$defs/ContradictionRef"
+      },
+      "title": "Contradictions",
+      "type": "array"
+    },
+    "reasoningSummary": {
+      "default": "",
+      "description": "Why this classification, in prose.",
+      "title": "Reasoningsummary",
+      "type": "string"
+    },
+    "narrative": {
+      "default": "",
+      "description": "Evidence-backed representment narrative.",
+      "title": "Narrative",
+      "type": "string"
+    },
+    "recommendedAction": {
+      "$ref": "#/$defs/RecommendedAction"
+    },
+    "citations": {
+      "items": {
+        "$ref": "#/$defs/Citation"
+      },
+      "title": "Citations",
+      "type": "array"
+    },
+    "modelMetadata": {
+      "$ref": "#/$defs/ModelMetadata"
+    }
+  },
+  "required": [
+    "investigationId",
+    "classification",
+    "recommendedAction",
+    "modelMetadata"
+  ],
+  "type": "object"
+}

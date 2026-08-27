@@ -1,0 +1,213 @@
+# =====================================================================================
+# simulator-service  |  port 8088  |  com.laserpay.pdei.simulator
+#
+# The synthetic financial world and the chaos engine. Everything destructive is bounded
+# or off by default: container-level chaos needs an explicit opt-in, injections have
+# ceilings on count and delay, and emission is rate limited and back-pressured.
+# =====================================================================================
+server:
+  port: 8088
+  shutdown: graceful
+  error:
+    include-message: never
+    include-stacktrace: never
+
+spring:
+  application:
+    name: simulator-service
+
+  datasource:
+    url: ${PDEI_POSTGRES_URL:jdbc:postgresql://postgres:5432/pdei}
+    username: ${PDEI_POSTGRES_USER:pdei}
+    password: ${PDEI_POSTGRES_PASSWORD:pdei}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      pool-name: simulator-hikari
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      # Flyway (platform-persistence) owns the schema. Hibernate never touches DDL.
+      ddl-auto: none
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+          batch_size: 50
+
+  flyway:
+    enabled: ${PDEI_FLYWAY_ENABLED:false}
+    schemas: pdei
+
+  data:
+    redis:
+      url: ${PDEI_REDIS_URL:redis://redis:6379}
+      timeout: 2s
+
+  kafka:
+    bootstrap-servers: ${PDEI_KAFKA_BOOTSTRAP:kafka:9092}
+    producer:
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      # JsonSerializer, not StringSerializer: both this module's EventEmitter and evidence-core's
+      # KafkaEventPublisher hand the template an object (a RawEventEnvelope, a CanonicalEvent),
+      # never a pre-serialised string. Spring Kafka's enhanced ObjectMapper writes Instant as
+      # ISO-8601 UTC, which is the platform's time rule.
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      # Batching matters here: the simulator is the highest-volume producer in the platform.
+      batch-size: 65536
+      properties:
+        # No __TypeId__ header: the envelope is a cross-language wire contract, and a
+        # Java-class-name header would be both noise and a coupling nobody asked for.
+        spring.json.add.type.headers: false
+        linger.ms: 20
+        compression.type: lz4
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+    consumer:
+      # Only ReplayService consumes, and it builds a throwaway group per replay.
+      group-id: pdei-simulator-service
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+
+pdei:
+  core:
+    storage:
+      endpoint: ${PDEI_MINIO_ENDPOINT:http://minio:9000}
+      access-key: ${PDEI_MINIO_ACCESS_KEY:pdei-minio}
+      secret-key: ${PDEI_MINIO_SECRET_KEY:pdei-minio-secret}
+      ensure-buckets-on-startup: true
+    jdbc:
+      # Enables the evidence-core JDBC ports, which is what supplies the AuditRecorder used to
+      # publish the hash-chained CHAOS_INJECTED notification.
+      enabled: true
+    audit:
+      publish-to-kafka: true
+
+  simulator:
+    emit:
+      events-per-second: ${PDEI_SIM_EVENTS_PER_SECOND:200}
+      max-in-flight: 500
+      progress-update-every: 250
+      topic: pdei.raw.events.v1
+      send-timeout: 30s
+    runs:
+      max-concurrent: 2
+      redis-ttl: 24h
+      retain-stream: true
+      retained-stream-limit: 5000
+    artifacts:
+      # Uploads synthetic evidence bytes to MinIO so document-processor-service has real
+      # documents to extract and integrity checks have real bytes to re-hash.
+      upload: ${PDEI_SIM_UPLOAD_ARTIFACTS:true}
+      max-uploads: 5000
+    chaos:
+      # OFF by default. Enabling this needs the Docker socket exposed over TCP, which is
+      # equivalent to handing out root on the host. Without it, KILL_WORKER /
+      # RESTART_CONSUMER / SLOW_CONSUMER fall back to a Redis control directive and say so.
+      docker-enabled: ${PDEI_SIM_DOCKER_CHAOS:false}
+      docker-host: ${PDEI_SIM_DOCKER_HOST:http://localhost:2375}
+      docker-timeout: 10s
+      container-prefix: pdei-
+      control-key-prefix: "pdei:sim:control:"
+      control-ttl: 5m
+      recent-event-buffer: 2000
+      max-event-count: 500
+      max-delay: 5m
+    replay:
+      max-records: 50000
+      poll-timeout: 2s
+      republish: true
+    cors:
+      # The console at /simulation (contract 14) calls this service directly on 8088 rather than
+      # through the gateway, so every one of those calls is cross-origin and the JSON posts
+      # preflight. Named origins only, mirroring api-gateway-service's pdei.api.cors.
+      allowed-origins:
+        - ${PDEI_FRONTEND_ORIGIN:http://localhost:3000}
+      allowed-methods: [GET, POST, OPTIONS]
+      allow-credentials: false
+      max-age: 1h
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics,loggers
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when-authorized
+  metrics:
+    tags:
+      service: simulator-service
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://otel-collector:4318}/v1/traces
+  tracing:
+    sampling:
+      # The simulator produces the bulk of the platform's events; tracing all of them would
+      # swamp Tempo with traffic that is synthetic by definition.
+      probability: 0.05
+
+logging:
+  level:
+    root: INFO
+    com.laserpay.pdei: INFO
+    org.apache.kafka.clients.producer.ProducerConfig: WARN
+    org.apache.kafka.clients.consumer.ConsumerConfig: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%X{traceId:-},%X{spanId:-}] [%X{merchantId:-}] %logger{36} - %msg%n"
+
+---
+# Local development: infrastructure on localhost, slower emission so the console is watchable.
+spring:
+  config:
+    activate:
+      on-profile: local
+  datasource:
+    url: jdbc:postgresql://localhost:5432/pdei
+  data:
+    redis:
+      url: redis://localhost:6379
+  kafka:
+    bootstrap-servers: localhost:29092
+
+pdei:
+  core:
+    storage:
+      endpoint: http://localhost:9000
+
+  simulator:
+    emit:
+      events-per-second: 50
+
+logging:
+  level:
+    com.laserpay.pdei.simulator: DEBUG
+
+---
+# Test slice: no broker, no object store, no chaos side effects.
+spring:
+  config:
+    activate:
+      on-profile: test
+  flyway:
+    enabled: false
+
+pdei:
+  core:
+    jdbc:
+      enabled: false
+  simulator:
+    artifacts:
+      upload: false
+    chaos:
+      docker-enabled: false
+    emit:
+      events-per-second: 0

@@ -1,0 +1,251 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =============================================================================
+   PDEI design tokens.
+
+   Two layers:
+     1. shadcn/ui surface tokens — HSL triplets, consumed as hsl(var(--x)).
+     2. Data-visualisation tokens — raw hex, consumed as var(--x) directly.
+
+   The categorical chart slots and the status ramp come from a palette validated
+   for CVD separation, lightness band, chroma floor and surface contrast in BOTH
+   modes (see frontend/context.md § Design tokens). Dark is a *selected* set of
+   steps for the dark surface, never an automatic flip of the light values.
+
+   Rules that downstream pages must not break:
+     - chart-1..8 are assigned in fixed order and never cycled; a 9th series folds
+       into "Other" or becomes small multiples.
+     - status-* are reserved for state (readiness band, gap severity, connection)
+       and never reused as a series colour. They always ship with an icon + label.
+     - Never a dual-axis chart. Sequential encodings use one hue, light -> dark.
+   ============================================================================= */
+
+@layer base {
+  :root {
+    --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+
+    /* --- surfaces & ink (light) --- */
+    --background: 60 14% 97%;            /* page plane  #f9f9f7 */
+    --foreground: 0 0% 4%;               /* primary ink #0b0b0b */
+    --card: 60 14% 99%;                  /* chart/card surface #fcfcfb */
+    --card-foreground: 0 0% 4%;
+    --popover: 60 14% 99%;
+    --popover-foreground: 0 0% 4%;
+    --primary: 213 68% 50%;              /* #2a78d6 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 52 12% 92%;
+    --secondary-foreground: 45 3% 31%;   /* secondary ink #52514e */
+    --muted: 52 12% 93%;
+    --muted-foreground: 45 3% 42%;
+    --accent: 52 12% 90%;
+    --accent-foreground: 0 0% 4%;
+    --destructive: 0 61% 52%;            /* #d03b3b */
+    --destructive-foreground: 0 0% 100%;
+    --border: 52 12% 87%;                /* gridline #e1e0d9 */
+    --input: 52 12% 87%;
+    --ring: 213 68% 50%;
+    --radius: 0.5rem;
+
+    /* --- app shell --- */
+    --sidebar: 60 14% 99%;
+    --sidebar-foreground: 45 3% 31%;
+    --sidebar-accent: 52 12% 92%;
+    --sidebar-accent-foreground: 0 0% 4%;
+    --sidebar-border: 52 12% 87%;
+
+    /* --- data-viz chrome --- */
+    --viz-surface: #fcfcfb;
+    --viz-grid: #e1e0d9;
+    --viz-axis: #c3c2b7;
+    --viz-ink: #0b0b0b;
+    --viz-ink-secondary: #52514e;
+    --viz-ink-muted: #898781;
+
+    /* --- categorical slots (fixed order, never cycled) --- */
+    --chart-1: #2a78d6; /* blue    */
+    --chart-2: #eb6834; /* orange  */
+    --chart-3: #1baf7a; /* aqua    */
+    --chart-4: #eda100; /* yellow  */
+    --chart-5: #e87ba4; /* magenta */
+    --chart-6: #008300; /* green   */
+    --chart-7: #4a3aa7; /* violet  */
+    --chart-8: #e34948; /* red     */
+
+    /* --- sequential ramp (single hue, light -> dark). Ordinal marks start at 250. --- */
+    --seq-100: #cde2fb;
+    --seq-250: #86b6ef;
+    --seq-400: #3987e5;
+    --seq-550: #1c5cab;
+    --seq-700: #0d366b;
+
+    /* --- diverging pair (blue <-> red, neutral gray midpoint) --- */
+    --div-neg: #2a78d6;
+    --div-mid: #f0efec;
+    --div-pos: #d03b3b;
+
+    /* --- status ramp: reserved, mode-invariant, icon + label always --- */
+    --status-good: #0ca30c;
+    --status-warning: #fab219;
+    --status-serious: #ec835a;
+    --status-critical: #d03b3b;
+    --status-neutral: #898781;
+
+    /* --- readiness bands (contract §6): ordinal severity over the status ramp --- */
+    --band-ready: var(--status-good);
+    --band-nearly-ready: var(--status-warning);
+    --band-at-risk: var(--status-serious);
+    --band-not-ready: var(--status-critical);
+
+    color-scheme: light;
+  }
+
+  .dark,
+  :root[data-theme='dark'] {
+    --background: 0 0% 5%;               /* page plane  #0d0d0d */
+    --foreground: 0 0% 100%;
+    --card: 60 2% 10%;                   /* chart/card surface #1a1a19 */
+    --card-foreground: 0 0% 100%;
+    --popover: 60 2% 10%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 213 77% 56%;              /* #3987e5 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 60 3% 16%;
+    --secondary-foreground: 55 9% 74%;   /* secondary ink #c3c2b7 */
+    --muted: 60 2% 14%;
+    --muted-foreground: 45 3% 62%;
+    --accent: 60 3% 18%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 65%;            /* #e66767 */
+    --destructive-foreground: 0 0% 8%;
+    --border: 60 2% 17%;                 /* gridline #2c2c2a */
+    --input: 60 3% 21%;
+    --ring: 213 77% 56%;
+
+    --sidebar: 60 2% 8%;
+    --sidebar-foreground: 55 9% 74%;
+    --sidebar-accent: 60 3% 16%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 60 2% 17%;
+
+    --viz-surface: #1a1a19;
+    --viz-grid: #2c2c2a;
+    --viz-axis: #383835;
+    --viz-ink: #ffffff;
+    --viz-ink-secondary: #c3c2b7;
+    --viz-ink-muted: #898781;
+
+    /* Same eight hues, stepped for the dark surface. */
+    --chart-1: #3987e5;
+    --chart-2: #d95926;
+    --chart-3: #199e70;
+    --chart-4: #c98500;
+    --chart-5: #d55181;
+    --chart-6: #008300;
+    --chart-7: #9085e9;
+    --chart-8: #e66767;
+
+    --seq-100: #0d366b;
+    --seq-250: #184f95;
+    --seq-400: #256abf;
+    --seq-550: #3987e5;
+    --seq-700: #86b6ef;
+
+    --div-neg: #3987e5;
+    --div-mid: #383835;
+    --div-pos: #e66767;
+
+    color-scheme: dark;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  /* Columns of numbers align; standalone hero figures keep proportional figures. */
+  table,
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+
+  ::selection {
+    @apply bg-primary/20;
+  }
+}
+
+@layer components {
+  /* A hairline card surface — the default container for every panel and chart. */
+  .surface-card {
+    @apply rounded-lg border border-border bg-card text-card-foreground;
+  }
+
+  .mono-id {
+    font-family: var(--font-mono);
+    @apply text-[0.8125rem] tracking-tight;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border));
+    border-radius: 9999px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  /* Recharts writes inline styles; these keep chrome recessive and theme-aware. */
+  .recharts-cartesian-grid line {
+    stroke: var(--viz-grid);
+  }
+
+  .recharts-cartesian-axis-line,
+  .recharts-cartesian-axis-tick-line {
+    stroke: var(--viz-axis);
+  }
+
+  .recharts-text {
+    fill: var(--viz-ink-muted);
+  }
+
+  .recharts-surface:focus {
+    outline: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

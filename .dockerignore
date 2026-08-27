@@ -1,0 +1,78 @@
+# PDEI - build context exclusions.
+#
+# infra/docker-compose.yml builds every image with the REPO ROOT as the context, because
+# the Maven build is a multi-module reactor. Without this file that context would include
+# node_modules, every target/ directory and the .git history - hundreds of megabytes
+# uploaded to the daemon on every build.
+
+# Version control & CI
+.git
+.github
+.gitignore
+.gitattributes
+
+# Docs and planning material - never needed to compile anything
+docs
+planner
+*.md
+!README.md
+
+# JVM build output (the image builds from source, not from a local target/)
+**/target
+**/*.class
+**/*.hprof
+**/hs_err_pid*
+**/.mvn/timing.properties
+
+# Node
+**/node_modules
+**/.next
+**/out
+**/.turbo
+**/*.tsbuildinfo
+**/.eslintcache
+
+# Python
+**/__pycache__
+**/*.py[cod]
+**/.venv
+**/venv
+**/.mypy_cache
+**/.pytest_cache
+**/.ruff_cache
+**/*.egg-info
+**/.coverage
+
+# Local environment - a stray .env must never be baked into an image
+**/.env
+**/.env.*
+!**/.env.example
+infra/docker-compose.override.yml
+
+# Infra config is mounted at runtime, not copied into images. The Dockerfiles
+# themselves are read by the builder before the context is evaluated.
+infra/grafana
+infra/prometheus
+infra/loki
+infra/promtail
+infra/tempo
+infra/otel
+infra/postgres
+infra/kafka
+infra/temporal
+
+# IDE & OS noise
+.idea
+.vscode
+*.iml
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Scratch
+tmp
+temp
+scratch
+**/*.log
+**/*.bak
+**/*.swp

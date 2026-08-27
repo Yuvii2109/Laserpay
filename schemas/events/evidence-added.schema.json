@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pdei.laserpay.com/events/evidence-added.schema.json",
+  "title": "EvidenceAdded payload",
+  "description": "An evidence artifact entered the graph. Produced by state-builder-worker, document-processor-service or a merchant portal upload.",
+  "x-pdei-event-type": "EvidenceAdded",
+  "x-pdei-aggregate-type": "EVIDENCE",
+  "x-pdei-origin": "INTERNAL",
+  "x-pdei-schema-version": 1,
+  "type": "object",
+  "required": [
+    "evidenceId",
+    "transactionId",
+    "type",
+    "status",
+    "version",
+    "createdAt"
+  ],
+  "properties": {
+    "evidenceId": {
+      "$ref": "#/$defs/prefixedId"
+    },
+    "transactionId": {
+      "$ref": "#/$defs/prefixedId"
+    },
+    "type": {
+      "$ref": "#/$defs/evidenceType"
+    },
+    "status": {
+      "$ref": "#/$defs/evidenceStatus"
+    },
+    "source": {
+      "$ref": "#/$defs/evidenceSource"
+    },
+    "objectKey": {
+      "type": "string"
+    },
+    "sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "parentVersion": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "sourceEventId": {
+      "type": "string"
+    },
+    "expiresAt": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/instant"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "createdAt": {
+      "$ref": "#/$defs/instant"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "evidenceSource": {
+      "enum": [
+        "PSP_ADAPTER",
+        "ORDER_SYSTEM",
+        "LOGISTICS",
+        "CRM",
+        "DOCUMENT_UPLOAD",
+        "MERCHANT_PORTAL",
+        "SIMULATOR",
+        "INTERNAL_DERIVED"
+      ]
+    },
+    "evidenceStatus": {
+      "enum": [
+        "PENDING",
+        "ACTIVE",
+        "EXPIRING",
+        "EXPIRED",
+        "INVALIDATED",
+        "SUPERSEDED"
+      ]
+    },
+    "evidenceType": {
+      "enum": [
+        "PAYMENT_PROOF",
+        "INVOICE",
+        "ORDER_RECORD",
+        "SHIPPING_RECORD",
+        "DELIVERY_PROOF",
+        "REFUND_RECEIPT",
+        "CUSTOMER_COMMUNICATION",
+        "MERCHANT_POLICY",
+        "TERMS_OF_SERVICE",
+        "AVS_CVV_RESULT",
+        "DEVICE_FINGERPRINT",
+        "PRIOR_TRANSACTION_HISTORY",
+        "SIGNED_CONTRACT"
+      ],
+      "description": "EvidenceType (PLATFORM-CONTRACT section 6)."
+    },
+    "instant": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 instant in UTC, e.g. 2026-08-26T10:15:30.123Z."
+    },
+    "prefixedId": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64,
+      "pattern": "^[A-Z]{2,4}-[A-Za-z0-9._:-]+$",
+      "description": "Human-readable prefixed identifier (PLATFORM-CONTRACT section 5)."
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "Lowercase hex SHA-256 digest."
+    }
+  }
+}

@@ -1,0 +1,505 @@
+{
+  "uid": "pdei-ai-usage",
+  "title": "PDEI / AI Usage & Safety",
+  "description": "Admission rate, invocation count, latency, unsupported claims and budget burn. The economic claim of this architecture is that AI scales with ambiguity rather than with event volume (architecture.md section 2) - this dashboard is where that claim is either shown or falsified.",
+  "tags": ["pdei", "ai", "safety", "cost"],
+  "timezone": "utc",
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": { "refresh_intervals": ["10s", "30s", "1m", "5m", "15m"] },
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "datasource", "uid": "grafana" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "provider",
+        "label": "Provider",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+        "query": { "query": "label_values(pdei_ai_requests_total, provider)", "refId": "provider" },
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": { "selected": true, "text": ["All"], "value": ["$__all"] },
+        "sort": 1
+      },
+      {
+        "name": "daily_budget",
+        "label": "Daily call budget",
+        "type": "custom",
+        "description": "Free-tier call ceiling used to compute burn. Matches the Redis budget key pdei:ai:budget:{date} (contract section 9.4).",
+        "query": "200,500,1000,1500",
+        "options": [
+          { "selected": false, "text": "200", "value": "200" },
+          { "selected": false, "text": "500", "value": "500" },
+          { "selected": true, "text": "1000", "value": "1000" },
+          { "selected": false, "text": "1500", "value": "1500" }
+        ],
+        "current": { "selected": true, "text": "1000", "value": "1000" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Admission rate",
+      "description": "ADMIT / (ADMIT + everything else) from pdei_ai_admission_total. Low is good: it means the deterministic short-circuits of contract section 9.4 are doing their job.",
+      "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+      "gridPos": { "h": 5, "w": 5, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 1,
+          "min": 0,
+          "max": 1,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#0ca30c", "value": null },
+              { "color": "#fab219", "value": 0.15 },
+              { "color": "#ec835a", "value": 0.25 },
+              { "color": "#d03b3b", "value": 0.5 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "sum(rate(pdei_ai_admission_total{decision=\"ADMIT\"}[$__rate_interval])) / clamp_min(sum(rate(pdei_ai_admission_total[$__rate_interval])), 0.0001)",
+          "legendFormat": "admitted",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Invocations",
+      "description": "pdei_ai_requests_total over the selected range - actual calls that reached a reasoner.",
+      "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+      "gridPos": { "h": 5, "w": 5, "x": 5, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": { "mode": "fixed", "fixedColor": "#3987e5" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#3987e5", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "sum(increase(pdei_ai_requests_total{provider=~\"$provider\"}[$__range]))",
+          "legendFormat": "invocations",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "p95 latency",
+      "description": "pdei_ai_latency_seconds. Includes the provider round trip; the mock reasoner is deterministic and near-zero, which is why the provider label matters.",
+      "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+      "gridPos": { "h": 5, "w": 5, "x": 10, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 2,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#0ca30c", "value": null },
+              { "color": "#fab219", "value": 5 },
+              { "color": "#d03b3b", "value": 15 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(pdei_ai_latency_seconds_bucket{provider=~\"$provider\"}[$__rate_interval])))",
+          "legendFormat": "p95",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Unsupported claims",
+      "description": "pdei_ai_unsupported_claims_total - results rejected by AiResultValidator (contract section 9.3). Any non-zero value is a model asserting something the evidence store cannot back.",
+      "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+      "gridPos": { "h": 5, "w": 4, "x": 15, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#0ca30c", "value": null },
+              { "color": "#fab219", "value": 1 },
+              { "color": "#d03b3b", "value": 5 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "background_solid",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "sum(increase(pdei_ai_unsupported_claims_total[$__range])) or vector(0)",
+          "legendFormat": "rejected claims",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "gauge",
+      "title": "Daily budget burn",
+      "description": "Calls in the last 24h as a fraction of the $daily_budget variable. Mirrors the Redis counter at pdei:ai:budget:{yyyy-MM-dd}.",
+      "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+      "gridPos": { "h": 5, "w": 5, "x": 19, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 1,
+          "min": 0,
+          "max": 1,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#0ca30c", "value": null },
+              { "color": "#fab219", "value": 0.6 },
+              { "color": "#ec835a", "value": 0.8 },
+              { "color": "#d03b3b", "value": 0.95 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "sum(increase(pdei_ai_requests_total[24h])) / $daily_budget",
+          "legendFormat": "burn",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Admission decisions",
+      "description": "pdei_ai_admission_total by decision. The bypass paths are the deterministic short-circuits; they are the reason the AI bill stays flat while event volume grows.",
+      "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "fillOpacity": 30,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisLabel": "decisions/s",
+            "stacking": { "mode": "normal", "group": "A" }
+          },
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "ADMIT" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#3987e5" } }] },
+          { "matcher": { "id": "byName", "options": "DENY" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#d03b3b" } }] },
+          { "matcher": { "id": "byName", "options": "BYPASS_DETERMINISTIC" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#199e70" } }] },
+          { "matcher": { "id": "byName", "options": "BUDGET_EXHAUSTED" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#c98500" } }] }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["mean", "lastNotNull"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "sum by (decision) (rate(pdei_ai_admission_total[$__rate_interval]))",
+          "legendFormat": "{{decision}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "AI requests by provider and outcome",
+      "description": "pdei_ai_requests_total. PDEI_AI_PROVIDER=mock is a legitimate demo mode and is labelled as such everywhere, including here.",
+      "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "min": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 75,
+            "showPoints": "never",
+            "axisLabel": "requests/s",
+            "stacking": { "mode": "normal", "group": "A" }
+          },
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": ".*/SUCCESS" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#0ca30c" } }] },
+          { "matcher": { "id": "byRegexp", "options": ".*/TIMEOUT" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#fab219" } }] },
+          { "matcher": { "id": "byRegexp", "options": ".*/ERROR" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#d03b3b" } }] }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["lastNotNull"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "sum by (provider, outcome) (rate(pdei_ai_requests_total{provider=~\"$provider\"}[$__rate_interval]))",
+          "legendFormat": "{{provider}}/{{outcome}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Reasoner latency quantiles",
+      "description": "pdei_ai_latency_seconds by provider. Split from the request-rate panel so the two units never share an axis.",
+      "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "axisLabel": "seconds"
+          },
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": ".*p50" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#199e70" } }] },
+          { "matcher": { "id": "byRegexp", "options": ".*p95" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#c98500" } }] },
+          { "matcher": { "id": "byRegexp", "options": ".*p99" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#d03b3b" } }] }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "calcs": [] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "histogram_quantile(0.50, sum by (provider, le) (rate(pdei_ai_latency_seconds_bucket{provider=~\"$provider\"}[$__rate_interval])))",
+          "legendFormat": "{{provider}} p50",
+          "range": true
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "histogram_quantile(0.95, sum by (provider, le) (rate(pdei_ai_latency_seconds_bucket{provider=~\"$provider\"}[$__rate_interval])))",
+          "legendFormat": "{{provider}} p95",
+          "range": true
+        },
+        {
+          "refId": "C",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "histogram_quantile(0.99, sum by (provider, le) (rate(pdei_ai_latency_seconds_bucket{provider=~\"$provider\"}[$__rate_interval])))",
+          "legendFormat": "{{provider}} p99",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Safety gate outcomes",
+      "description": "pdei_policy_gate_total by SafetyDecision, with unsupported-claim rejections overlaid. A DENY here is the control plane overruling the intelligence plane - the central claim of architecture.md section 3.3.",
+      "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "fillOpacity": 25,
+            "showPoints": "never",
+            "axisLabel": "decisions/s"
+          },
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "ALLOW" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#0ca30c" } }] },
+          { "matcher": { "id": "byName", "options": "ALLOW_WITH_REVIEW" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#fab219" } }] },
+          { "matcher": { "id": "byName", "options": "DENY" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#d03b3b" } }] },
+          {
+            "matcher": { "id": "byName", "options": "unsupported claims" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#9085e9" } },
+              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [10, 10] } },
+              { "id": "custom.fillOpacity", "value": 0 }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["mean", "max"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "sum by (decision) (rate(pdei_policy_gate_total[$__rate_interval]))",
+          "legendFormat": "{{decision}}",
+          "range": true
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "sum(rate(pdei_ai_unsupported_claims_total[$__rate_interval]))",
+          "legendFormat": "unsupported claims",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "The funnel: candidates vs invocations",
+      "description": "Dispute candidates entering admission control against calls that actually reached a model. The gap between the two lines is the money this design does not spend.",
+      "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 21 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisLabel": "per second"
+          },
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "candidates scored" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#3987e5" } }] },
+          { "matcher": { "id": "byName", "options": "admitted to model" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#d95926" } }] },
+          { "matcher": { "id": "byName", "options": "escalated to human" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#9085e9" } }] }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["mean", "max", "lastNotNull"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "sum(rate(pdei_ai_admission_total[$__rate_interval]))",
+          "legendFormat": "candidates scored",
+          "range": true
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "sum(rate(pdei_ai_requests_total[$__rate_interval]))",
+          "legendFormat": "admitted to model",
+          "range": true
+        },
+        {
+          "refId": "C",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "sum(rate(pdei_events_processed_total{type=\"CaseEscalated\"}[$__rate_interval]))",
+          "legendFormat": "escalated to human",
+          "range": true
+        }
+      ]
+    }
+  ]
+}

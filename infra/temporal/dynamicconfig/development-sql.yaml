@@ -1,0 +1,44 @@
+# Temporal dynamic config for the PDEI local stack.
+# Mounted at /etc/temporal/config/dynamicconfig/development-sql.yaml and selected by
+# DYNAMIC_CONFIG_FILE_PATH in docker-compose.yml.
+#
+# Values are tuned for a single-node, SQL-persistence, laptop-sized deployment. They are
+# NOT production defaults.
+
+# Advanced (SQL) visibility: the standard store for a Postgres-backed dev cluster.
+system.forceSearchAttributesCacheRefreshOnRead:
+  - value: true
+    constraints: {}
+
+# A dispute case can legitimately wait 7 days for missing evidence (contract section 10,
+# step 4), so history must not be trimmed aggressively.
+limit.maxIDLength:
+  - value: 255
+    constraints: {}
+
+history.persistenceMaxQPS:
+  - value: 3000
+    constraints: {}
+
+frontend.persistenceMaxQPS:
+  - value: 3000
+    constraints: {}
+
+frontend.enableUpdateWorkflowExecution:
+  - value: true
+    constraints: {}
+
+# Keep per-namespace rate limits generous: the simulator can open thousands of cases in a
+# burst during a benchmark run.
+frontend.namespaceRPS:
+  - value: 2400
+    constraints: {}
+
+frontend.namespaceCount:
+  - value: 200
+    constraints: {}
+
+# Retention floor. The pdei namespace is registered with 72h by auto-setup.
+system.minRetentionDays:
+  - value: 1
+    constraints: {}

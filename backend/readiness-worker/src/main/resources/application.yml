@@ -1,0 +1,159 @@
+# =====================================================================================
+# readiness-worker | PDEI (Pre-Dispute Evidence Intelligence)
+# Port 8084 (docs/PLATFORM-CONTRACT.md section 2). Consumer group pdei-readiness-worker.
+#
+# Every deployment-specific value comes from the shared environment variable names in
+# PLATFORM-CONTRACT section 15; the defaults below are the docker-compose values so the
+# service also starts with no environment at all.
+# =====================================================================================
+server:
+  port: 8084
+  shutdown: graceful
+
+spring:
+  application:
+    name: readiness-worker
+  main:
+    banner-mode: "off"
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
+  datasource:
+    url: ${PDEI_POSTGRES_URL:jdbc:postgresql://postgres:5432/pdei}
+    username: ${PDEI_POSTGRES_USER:pdei}
+    password: ${PDEI_POSTGRES_PASSWORD:pdei}
+    hikari:
+      pool-name: pdei-readiness-pool
+      maximum-pool-size: 10
+      minimum-idle: 2
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate.jdbc.time_zone: UTC
+
+  # Schema is owned by platform-persistence; the worker validates rather than migrates when
+  # PDEI_FLYWAY_ENABLED=false (the api-gateway is normally the single migrator in a compose run).
+  flyway:
+    enabled: ${PDEI_FLYWAY_ENABLED:true}
+    schemas: pdei
+    default-schema: pdei
+    create-schemas: true
+    locations: classpath:db/migration
+
+  data:
+    redis:
+      url: ${PDEI_REDIS_URL:redis://redis:6379}
+      timeout: 2s
+
+  kafka:
+    bootstrap-servers: ${PDEI_KAFKA_BOOTSTRAP:kafka:9092}
+    consumer:
+      group-id: pdei-readiness-worker
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      max-poll-records: 200
+      properties:
+        spring.json.trusted.packages: com.laserpay.pdei.*
+        max.poll.interval.ms: 300000
+    listener:
+      ack-mode: manual_immediate
+      concurrency: 3
+      missing-topics-fatal: false
+    producer:
+      acks: all
+      properties:
+        enable.idempotence: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics,loggers
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always
+  metrics:
+    tags:
+      service: readiness-worker
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    metrics:
+      export:
+        enabled: false
+
+# --- evidence-core (docs/SHARED-LIBRARY-API.md section 3) --------------------------------
+pdei:
+  core:
+    readiness:
+      expiring-soon-days: 7          # contract section 7
+      low-quality-threshold: 0.5
+      cache-ttl: 10m                 # pdei:readiness:{transactionId}
+      sweep-batch-size: 500
+    storage:
+      # The worker never reads or writes MinIO objects; it only reasons about metadata rows.
+      ensure-buckets-on-startup: false
+    audit:
+      # Audit entries are published to pdei.audit.events.v1 and persisted by audit-service.
+      publish-to-kafka: true
+
+  # --- readiness-worker's own behaviour -------------------------------------------------
+  readiness:
+    # Burst absorption: events for one transaction inside this window collapse to one recompute.
+    debounce: 2s
+    # Upper bound on how long a transaction may keep deferring its recompute under a
+    # continuous event stream.
+    max-debounce-delay: 30s
+    # TTL of pdei:lock:readiness:{txId} - must exceed a worst-case single computation.
+    lock-ttl: 30s
+    lock-attempts: 1
+    lock-backoff: 50ms
+    # Recompute work is executed off the Kafka listener threads.
+    worker-threads: 4
+    queue-capacity: 10000
+    # Redis-side dedupe window for pdei:idem:{eventId}; Postgres processed_events is authoritative.
+    idempotency-ttl: 7d
+    publish-gap-events: true
+    # Only gaps at or above this severity raise a ReadinessGapDetected event.
+    gap-event-min-severity: HIGH
+    # Denormalised readiness projection on pdei.transactions.
+    update-transaction-projection: true
+
+    sweep:
+      enabled: true
+      # Nightly at 02:15 UTC.
+      cron: ${PDEI_READINESS_SWEEP_CRON:0 15 2 * * *}
+      zone: UTC
+      batch-size: 500
+      max-batches: 20
+      # Evidence expiring inside this window moves ACTIVE -> EXPIRING.
+      warning-days: 7
+      recompute-affected: true
+
+    at-risk:
+      enabled: true
+      # ISO-8601 on purpose: these two feed @Scheduled(fixedDelayString/initialDelayString), and
+      # Spring's scheduler parses ISO-8601 or a plain millisecond count - NOT "5m".
+      interval: PT5M
+      initial-delay: PT1M
+      # Rows materialised into the in-memory feed per scan.
+      limit: 500
+      # A snapshot older than this is refreshed by the scanner.
+      stale-after: 6h
+      # Bands considered at risk (ReadinessBand, contract section 6).
+      bands: AT_RISK,NOT_READY
+
+logging:
+  level:
+    root: INFO
+    com.laserpay.pdei: INFO
+    org.apache.kafka: WARN
+  pattern:
+    # Structured-ish console line; promtail ships stdout to Loki (contract section 13).
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSS'Z',UTC} %-5p [readiness-worker] [traceId=%X{traceId:-} spanId=%X{spanId:-} merchantId=%X{merchantId:-} correlationId=%X{correlationId:-}] %logger{40} - %m%n"

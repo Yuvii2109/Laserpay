@@ -1,0 +1,2 @@
+com.laserpay.pdei.core.config.CorePersistenceAutoConfiguration
+com.laserpay.pdei.core.config.CoreAutoConfiguration

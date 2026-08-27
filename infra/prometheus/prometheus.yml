@@ -1,0 +1,124 @@
+# PDEI - Prometheus scrape configuration.
+#
+# Targets are container DNS names on pdei-net, so this file works unchanged whether or not
+# the host ports are remapped. Contract section 2: Spring services expose
+# /actuator/prometheus; the Python service exposes /metrics.
+#
+# Metric names the dashboards depend on are listed in contract section 13 (prefix pdei_).
+# A target that is down is expected during partial-stack runs (e.g. --profile core only);
+# the "up" series is what the dashboards use to show it.
+
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: pdei-local
+    env: dev
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+scrape_configs:
+
+  # ----------------------------------------------------------------- self
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+        labels:
+          component: observability
+
+  # ----------------------------------------------------------------- Spring services
+  # One job for all nine: identical scrape path, and the "service" label comes from the
+  # target list rather than nine near-identical blocks.
+  - job_name: pdei-spring
+    metrics_path: /actuator/prometheus
+    scheme: http
+    honor_labels: false
+    static_configs:
+      - targets: ["api-gateway-service:8080"]
+        labels: { service: api-gateway-service, tier: api }
+      - targets: ["ingestion-service:8081"]
+        labels: { service: ingestion-service, tier: ingest }
+      - targets: ["normalization-worker:8082"]
+        labels: { service: normalization-worker, tier: pipeline }
+      - targets: ["state-builder-worker:8083"]
+        labels: { service: state-builder-worker, tier: pipeline }
+      - targets: ["readiness-worker:8084"]
+        labels: { service: readiness-worker, tier: pipeline }
+      - targets: ["case-orchestrator-service:8085"]
+        labels: { service: case-orchestrator-service, tier: workflow }
+      - targets: ["document-processor-service:8086"]
+        labels: { service: document-processor-service, tier: pipeline }
+      - targets: ["audit-service:8087"]
+        labels: { service: audit-service, tier: audit }
+      - targets: ["simulator-service:8088"]
+        labels: { service: simulator-service, tier: simulation }
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+
+  # ----------------------------------------------------------------- Python AI service
+  - job_name: pdei-ai-reasoning-service
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["ai-reasoning-service:8000"]
+        labels: { service: ai-reasoning-service, tier: intelligence }
+
+  # ----------------------------------------------------------------- OTel collector
+  # Two surfaces: 8889 is the Prometheus exporter carrying application metrics that
+  # arrived over OTLP; 8888 is the collector's own internal telemetry.
+  - job_name: otel-collector-forwarded
+    static_configs:
+      - targets: ["otel-collector:8889"]
+        labels: { component: observability }
+  - job_name: otel-collector-internal
+    static_configs:
+      - targets: ["otel-collector:8888"]
+        labels: { component: observability }
+
+  # ----------------------------------------------------------------- infrastructure exporters
+  - job_name: kafka
+    static_configs:
+      - targets: ["kafka-exporter:9308"]
+        labels: { component: kafka }
+
+  - job_name: postgres
+    static_configs:
+      - targets: ["postgres-exporter:9187"]
+        labels: { component: postgres }
+
+  - job_name: redis
+    static_configs:
+      - targets: ["redis-exporter:9121"]
+        labels: { component: redis }
+
+  # MinIO exposes Prometheus metrics natively; MINIO_PROMETHEUS_AUTH_TYPE=public in
+  # docker-compose.yml is what makes this scrape work without a bearer token.
+  - job_name: minio
+    metrics_path: /minio/v2/metrics/cluster
+    static_configs:
+      - targets: ["minio:9000"]
+        labels: { component: minio }
+
+  # Temporal server metrics (Prometheus listener on 8000 inside the auto-setup image).
+  - job_name: temporal
+    static_configs:
+      - targets: ["temporal:8000"]
+        labels: { component: temporal }
+
+  # ----------------------------------------------------------------- observability stack
+  - job_name: loki
+    static_configs:
+      - targets: ["loki:3100"]
+        labels: { component: observability }
+
+  - job_name: tempo
+    static_configs:
+      - targets: ["tempo:3200"]
+        labels: { component: observability }
+
+  - job_name: grafana
+    static_configs:
+      - targets: ["grafana:3000"]
+        labels: { component: observability }

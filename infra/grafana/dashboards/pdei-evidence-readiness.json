@@ -1,0 +1,565 @@
+{
+  "uid": "pdei-evidence-readiness",
+  "title": "PDEI / Evidence Readiness",
+  "description": "Readiness score distribution, band counts, gap types and the evidence expiry funnel. Bands are the normative thresholds of docs/PLATFORM-CONTRACT.md section 6: READY >=90, NEARLY_READY 75-89, AT_RISK 50-74, NOT_READY <50.",
+  "tags": ["pdei", "readiness", "evidence"],
+  "timezone": "utc",
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": { "refresh_intervals": ["10s", "30s", "1m", "5m", "15m"] },
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "datasource", "uid": "grafana" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "merchant",
+        "label": "Merchant",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+        "query": { "query": "label_values(pdei_readiness_score, merchant)", "refId": "merchant" },
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": { "selected": true, "text": ["All"], "value": ["$__all"] },
+        "sort": 1
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Mean readiness score",
+      "description": "pdei_readiness_score is a deterministic integer 0-100 from ReadinessEngine (contract section 7). It is never a model output.",
+      "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 1,
+          "min": 0,
+          "max": 100,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#d03b3b", "value": null },
+              { "color": "#ec835a", "value": 50 },
+              { "color": "#fab219", "value": 75 },
+              { "color": "#0ca30c", "value": 90 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "avg(pdei_readiness_score{merchant=~\"$merchant\"})",
+          "legendFormat": "mean score",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "bargauge",
+      "title": "Readiness band distribution",
+      "description": "Count of scored entities per band. Status colours, not series colours: the band IS the state.",
+      "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+      "gridPos": { "h": 5, "w": 12, "x": 6, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "min": 0,
+          "color": { "mode": "fixed", "fixedColor": "text" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "text", "value": null }] }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "READY (>=90)" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#0ca30c" } }] },
+          { "matcher": { "id": "byName", "options": "NEARLY_READY (75-89)" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#fab219" } }] },
+          { "matcher": { "id": "byName", "options": "AT_RISK (50-74)" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#ec835a" } }] },
+          { "matcher": { "id": "byName", "options": "NOT_READY (<50)" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#d03b3b" } }] }
+        ]
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "showUnfilled": true,
+        "valueMode": "text",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "count(pdei_readiness_score{merchant=~\"$merchant\"} >= 90) or vector(0)",
+          "legendFormat": "READY (>=90)",
+          "instant": true
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "count(pdei_readiness_score{merchant=~\"$merchant\"} >= 75 < 90) or vector(0)",
+          "legendFormat": "NEARLY_READY (75-89)",
+          "instant": true
+        },
+        {
+          "refId": "C",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "count(pdei_readiness_score{merchant=~\"$merchant\"} >= 50 < 75) or vector(0)",
+          "legendFormat": "AT_RISK (50-74)",
+          "instant": true
+        },
+        {
+          "refId": "D",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "count(pdei_readiness_score{merchant=~\"$merchant\"} < 50) or vector(0)",
+          "legendFormat": "NOT_READY (<50)",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Open gaps",
+      "description": "pdei_readiness_gaps_open, all types. Every one of these is a dispute the merchant would currently lose.",
+      "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#0ca30c", "value": null },
+              { "color": "#fab219", "value": 1 },
+              { "color": "#ec835a", "value": 25 },
+              { "color": "#d03b3b", "value": 100 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "sum(pdei_readiness_gaps_open{merchant=~\"$merchant\"}) or vector(0)",
+          "legendFormat": "open gaps",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Readiness score over time",
+      "description": "Mean, plus the worst and best scored entity. The flat line during a DUPLICATE_EVENT injection is the point of the idempotency demo.",
+      "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisLabel": "score",
+            "thresholdsStyle": { "mode": "dashed+area" }
+          },
+          "color": { "mode": "palette-classic" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "transparent", "value": null },
+              { "color": "transparent", "value": 90 }
+            ]
+          }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "mean" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#3987e5" } }] },
+          { "matcher": { "id": "byName", "options": "worst" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#d03b3b" } }] },
+          { "matcher": { "id": "byName", "options": "best" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#0ca30c" } }] }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "calcs": [] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "avg(pdei_readiness_score{merchant=~\"$merchant\"})",
+          "legendFormat": "mean",
+          "range": true
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "min(pdei_readiness_score{merchant=~\"$merchant\"})",
+          "legendFormat": "worst",
+          "range": true
+        },
+        {
+          "refId": "C",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "max(pdei_readiness_score{merchant=~\"$merchant\"})",
+          "legendFormat": "best",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Band counts over time",
+      "description": "The same four bands as the distribution panel, stacked. Watch AT_RISK convert to READY as evidence lands.",
+      "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "fillOpacity": 35,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisLabel": "entities",
+            "stacking": { "mode": "normal", "group": "A" }
+          },
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "READY" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#0ca30c" } }] },
+          { "matcher": { "id": "byName", "options": "NEARLY_READY" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#fab219" } }] },
+          { "matcher": { "id": "byName", "options": "AT_RISK" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#ec835a" } }] },
+          { "matcher": { "id": "byName", "options": "NOT_READY" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#d03b3b" } }] }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "calcs": [] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "count(pdei_readiness_score{merchant=~\"$merchant\"} >= 90) or vector(0)",
+          "legendFormat": "READY",
+          "range": true
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "count(pdei_readiness_score{merchant=~\"$merchant\"} >= 75 < 90) or vector(0)",
+          "legendFormat": "NEARLY_READY",
+          "range": true
+        },
+        {
+          "refId": "C",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "count(pdei_readiness_score{merchant=~\"$merchant\"} >= 50 < 75) or vector(0)",
+          "legendFormat": "AT_RISK",
+          "range": true
+        },
+        {
+          "refId": "D",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "count(pdei_readiness_score{merchant=~\"$merchant\"} < 50) or vector(0)",
+          "legendFormat": "NOT_READY",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "barchart",
+      "title": "Gaps by type",
+      "description": "GapType enum (contract section 6): MISSING, EXPIRED, EXPIRING_SOON, CONTRADICTORY, UNVERIFIABLE_PROVENANCE, LOW_QUALITY, VERSION_CONFLICT.",
+      "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 85,
+            "gradientMode": "none",
+            "axisLabel": "open gaps"
+          },
+          "color": { "mode": "fixed", "fixedColor": "#3987e5" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#3987e5", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "xTickLabelRotation": 0,
+        "showValue": "always",
+        "stacking": "none",
+        "barWidth": 0.7,
+        "groupWidth": 0.7,
+        "legend": { "displayMode": "hidden", "showLegend": false, "placement": "bottom", "calcs": [] },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "sum by (type) (pdei_readiness_gaps_open{merchant=~\"$merchant\"})",
+          "legendFormat": "{{type}}",
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true },
+            "renameByName": { "type": "gap type", "Value": "open gaps" }
+          }
+        },
+        { "id": "sortBy", "options": { "sort": [{ "field": "open gaps", "desc": true }] } }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "barchart",
+      "title": "Gaps by severity",
+      "description": "GapSeverity enum. CRITICAL gaps are the at-risk feed on the Control Tower.",
+      "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": { "lineWidth": 1, "fillOpacity": 85, "axisLabel": "open gaps" },
+          "color": { "mode": "palette-classic-by-name" }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "LOW" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#0ca30c" } }] },
+          { "matcher": { "id": "byName", "options": "MEDIUM" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#fab219" } }] },
+          { "matcher": { "id": "byName", "options": "HIGH" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#ec835a" } }] },
+          { "matcher": { "id": "byName", "options": "CRITICAL" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#d03b3b" } }] }
+        ]
+      },
+      "options": {
+        "orientation": "horizontal",
+        "showValue": "always",
+        "stacking": "none",
+        "barWidth": 0.7,
+        "groupWidth": 0.7,
+        "legend": { "displayMode": "list", "showLegend": true, "placement": "bottom", "calcs": [] },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "sum by (severity) (pdei_readiness_gaps_open{merchant=~\"$merchant\"})",
+          "legendFormat": "{{severity}}",
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": { "excludeByName": { "Time": true }, "renameByName": { "severity": "severity", "Value": "open gaps" } }
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Evidence expiry funnel",
+      "description": "pdei_evidence_total by EvidenceStatus. The product thesis in one panel: evidence walks ACTIVE -> EXPIRING -> EXPIRED, and the window between the second and third state is where the merchant can still act.",
+      "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+      "gridPos": { "h": 8, "w": 14, "x": 0, "y": 21 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "fillOpacity": 30,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisLabel": "evidence items",
+            "stacking": { "mode": "normal", "group": "A" }
+          },
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "ACTIVE" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#0ca30c" } }] },
+          { "matcher": { "id": "byName", "options": "PENDING" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#3987e5" } }] },
+          { "matcher": { "id": "byName", "options": "EXPIRING" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#fab219" } }] },
+          { "matcher": { "id": "byName", "options": "EXPIRED" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#ec835a" } }] },
+          { "matcher": { "id": "byName", "options": "INVALIDATED" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#d03b3b" } }] },
+          { "matcher": { "id": "byName", "options": "SUPERSEDED" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#9085e9" } }] }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "calcs": ["lastNotNull"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "sum by (status) (pdei_evidence_total)",
+          "legendFormat": "{{status}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Readiness computation time",
+      "description": "pdei_readiness_computation_seconds. The engine is deterministic and closed-form, so this should stay flat as evidence volume grows - if it does not, GapDetector is doing an N+1 query.",
+      "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+      "gridPos": { "h": 8, "w": 10, "x": 14, "y": 21 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "axisLabel": "seconds"
+          },
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "p50" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#199e70" } }] },
+          { "matcher": { "id": "byName", "options": "p99" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#d03b3b" } }] }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "calcs": [] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(pdei_readiness_computation_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "p50",
+          "range": true
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(pdei_readiness_computation_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "p99",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "type": "table",
+      "title": "Evidence inventory by type and status",
+      "description": "pdei_evidence_total pivoted. Also the accessible table view for the funnel panel.",
+      "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 29 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "filterable": true },
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "text", "value": null }] }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "EXPIRED" },
+            "properties": [
+              { "id": "custom.cellOptions", "value": { "type": "color-text" } },
+              { "id": "thresholds", "value": { "mode": "absolute", "steps": [{ "color": "text", "value": null }, { "color": "#ec835a", "value": 1 }] } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "INVALIDATED" },
+            "properties": [
+              { "id": "custom.cellOptions", "value": { "type": "color-text" } },
+              { "id": "thresholds", "value": { "mode": "absolute", "steps": [{ "color": "text", "value": null }, { "color": "#d03b3b", "value": 1 }] } }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "footer": { "show": true, "reducer": ["sum"], "fields": "" },
+        "sortBy": [{ "displayName": "type", "desc": false }]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "sum by (type, status) (pdei_evidence_total)",
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        { "id": "organize", "options": { "excludeByName": { "Time": true }, "renameByName": { "Value": "count" } } },
+        {
+          "id": "groupingToMatrix",
+          "options": { "columnField": "status", "rowField": "type", "valueField": "count", "emptyValue": "zero" }
+        }
+      ]
+    }
+  ]
+}

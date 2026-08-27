@@ -1,0 +1,333 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.laserpay.pdei</groupId>
+  <artifactId>pdei-backend</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+
+  <name>pdei-backend</name>
+  <description>
+    PDEI (Pre-Dispute Evidence Intelligence) - Maven reactor root.
+    Deliberately does NOT use spring-boot-starter-parent: the Spring Boot BOM is imported into
+    dependencyManagement so shared library modules (platform-common, evidence-core) stay free of
+    Spring Boot plugin and packaging semantics.
+  </description>
+
+  <modules>
+    <module>platform-common</module>
+    <module>platform-persistence</module>
+    <module>evidence-core</module>
+    <module>api-gateway-service</module>
+    <module>ingestion-service</module>
+    <module>normalization-worker</module>
+    <module>state-builder-worker</module>
+    <module>readiness-worker</module>
+    <module>case-orchestrator-service</module>
+    <module>document-processor-service</module>
+    <module>audit-service</module>
+    <module>simulator-service</module>
+  </modules>
+
+  <properties>
+    <!-- build -->
+    <java.version>21</java.version>
+    <maven.compiler.release>21</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+    <!-- platform (PLATFORM-CONTRACT.md section 1) -->
+    <spring-boot.version>3.3.5</spring-boot.version>
+
+    <!-- infrastructure clients -->
+    <temporal.version>1.25.1</temporal.version>
+    <minio.version>8.5.12</minio.version>
+    <tika.version>2.9.2</tika.version>
+    <pdfbox.version>3.0.3</pdfbox.version>
+    <flyway.version>10.20.1</flyway.version>
+    <postgresql.version>42.7.4</postgresql.version>
+    <lettuce.version>6.3.2.RELEASE</lettuce.version>
+
+    <!-- serialization / observability -->
+    <jackson.version>2.17.2</jackson.version>
+    <micrometer.version>1.13.6</micrometer.version>
+    <opentelemetry.version>1.42.1</opentelemetry.version>
+
+    <!-- test -->
+    <junit-jupiter.version>5.10.5</junit-jupiter.version>
+    <assertj.version>3.25.3</assertj.version>
+    <awaitility.version>4.2.2</awaitility.version>
+    <testcontainers.version>1.20.3</testcontainers.version>
+
+    <!-- plugins -->
+    <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
+    <maven-surefire-plugin.version>3.5.1</maven-surefire-plugin.version>
+    <maven-failsafe-plugin.version>3.5.1</maven-failsafe-plugin.version>
+    <maven-jar-plugin.version>3.4.2</maven-jar-plugin.version>
+    <jacoco-maven-plugin.version>0.8.12</jacoco-maven-plugin.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <!--
+        ORDERING NOTE: explicitly pinned artifacts are declared BEFORE the Spring Boot BOM import.
+        Maven flattens imported BOMs in place and applies "first declaration wins", so the pins
+        below deterministically override whatever spring-boot-dependencies would otherwise supply.
+      -->
+
+      <!-- Jackson -->
+      <dependency>
+        <groupId>com.fasterxml.jackson</groupId>
+        <artifactId>jackson-bom</artifactId>
+        <version>${jackson.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+
+      <!-- Micrometer -->
+      <dependency>
+        <groupId>io.micrometer</groupId>
+        <artifactId>micrometer-bom</artifactId>
+        <version>${micrometer.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+
+      <!-- OpenTelemetry -->
+      <dependency>
+        <groupId>io.opentelemetry</groupId>
+        <artifactId>opentelemetry-bom</artifactId>
+        <version>${opentelemetry.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+
+      <!-- Testcontainers -->
+      <dependency>
+        <groupId>org.testcontainers</groupId>
+        <artifactId>testcontainers-bom</artifactId>
+        <version>${testcontainers.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+
+      <!-- JUnit 5 -->
+      <dependency>
+        <groupId>org.junit</groupId>
+        <artifactId>junit-bom</artifactId>
+        <version>${junit-jupiter.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+
+      <!-- Temporal (case-orchestrator-service) -->
+      <dependency>
+        <groupId>io.temporal</groupId>
+        <artifactId>temporal-sdk</artifactId>
+        <version>${temporal.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.temporal</groupId>
+        <artifactId>temporal-spring-boot-starter</artifactId>
+        <version>${temporal.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.temporal</groupId>
+        <artifactId>temporal-testing</artifactId>
+        <version>${temporal.version}</version>
+        <scope>test</scope>
+      </dependency>
+
+      <!-- MinIO object store (evidence-core) -->
+      <dependency>
+        <groupId>io.minio</groupId>
+        <artifactId>minio</artifactId>
+        <version>${minio.version}</version>
+      </dependency>
+
+      <!-- Document processing (document-processor-service) -->
+      <dependency>
+        <groupId>org.apache.tika</groupId>
+        <artifactId>tika-core</artifactId>
+        <version>${tika.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.tika</groupId>
+        <artifactId>tika-parsers-standard-package</artifactId>
+        <version>${tika.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.pdfbox</groupId>
+        <artifactId>pdfbox</artifactId>
+        <version>${pdfbox.version}</version>
+      </dependency>
+
+      <!-- Persistence / cache (platform-persistence and consumers) -->
+      <dependency>
+        <groupId>org.flywaydb</groupId>
+        <artifactId>flyway-core</artifactId>
+        <version>${flyway.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.flywaydb</groupId>
+        <artifactId>flyway-database-postgresql</artifactId>
+        <version>${flyway.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.postgresql</groupId>
+        <artifactId>postgresql</artifactId>
+        <version>${postgresql.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.lettuce</groupId>
+        <artifactId>lettuce-core</artifactId>
+        <version>${lettuce.version}</version>
+      </dependency>
+
+      <!-- Assertions / async test helpers -->
+      <dependency>
+        <groupId>org.assertj</groupId>
+        <artifactId>assertj-core</artifactId>
+        <version>${assertj.version}</version>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.awaitility</groupId>
+        <artifactId>awaitility</artifactId>
+        <version>${awaitility.version}</version>
+        <scope>test</scope>
+      </dependency>
+
+      <!-- Reactor-internal modules: consumers depend on these WITHOUT a version -->
+      <dependency>
+        <groupId>com.laserpay.pdei</groupId>
+        <artifactId>platform-common</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.laserpay.pdei</groupId>
+        <artifactId>platform-persistence</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.laserpay.pdei</groupId>
+        <artifactId>evidence-core</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+
+      <!-- Spring Boot BOM imported LAST: every pin above wins over it. -->
+      <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-dependencies</artifactId>
+        <version>${spring-boot.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>${maven-compiler-plugin.version}</version>
+          <configuration>
+            <release>${java.version}</release>
+            <!-- -parameters is required by Spring MVC/Data binding and Jackson parameter names -->
+            <parameters>true</parameters>
+            <showDeprecation>true</showDeprecation>
+            <compilerArgs>
+              <arg>-parameters</arg>
+              <arg>-Xlint:all,-serial,-processing,-this-escape</arg>
+            </compilerArgs>
+          </configuration>
+        </plugin>
+
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <version>${maven-surefire-plugin.version}</version>
+          <configuration>
+            <trimStackTrace>false</trimStackTrace>
+            <useModulePath>false</useModulePath>
+          </configuration>
+        </plugin>
+
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-failsafe-plugin</artifactId>
+          <version>${maven-failsafe-plugin.version}</version>
+          <configuration>
+            <trimStackTrace>false</trimStackTrace>
+          </configuration>
+        </plugin>
+
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-jar-plugin</artifactId>
+          <version>${maven-jar-plugin.version}</version>
+        </plugin>
+
+        <plugin>
+          <groupId>org.jacoco</groupId>
+          <artifactId>jacoco-maven-plugin</artifactId>
+          <version>${jacoco-maven-plugin.version}</version>
+          <executions>
+            <execution>
+              <id>jacoco-prepare-agent</id>
+              <goals>
+                <goal>prepare-agent</goal>
+              </goals>
+            </execution>
+            <execution>
+              <id>jacoco-report</id>
+              <phase>verify</phase>
+              <goals>
+                <goal>report</goal>
+              </goals>
+            </execution>
+          </executions>
+        </plugin>
+
+        <!--
+          Declared in pluginManagement ONLY. The nine application modules opt in by adding this
+          plugin (no version) to their own build/plugins; the three library modules
+          (platform-common, platform-persistence, evidence-core) never repackage.
+        -->
+        <plugin>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-maven-plugin</artifactId>
+          <version>${spring-boot.version}</version>
+          <executions>
+            <execution>
+              <id>repackage</id>
+              <goals>
+                <goal>repackage</goal>
+              </goals>
+            </execution>
+          </executions>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>

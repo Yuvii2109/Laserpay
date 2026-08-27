@@ -1,0 +1,506 @@
+{
+  "uid": "pdei-workflow-health",
+  "title": "PDEI / Workflow Health",
+  "description": "DisputeCaseWorkflow starts, completions and failures, plus case assembly latency. Workflow lifecycle is derived from CASE events (contract section 3.1) so the numbers hold even when Temporal's own metrics endpoint is unavailable.",
+  "tags": ["pdei", "temporal", "cases", "workflow"],
+  "timezone": "utc",
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-3h", "to": "now" },
+  "timepicker": { "refresh_intervals": ["10s", "30s", "1m", "5m", "15m"] },
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "datasource", "uid": "grafana" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      },
+      {
+        "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+        "enable": true,
+        "expr": "changes(pdei_chaos_injections_total{type=~\"KILL_WORKER|RESTART_CONSUMER\"}[1m]) > 0",
+        "iconColor": "#d03b3b",
+        "name": "Worker kills",
+        "titleFormat": "Chaos: {{type}}",
+        "step": "60s"
+      }
+    ]
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "merchant",
+        "label": "Merchant",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+        "query": { "query": "label_values(pdei_readiness_score, merchant)", "refId": "merchant" },
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": { "selected": true, "text": ["All"], "value": ["$__all"] },
+        "sort": 1
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Cases opened",
+      "description": "CaseOpened events over the selected range. Each one is a DisputeCaseWorkflow with id case-{caseId} (contract section 10).",
+      "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+      "gridPos": { "h": 5, "w": 4, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": { "mode": "fixed", "fixedColor": "#3987e5" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#3987e5", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "sum(increase(pdei_events_processed_total{type=\"CaseOpened\", outcome=\"SUCCESS\"}[$__range])) or vector(0)",
+          "legendFormat": "opened",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Cases closed",
+      "description": "CaseClosed events - the workflow reached step 12.",
+      "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+      "gridPos": { "h": 5, "w": 4, "x": 4, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": { "mode": "fixed", "fixedColor": "#0ca30c" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#0ca30c", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "sum(increase(pdei_events_processed_total{type=\"CaseClosed\", outcome=\"SUCCESS\"}[$__range])) or vector(0)",
+          "legendFormat": "closed",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "In flight",
+      "description": "Opened minus closed over the range. A workflow surviving a KILL_WORKER injection keeps this number stable - that is the durability proof in docs/demo-script.md step 7.",
+      "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+      "gridPos": { "h": 5, "w": 4, "x": 8, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": { "mode": "fixed", "fixedColor": "#c98500" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#c98500", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "clamp_min(sum(increase(pdei_events_processed_total{type=\"CaseOpened\", outcome=\"SUCCESS\"}[$__range])) - sum(increase(pdei_events_processed_total{type=\"CaseClosed\", outcome=\"SUCCESS\"}[$__range])), 0) or vector(0)",
+          "legendFormat": "in flight",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Workflow failures",
+      "description": "pdei_workflow_failures_total. Non-retryable exceptions only (PolicyViolationException, ValidationException) - everything else is retried by the activity policy.",
+      "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+      "gridPos": { "h": 5, "w": 4, "x": 12, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#0ca30c", "value": null },
+              { "color": "#fab219", "value": 1 },
+              { "color": "#d03b3b", "value": 5 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "background_solid",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "sum(increase(pdei_workflow_failures_total[$__range])) or vector(0)",
+          "legendFormat": "failures",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "p95 case assembly",
+      "description": "pdei_case_assembly_seconds - dispute arriving to a case with its evidence set attached.",
+      "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+      "gridPos": { "h": 5, "w": 4, "x": 16, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 2,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#0ca30c", "value": null },
+              { "color": "#fab219", "value": 10 },
+              { "color": "#d03b3b", "value": 60 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(pdei_case_assembly_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "p95",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Orchestrator up",
+      "description": "Scrape health of case-orchestrator-service. Down here plus stable in-flight above is exactly what workflow durability looks like.",
+      "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+      "gridPos": { "h": 5, "w": 4, "x": 20, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": { "text": "DOWN", "color": "#d03b3b", "index": 0 },
+                "1": { "text": "UP", "color": "#0ca30c", "index": 1 }
+              }
+            }
+          ],
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#d03b3b", "value": null },
+              { "color": "#0ca30c", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "background_solid",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "max(up{service=\"case-orchestrator-service\"}) or vector(0)",
+          "legendFormat": "orchestrator",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Case lifecycle events",
+      "description": "The seven CASE event types over time. Read left to right this is the workflow of contract section 10 executing.",
+      "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+      "gridPos": { "h": 8, "w": 14, "x": 0, "y": 5 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisLabel": "events/s"
+          },
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "CaseOpened" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#3987e5" } }] },
+          { "matcher": { "id": "byName", "options": "CaseEvidenceAttached" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#199e70" } }] },
+          { "matcher": { "id": "byName", "options": "CaseInvestigated" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#c98500" } }] },
+          { "matcher": { "id": "byName", "options": "CasePrepared" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#d95926" } }] },
+          { "matcher": { "id": "byName", "options": "CaseEscalated" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#9085e9" } }] },
+          { "matcher": { "id": "byName", "options": "CaseSubmitted" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#d55181" } }] },
+          { "matcher": { "id": "byName", "options": "CaseClosed" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#0ca30c" } }] }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "calcs": ["lastNotNull", "max"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "sum by (type) (rate(pdei_events_processed_total{type=~\"Case.*\", outcome=\"SUCCESS\"}[$__rate_interval]))",
+          "legendFormat": "{{type}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "barchart",
+      "title": "Case funnel over the range",
+      "description": "Opened -> evidence attached -> investigated -> prepared -> submitted -> closed, with escalations broken out. Each bar is a count, not a rate.",
+      "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+      "gridPos": { "h": 8, "w": 10, "x": 14, "y": 5 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "min": 0,
+          "custom": { "lineWidth": 1, "fillOpacity": 85, "axisLabel": "cases" },
+          "color": { "mode": "fixed", "fixedColor": "#3987e5" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#3987e5", "value": null }] }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "CaseEscalated" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#9085e9" } }] },
+          { "matcher": { "id": "byName", "options": "CaseClosed" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#0ca30c" } }] }
+        ]
+      },
+      "options": {
+        "orientation": "horizontal",
+        "showValue": "always",
+        "stacking": "none",
+        "barWidth": 0.75,
+        "groupWidth": 0.75,
+        "legend": { "displayMode": "hidden", "showLegend": false, "placement": "bottom", "calcs": [] },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "sum by (type) (increase(pdei_events_processed_total{type=~\"Case.*\", outcome=\"SUCCESS\"}[$__range]))",
+          "legendFormat": "{{type}}",
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        { "id": "organize", "options": { "excludeByName": { "Time": true }, "renameByName": { "type": "stage", "Value": "cases" } } },
+        { "id": "sortBy", "options": { "sort": [{ "field": "cases", "desc": true }] } }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Case assembly latency",
+      "description": "pdei_case_assembly_seconds quantiles. CaseAssemblyService gathers the evidence set and builds the package manifest; a spike here usually means MinIO, not Postgres.",
+      "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "axisLabel": "seconds"
+          },
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "p50" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#199e70" } }] },
+          { "matcher": { "id": "byName", "options": "p95" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#c98500" } }] },
+          { "matcher": { "id": "byName", "options": "p99" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#d03b3b" } }] }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "calcs": [] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(pdei_case_assembly_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "p50",
+          "range": true
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(pdei_case_assembly_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "p95",
+          "range": true
+        },
+        {
+          "refId": "C",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(pdei_case_assembly_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "p99",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Workflow failures and chaos injections",
+      "description": "pdei_workflow_failures_total against pdei_chaos_injections_total. Failures that coincide with an injection are the system behaving as designed; failures that do not are bugs.",
+      "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 70,
+            "showPoints": "never",
+            "axisLabel": "count per interval"
+          },
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": "failure.*" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#d03b3b" } }] },
+          { "matcher": { "id": "byRegexp", "options": "chaos.*" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#9085e9" } }] }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["sum"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "sum by (workflow) (increase(pdei_workflow_failures_total[$__interval]))",
+          "legendFormat": "failure {{workflow}}",
+          "range": true
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "sum by (type) (increase(pdei_chaos_injections_total[$__interval]))",
+          "legendFormat": "chaos {{type}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Temporal task queue backlog",
+      "description": "Schedule-to-start latency on pdei-dispute-cases, from the Temporal server metrics endpoint. Empty until the orchestrator worker has polled at least once.",
+      "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 21 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisLabel": "seconds"
+          },
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["mean", "max"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "pdei-prometheus" },
+          "expr": "histogram_quantile(0.95, sum by (le, operation) (rate(service_latency_bucket{operation=~\"PollWorkflowTaskQueue|PollActivityTaskQueue\"}[$__rate_interval])))",
+          "legendFormat": "{{operation}} p95",
+          "range": true
+        }
+      ]
+    }
+  ]
+}

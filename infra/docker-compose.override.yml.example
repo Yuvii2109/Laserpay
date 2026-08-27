@@ -1,0 +1,92 @@
+# PDEI - local development override (EXAMPLE)
+#
+#   cp infra/docker-compose.override.yml.example infra/docker-compose.override.yml
+#
+# Docker Compose picks up docker-compose.override.yml automatically and deep-merges it
+# over docker-compose.yml. The real override file is git-ignored: it is yours.
+#
+# The scenario this file exists for: you run ONE service from your IDE on the host
+# (fast redeploy, debugger attached, hot reload) while every other service and all the
+# infrastructure keeps running in Docker.
+#
+# The host-run service reaches the containers on localhost with the HOST ports:
+#
+#   PDEI_POSTGRES_URL=jdbc:postgresql://localhost:5432/pdei
+#   PDEI_KAFKA_BOOTSTRAP=localhost:29092          <- EXTERNAL listener, not 9092
+#   PDEI_REDIS_URL=redis://localhost:6379
+#   PDEI_MINIO_ENDPOINT=http://localhost:9000
+#   PDEI_TEMPORAL_TARGET=localhost:7233
+#   PDEI_AI_SERVICE_URL=http://localhost:8000
+#   OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+#
+# The containers reach your host-run service at host.docker.internal (Docker Desktop on
+# Windows/macOS; on Linux add the extra_hosts mapping shown below).
+
+services:
+
+  # ---------------------------------------------------------------------
+  # 1. Run api-gateway-service on the host: stop the container, and point
+  #    everything that talks to it at host.docker.internal instead.
+  # ---------------------------------------------------------------------
+  api-gateway-service:
+    # Comment the whole service out, or scale it to zero, when running it on the host:
+    deploy:
+      replicas: 0
+
+  ai-reasoning-service:
+    environment:
+      # AI service calls back into the gateway; send it to the host-run instance.
+      PDEI_API_BASE_URL: http://host.docker.internal:8080
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # required on Linux, harmless elsewhere
+
+  frontend:
+    environment:
+      PDEI_API_BASE_URL: http://host.docker.internal:8080
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # Compose 2.24+ can drop the inherited dependency entirely with:  depends_on: !reset []
+
+  # ---------------------------------------------------------------------
+  # 2. Frontend on the host (npm run dev) instead of in Docker
+  # ---------------------------------------------------------------------
+  # frontend:
+  #   deploy:
+  #     replicas: 0
+
+  # ---------------------------------------------------------------------
+  # 3. Debug ports + live reload for a containerised Spring service
+  # ---------------------------------------------------------------------
+  readiness-worker:
+    environment:
+      JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
+      LOGGING_LEVEL_COM_LASERPAY_PDEI: DEBUG
+    ports:
+      - "8084:8084"
+      - "5005:5005"
+
+  # ---------------------------------------------------------------------
+  # 4. Use the real Gemini provider instead of the deterministic mock
+  # ---------------------------------------------------------------------
+  # ai-reasoning-service:
+  #   environment:
+  #     PDEI_AI_PROVIDER: gemini
+  #     GEMINI_API_KEY: ${GEMINI_API_KEY}
+  #     GEMINI_MODEL: gemini-3.5-flash-lite
+
+  # ---------------------------------------------------------------------
+  # 5. Smaller footprint on a laptop: cap memory for the JVM services
+  # ---------------------------------------------------------------------
+  # normalization-worker:
+  #   environment:
+  #     JAVA_OPTS: "-XX:MaxRAMPercentage=60 -XX:+UseSerialGC"
+  #   mem_limit: 512m
+
+  # ---------------------------------------------------------------------
+  # 6. Expose Kafka's INTERNAL listener too (rarely needed; the EXTERNAL
+  #    listener on 29092 is the supported host entry point)
+  # ---------------------------------------------------------------------
+  # kafka:
+  #   ports:
+  #     - "29092:29092"
+  #     - "9092:9092"
