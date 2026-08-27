@@ -68,6 +68,18 @@
     <maven-failsafe-plugin.version>3.5.1</maven-failsafe-plugin.version>
     <maven-jar-plugin.version>3.4.2</maven-jar-plugin.version>
     <jacoco-maven-plugin.version>0.8.12</jacoco-maven-plugin.version>
+
+    <!--
+      Unit vs integration split. The CI matrix passes -DskipITs=true (unit suite) and
+      -DskipUTs=true (integration suite); without these properties both flags were silently
+      ignored and BOTH jobs ran the identical full suite, Testcontainers tests included.
+
+      Surefire owns *Test.java and explicitly excludes *IntegrationTest.java / *IT.java;
+      failsafe owns exactly those and is bound to integration-test/verify. A test that needs
+      Docker therefore cannot block the unit job.
+    -->
+    <skipUTs>false</skipUTs>
+    <skipITs>false</skipITs>
   </properties>
 
   <dependencyManagement>
@@ -255,6 +267,15 @@
           <configuration>
             <trimStackTrace>false</trimStackTrace>
             <useModulePath>false</useModulePath>
+            <skipTests>${skipUTs}</skipTests>
+            <!--
+              *IntegrationTest.java also matches surefire's default **/*Test.java include, so it
+              must be excluded explicitly or the Docker-dependent tests run in the unit suite.
+            -->
+            <excludes>
+              <exclude>**/*IntegrationTest.java</exclude>
+              <exclude>**/*IT.java</exclude>
+            </excludes>
           </configuration>
         </plugin>
 
@@ -264,7 +285,21 @@
           <version>${maven-failsafe-plugin.version}</version>
           <configuration>
             <trimStackTrace>false</trimStackTrace>
+            <skipTests>${skipITs}</skipTests>
+            <includes>
+              <include>**/*IntegrationTest.java</include>
+              <include>**/*IT.java</include>
+            </includes>
           </configuration>
+          <executions>
+            <execution>
+              <id>integration-tests</id>
+              <goals>
+                <goal>integration-test</goal>
+                <goal>verify</goal>
+              </goals>
+            </execution>
+          </executions>
         </plugin>
 
         <plugin>
@@ -323,6 +358,14 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
+      </plugin>
+      <!--
+        Bound for every module. Modules with no *IntegrationTest.java simply have nothing to run,
+        so this is inert for them rather than an error.
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
       </plugin>
       <plugin>
         <groupId>org.jacoco</groupId>
