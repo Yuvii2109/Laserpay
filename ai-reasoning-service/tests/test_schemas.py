@@ -102,9 +102,7 @@ def test_contract_9_1_example_validates(schema_dir: Path) -> None:
                 "version": 2,
             }
         ],
-        "requirements": [
-            {"type": "DELIVERY_PROOF", "strength": "MANDATORY", "satisfied": True}
-        ],
+        "requirements": [{"type": "DELIVERY_PROOF", "strength": "MANDATORY", "satisfied": True}],
         "gaps": [
             {"type": "MISSING", "evidenceType": "CUSTOMER_COMMUNICATION", "severity": "MEDIUM"}
         ],

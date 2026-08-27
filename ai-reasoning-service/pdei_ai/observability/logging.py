@@ -125,8 +125,10 @@ def _configure_stdlib(numeric_level: int, service: str) -> None:
         )
     except Exception:  # pragma: no cover - plain text is an acceptable degradation
         handler.setFormatter(
-            logging.Formatter('{"at":"%(asctime)s","level":"%(levelname)s",'
-                              '"logger":"%(name)s","event":"%(message)s"}')
+            logging.Formatter(
+                '{"at":"%(asctime)s","level":"%(levelname)s",'
+                '"logger":"%(name)s","event":"%(message)s"}'
+            )
         )
 
     root = logging.getLogger()

@@ -69,7 +69,13 @@ for v in "${VOLUMES[@]}"; do
 done
 
 if docker network inspect pdei-net >/dev/null 2>&1; then
-  docker network rm pdei-net >/dev/null 2>&1 && info "removed network pdei-net" || warn "pdei-net still in use; it will be recreated on next up"
+  # Explicit if/else, not `A && B || C`: with the latter, a failure in the success
+  # branch would also run the warning (SC2015).
+  if docker network rm pdei-net >/dev/null 2>&1; then
+    info "removed network pdei-net"
+  else
+    warn "pdei-net still in use; it will be recreated on next up"
+  fi
 fi
 
 if [ "${PRUNE_IMAGES}" -eq 1 ]; then

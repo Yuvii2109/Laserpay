@@ -65,7 +65,7 @@ public final class Buckets {
         if (raw == null || raw.isBlank()) {
             return "unknown";
         }
-        return raw.trim().replace('/', '_').replace('\', '_');
+        return raw.trim().replace('/', '_').replace('\\', '_');
     }
 
     /**
@@ -76,7 +76,7 @@ public final class Buckets {
         if (filename == null || filename.isBlank()) {
             return "artifact.bin";
         }
-        String name = filename.trim().replace('\', '/');
+        String name = filename.trim().replace('\\', '/');
         int slash = name.lastIndexOf('/');
         if (slash >= 0) {
             name = name.substring(slash + 1);

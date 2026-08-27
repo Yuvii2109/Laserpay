@@ -21,6 +21,10 @@ if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
 else
   C_RESET=''; C_DIM=''; C_BOLD=''; C_RED=''; C_GREEN=''; C_YELLOW=''; C_BLUE=''
 fi
+# Exported because every consumer of these is a *sourcing* script (bootstrap, reset,
+# seed-demo, smoke-test). shellcheck cannot see cross-file use, so without the export
+# C_DIM and C_BOLD read as dead assignments (SC2034).
+export C_RESET C_DIM C_BOLD C_RED C_GREEN C_YELLOW C_BLUE
 
 info()  { printf '%s[pdei]%s %s\n' "${C_BLUE}"   "${C_RESET}" "$*"; }
 ok()    { printf '%s[pdei]%s %s\n' "${C_GREEN}"  "${C_RESET}" "$*"; }

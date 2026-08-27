@@ -43,8 +43,13 @@ public final class CoreErrors {
         return new EvidenceIntegrityException(message);
     }
 
-    public static UpstreamUnavailableException upstream(String message) {
-        return new UpstreamUnavailableException(message);
+    /**
+     * @param upstream the dependency that failed (MinIO, Postgres, Redis, Kafka, Temporal,
+     *     ai-reasoning-service). It is carried in the exception's details map so structured logs
+     *     and metrics can attribute the failure without parsing the message.
+     */
+    public static UpstreamUnavailableException upstream(String upstream, String message) {
+        return new UpstreamUnavailableException(upstream, message);
     }
 
     /** Guard for a required string argument. */

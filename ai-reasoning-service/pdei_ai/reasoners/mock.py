@@ -164,9 +164,7 @@ class MockReasoner(BaseReasoner):
 
         if has_contradictions:
             count = len(context.contradictions)
-            fields = sorted(
-                {c.field for c in context.contradictions if c.field}
-            )
+            fields = sorted({c.field for c in context.contradictions if c.field})
             detail = f" on {', '.join(fields)}" if fields else ""
             return {
                 "classification": InvestigationClassification.AMBIGUOUS,
@@ -204,9 +202,7 @@ class MockReasoner(BaseReasoner):
             }
 
         stale = len(context.evidence) - len(usable)
-        caveat = (
-            f" {stale} superseded or expired item(s) were ignored." if stale else ""
-        )
+        caveat = f" {stale} superseded or expired item(s) were ignored." if stale else ""
         return {
             "classification": InvestigationClassification.DEFENDABLE,
             "action": RecommendedAction.PREPARE_REPRESENTMENT,
@@ -293,9 +289,7 @@ class MockReasoner(BaseReasoner):
         tone: str = "FORMAL",
     ) -> str:
         reason = context.reasonCode.value if context.reasonCode else "an unspecified reason"
-        parts: list[str] = [
-            f"Transaction {context.transactionId} was disputed under {reason}."
-        ]
+        parts: list[str] = [f"Transaction {context.transactionId} was disputed under {reason}."]
         if context.disputeAmount is not None:
             parts.append(
                 f"The disputed value is {context.disputeAmount.amountMinor} minor units "

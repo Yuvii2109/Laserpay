@@ -159,12 +159,31 @@ public class RawEventValidator {
         }
         return messages.stream()
                 .map(m -> new FieldError(
-                        fieldPath(prefix, instanceLocation(m)),
+                        resolveField(prefix, m),
                         cleanMessage(m),
                         m.getType(),
                         schemaLocation(m)))
                 .sorted(Comparator.comparing(FieldError::field).thenComparing(FieldError::message))
                 .toList();
+    }
+
+    /**
+     * networknt reports a {@code required} (and {@code additionalProperties}) violation against the
+     * <em>containing</em> object, carrying the offending property name in
+     * {@link ValidationMessage#getProperty()}. Reporting {@code body} when {@code body.createdAt} is
+     * missing tells the caller nothing actionable, so the property is appended to produce a genuinely
+     * field-level path.
+     */
+    private static String resolveField(String prefix, ValidationMessage m) {
+        String path = fieldPath(prefix, instanceLocation(m));
+        String property = m.getProperty();
+        if (property == null || property.isBlank()) {
+            return path;
+        }
+        if (path.isEmpty() || "$".equals(path)) {
+            return property;
+        }
+        return path.endsWith("." + property) ? path : path + "." + property;
     }
 
     private static String instanceLocation(ValidationMessage m) {

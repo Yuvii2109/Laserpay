@@ -322,7 +322,7 @@ public class CaseAssemblyService {
                 writeEntry(zip, entry.getKey(), entry.getValue());
             }
         } catch (Exception e) {
-            throw CoreErrors.upstream("could not build representment bundle: " + e);
+            throw CoreErrors.upstream("MinIO", "could not build representment bundle: " + e);
         }
         return buffer.toByteArray();
     }

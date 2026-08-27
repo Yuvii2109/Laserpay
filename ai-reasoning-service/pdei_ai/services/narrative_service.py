@@ -69,7 +69,8 @@ class NarrativeService:
         elapsed = time.perf_counter() - started
         record_request(
             reasoner.name,
-            "success" if result.droppedClaims == 0 and result.redactedReferences == 0
+            "success"
+            if result.droppedClaims == 0 and result.redactedReferences == 0
             else "filtered",
         )
         record_latency(reasoner.name, elapsed)

@@ -89,7 +89,7 @@ public class MinioObjectStore implements ObjectStore, InitializingBean {
             return new StoredObject(bucket, objectKey, sha256, content.length, resolvedType,
                     response.etag(), response.versionId(), Instant.now());
         } catch (Exception e) {
-            throw CoreErrors.upstream("MinIO put failed for " + bucket + "/" + objectKey + ": " + e);
+            throw CoreErrors.upstream("MinIO", "put failed for " + bucket + "/" + objectKey + ": " + e);
         }
     }
 
@@ -111,7 +111,7 @@ public class MinioObjectStore implements ObjectStore, InitializingBean {
             return new StoredObject(bucket, objectKey, declaredSha, written, resolvedType,
                     response.etag(), response.versionId(), Instant.now());
         } catch (Exception e) {
-            throw CoreErrors.upstream("MinIO streaming put failed for " + bucket + "/" + objectKey + ": " + e);
+            throw CoreErrors.upstream("MinIO", "streaming put failed for " + bucket + "/" + objectKey + ": " + e);
         }
     }
 
@@ -120,7 +120,7 @@ public class MinioObjectStore implements ObjectStore, InitializingBean {
         try (InputStream in = get(bucket, objectKey)) {
             return in.readAllBytes();
         } catch (Exception e) {
-            throw CoreErrors.upstream("MinIO get failed for " + bucket + "/" + objectKey + ": " + e);
+            throw CoreErrors.upstream("MinIO", "get failed for " + bucket + "/" + objectKey + ": " + e);
         }
     }
 
@@ -129,7 +129,7 @@ public class MinioObjectStore implements ObjectStore, InitializingBean {
         try {
             return client.getObject(GetObjectArgs.builder().bucket(bucket).object(objectKey).build());
         } catch (Exception e) {
-            throw CoreErrors.upstream("MinIO get failed for " + bucket + "/" + objectKey + ": " + e);
+            throw CoreErrors.upstream("MinIO", "get failed for " + bucket + "/" + objectKey + ": " + e);
         }
     }
 
@@ -144,7 +144,7 @@ public class MinioObjectStore implements ObjectStore, InitializingBean {
                     .expiry(seconds, TimeUnit.SECONDS)
                     .build());
         } catch (Exception e) {
-            throw CoreErrors.upstream("MinIO presign failed for " + bucket + "/" + objectKey + ": " + e);
+            throw CoreErrors.upstream("MinIO", "presign failed for " + bucket + "/" + objectKey + ": " + e);
         }
     }
 
@@ -162,7 +162,7 @@ public class MinioObjectStore implements ObjectStore, InitializingBean {
             return new ObjectStat(bucket, objectKey, response.size(), response.contentType(),
                     response.etag(), response.versionId(), lastModified, metadata);
         } catch (Exception e) {
-            throw CoreErrors.upstream("MinIO stat failed for " + bucket + "/" + objectKey + ": " + e);
+            throw CoreErrors.upstream("MinIO", "stat failed for " + bucket + "/" + objectKey + ": " + e);
         }
     }
 
@@ -181,7 +181,7 @@ public class MinioObjectStore implements ObjectStore, InitializingBean {
         try {
             client.removeObject(RemoveObjectArgs.builder().bucket(bucket).object(objectKey).build());
         } catch (Exception e) {
-            throw CoreErrors.upstream("MinIO delete failed for " + bucket + "/" + objectKey + ": " + e);
+            throw CoreErrors.upstream("MinIO", "delete failed for " + bucket + "/" + objectKey + ": " + e);
         }
     }
 
@@ -202,7 +202,7 @@ public class MinioObjectStore implements ObjectStore, InitializingBean {
                             .build());
                 }
             } catch (Exception e) {
-                throw CoreErrors.upstream("MinIO ensureBucket failed for " + bucket + ": " + e);
+                throw CoreErrors.upstream("MinIO", "ensureBucket failed for " + bucket + ": " + e);
             }
         }
     }

@@ -92,16 +92,21 @@ class AiToolsClient:
                 response = await self._client.get(path, params=params or None)
             except httpx.HTTPError as exc:
                 last_error = ToolTransportError(f"GET {path} failed: {exc}")
-                log.warning("tool call transport failure", path=path, attempt=attempt,
-                            error=str(exc))
+                log.warning(
+                    "tool call transport failure", path=path, attempt=attempt, error=str(exc)
+                )
             else:
                 elapsed_ms = int((time.perf_counter() - started) * 1000)
                 if response.status_code in _RETRYABLE_STATUS:
                     last_error = ToolTransportError(
                         f"GET {path} returned {response.status_code}", response.status_code
                     )
-                    log.warning("tool call retryable status", path=path,
-                                status=response.status_code, attempt=attempt)
+                    log.warning(
+                        "tool call retryable status",
+                        path=path,
+                        status=response.status_code,
+                        attempt=attempt,
+                    )
                 elif response.status_code == 404:
                     # Not an error worth retrying, and worth telling the model plainly:
                     # "this record does not exist" is itself evidence about the case.
@@ -112,8 +117,9 @@ class AiToolsClient:
                         response.status_code,
                     )
                 else:
-                    log.debug("tool call ok", path=path, status=response.status_code,
-                              latencyMs=elapsed_ms)
+                    log.debug(
+                        "tool call ok", path=path, status=response.status_code, latencyMs=elapsed_ms
+                    )
                     return self._decode(response, path)
 
             if attempt <= self.max_retries:

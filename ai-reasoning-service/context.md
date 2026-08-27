@@ -259,8 +259,9 @@ pdei:ai:bucket                HASH{tokens,at}     token bucket, Lua-atomic
 
 ```python
 class EvidenceReasoner(Protocol):
-    name: str      # gemini | mock | null  — appears in metrics and ModelMetadata
+    name: str  # gemini | mock | null  — appears in metrics and ModelMetadata
     model: str
+
     async def investigate(self, context: InvestigationContext) -> InvestigationResult: ...
     async def narrate(self, request: NarrativeRequest) -> NarrativeResult: ...
     async def health(self) -> ReasonerHealth: ...

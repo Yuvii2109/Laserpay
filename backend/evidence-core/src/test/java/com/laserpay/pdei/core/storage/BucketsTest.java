@@ -31,7 +31,7 @@ class BucketsTest {
     @DisplayName("filenames cannot escape their key prefix")
     void filenamesAreSanitised() {
         assertThat(Buckets.safeFilename("../../etc/passwd")).isEqualTo("passwd");
-        assertThat(Buckets.safeFilename("C:\temp\proof of delivery.pdf"))
+        assertThat(Buckets.safeFilename("C:\\temp\\proof of delivery.pdf"))
                 .isEqualTo("proof_of_delivery.pdf");
         assertThat(Buckets.safeFilename("  ")).isEqualTo("artifact.bin");
         assertThat(Buckets.safeFilename(null)).isEqualTo("artifact.bin");

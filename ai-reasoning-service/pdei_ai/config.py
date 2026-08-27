@@ -146,9 +146,7 @@ class Settings:
             bucket_refill_per_second=_env_float("PDEI_AI_BUCKET_REFILL_PER_SECOND", 1.0),
             budget_fail_open=_env_bool("PDEI_AI_BUDGET_FAIL_OPEN", True),
             admission_threshold=_env_int("PDEI_AI_ADMISSION_THRESHOLD", 55),
-            financial_impact_cap_minor=_env_int(
-                "PDEI_AI_FINANCIAL_IMPACT_CAP_MINOR", 10_000_000
-            ),
+            financial_impact_cap_minor=_env_int("PDEI_AI_FINANCIAL_IMPACT_CAP_MINOR", 10_000_000),
             ambiguity_cap=max(1, _env_int("PDEI_AI_AMBIGUITY_CAP", 8)),
             host=_env("PDEI_AI_HOST", "0.0.0.0"),
             port=_env_int("PDEI_AI_PORT", 8000),

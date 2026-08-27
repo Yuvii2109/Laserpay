@@ -286,9 +286,7 @@ def test_contradictions_may_reference_domain_entity_ids() -> None:
 
 def test_context_deadline_helpers() -> None:
     now = utc_now()
-    context = InvestigationContext(
-        investigationId="INV-1", deadlineAt=now + timedelta(hours=10)
-    )
+    context = InvestigationContext(investigationId="INV-1", deadlineAt=now + timedelta(hours=10))
     hours = context.hours_until_deadline(now)
     assert hours is not None and 9.9 < hours < 10.1
     assert not context.past_deadline(now)
@@ -306,45 +304,102 @@ def test_investigation_id_must_carry_the_inv_prefix() -> None:
 def test_enum_members_match_the_contract_spelling() -> None:
     """Section 6 of the platform contract, transcribed. Do not "fix" these."""
     assert [member.value for member in EvidenceType] == [
-        "PAYMENT_PROOF", "INVOICE", "ORDER_RECORD", "SHIPPING_RECORD", "DELIVERY_PROOF",
-        "REFUND_RECEIPT", "CUSTOMER_COMMUNICATION", "MERCHANT_POLICY", "TERMS_OF_SERVICE",
-        "AVS_CVV_RESULT", "DEVICE_FINGERPRINT", "PRIOR_TRANSACTION_HISTORY", "SIGNED_CONTRACT",
+        "PAYMENT_PROOF",
+        "INVOICE",
+        "ORDER_RECORD",
+        "SHIPPING_RECORD",
+        "DELIVERY_PROOF",
+        "REFUND_RECEIPT",
+        "CUSTOMER_COMMUNICATION",
+        "MERCHANT_POLICY",
+        "TERMS_OF_SERVICE",
+        "AVS_CVV_RESULT",
+        "DEVICE_FINGERPRINT",
+        "PRIOR_TRANSACTION_HISTORY",
+        "SIGNED_CONTRACT",
     ]
     assert [member.value for member in EvidenceStatus] == [
-        "PENDING", "ACTIVE", "EXPIRING", "EXPIRED", "INVALIDATED", "SUPERSEDED",
+        "PENDING",
+        "ACTIVE",
+        "EXPIRING",
+        "EXPIRED",
+        "INVALIDATED",
+        "SUPERSEDED",
     ]
     assert [member.value for member in EvidenceSource] == [
-        "PSP_ADAPTER", "ORDER_SYSTEM", "LOGISTICS", "CRM", "DOCUMENT_UPLOAD",
-        "MERCHANT_PORTAL", "SIMULATOR", "INTERNAL_DERIVED",
+        "PSP_ADAPTER",
+        "ORDER_SYSTEM",
+        "LOGISTICS",
+        "CRM",
+        "DOCUMENT_UPLOAD",
+        "MERCHANT_PORTAL",
+        "SIMULATOR",
+        "INTERNAL_DERIVED",
     ]
     assert [member.value for member in DisputeReasonCode] == [
-        "GOODS_NOT_RECEIVED", "SERVICE_NOT_RENDERED", "PRODUCT_NOT_AS_DESCRIBED",
-        "DUPLICATE_PROCESSING", "CREDIT_NOT_PROCESSED", "SUBSCRIPTION_CANCELLED",
-        "FRAUDULENT_TRANSACTION", "UNRECOGNIZED_TRANSACTION", "INCORRECT_AMOUNT",
+        "GOODS_NOT_RECEIVED",
+        "SERVICE_NOT_RENDERED",
+        "PRODUCT_NOT_AS_DESCRIBED",
+        "DUPLICATE_PROCESSING",
+        "CREDIT_NOT_PROCESSED",
+        "SUBSCRIPTION_CANCELLED",
+        "FRAUDULENT_TRANSACTION",
+        "UNRECOGNIZED_TRANSACTION",
+        "INCORRECT_AMOUNT",
         "PAID_BY_OTHER_MEANS",
     ]
     assert [member.value for member in DisputeStatus] == [
-        "OPEN", "EVIDENCE_GATHERING", "UNDER_INVESTIGATION", "AWAITING_HUMAN_REVIEW",
-        "REPRESENTMENT_PREPARED", "SUBMITTED", "WON", "LOST", "EXPIRED", "WITHDRAWN",
+        "OPEN",
+        "EVIDENCE_GATHERING",
+        "UNDER_INVESTIGATION",
+        "AWAITING_HUMAN_REVIEW",
+        "REPRESENTMENT_PREPARED",
+        "SUBMITTED",
+        "WON",
+        "LOST",
+        "EXPIRED",
+        "WITHDRAWN",
     ]
     assert [member.value for member in CaseStatus] == [
-        "CREATED", "ASSEMBLING", "INVESTIGATING", "AWAITING_EVIDENCE", "AWAITING_APPROVAL",
-        "PREPARED", "SUBMITTED", "CLOSED", "FAILED",
+        "CREATED",
+        "ASSEMBLING",
+        "INVESTIGATING",
+        "AWAITING_EVIDENCE",
+        "AWAITING_APPROVAL",
+        "PREPARED",
+        "SUBMITTED",
+        "CLOSED",
+        "FAILED",
     ]
     assert [member.value for member in RequirementStrength] == [
-        "MANDATORY", "RECOMMENDED", "OPTIONAL", "PROHIBITED",
+        "MANDATORY",
+        "RECOMMENDED",
+        "OPTIONAL",
+        "PROHIBITED",
     ]
     assert [member.value for member in GapType] == [
-        "MISSING", "EXPIRED", "EXPIRING_SOON", "CONTRADICTORY", "UNVERIFIABLE_PROVENANCE",
-        "LOW_QUALITY", "VERSION_CONFLICT",
+        "MISSING",
+        "EXPIRED",
+        "EXPIRING_SOON",
+        "CONTRADICTORY",
+        "UNVERIFIABLE_PROVENANCE",
+        "LOW_QUALITY",
+        "VERSION_CONFLICT",
     ]
     assert [member.value for member in GapSeverity] == ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
     assert [member.value for member in InvestigationClassification] == [
-        "DEFENDABLE", "WEAK", "INDEFENSIBLE", "INSUFFICIENT_EVIDENCE", "AMBIGUOUS",
+        "DEFENDABLE",
+        "WEAK",
+        "INDEFENSIBLE",
+        "INSUFFICIENT_EVIDENCE",
+        "AMBIGUOUS",
     ]
     assert [member.value for member in RecommendedAction] == [
-        "PREPARE_REPRESENTMENT", "GATHER_MORE_EVIDENCE", "ACCEPT_LIABILITY",
-        "ESCALATE_TO_HUMAN", "REQUEST_POLICY_REVIEW",
+        "PREPARE_REPRESENTMENT",
+        "GATHER_MORE_EVIDENCE",
+        "ACCEPT_LIABILITY",
+        "ESCALATE_TO_HUMAN",
+        "REQUEST_POLICY_REVIEW",
     ]
     assert [member.value for member in SafetyDecision] == ["ALLOW", "ALLOW_WITH_REVIEW", "DENY"]
     assert len(list(ChaosType)) == 13

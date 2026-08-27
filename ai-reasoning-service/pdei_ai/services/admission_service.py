@@ -148,9 +148,7 @@ class AdmissionService:
         if decision is None:
             decision = await self._throttle(request, priority, terms)
 
-        record_admission(
-            "ADMITTED" if decision.admit else decision.shortCircuit.value
-        )
+        record_admission("ADMITTED" if decision.admit else decision.shortCircuit.value)
         log.info(
             "admission decision",
             caseId=request.caseId,

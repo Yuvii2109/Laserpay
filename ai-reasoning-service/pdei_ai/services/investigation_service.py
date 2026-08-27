@@ -241,11 +241,7 @@ class InvestigationService:
                 provider=result.modelMetadata.provider,
                 droppedClaims=len(report.droppedCitations),
                 droppedSupporting=report.droppedSupporting,
-                invented=[
-                    value
-                    for value in report.droppedSupporting
-                    if is_evidence_id(value)
-                ],
+                invented=[value for value in report.droppedSupporting if is_evidence_id(value)],
             )
 
         classification = result.classification
@@ -302,29 +298,41 @@ class InvestigationService:
         reasoner = self._resolve(provider)
         started = time.perf_counter()
 
-        yield _step("accepted", "investigation accepted", {
-            "investigationId": context.investigationId,
-            "caseId": context.caseId,
-            "transactionId": context.transactionId,
-        })
+        yield _step(
+            "accepted",
+            "investigation accepted",
+            {
+                "investigationId": context.investigationId,
+                "caseId": context.caseId,
+                "transactionId": context.transactionId,
+            },
+        )
 
-        yield _step("context", "curated context summarised", {
-            "evidenceCount": len(context.evidence),
-            "usableEvidenceCount": len(context.usable_evidence()),
-            "requirementCount": len(context.requirements),
-            "unsatisfiedMandatory": [
-                requirement.type.value for requirement in context.unsatisfied_mandatory()
-            ],
-            "gapCount": len(context.gaps),
-            "contradictionCount": len(context.contradictions),
-            "citableEvidenceIds": sorted(context.evidence_ids()),
-        })
+        yield _step(
+            "context",
+            "curated context summarised",
+            {
+                "evidenceCount": len(context.evidence),
+                "usableEvidenceCount": len(context.usable_evidence()),
+                "requirementCount": len(context.requirements),
+                "unsatisfiedMandatory": [
+                    requirement.type.value for requirement in context.unsatisfied_mandatory()
+                ],
+                "gapCount": len(context.gaps),
+                "contradictionCount": len(context.contradictions),
+                "citableEvidenceIds": sorted(context.evidence_ids()),
+            },
+        )
 
-        yield _step("provider", "reasoner selected", {
-            "provider": reasoner.name,
-            "model": getattr(reasoner, "model", "unknown"),
-            "fallbackChain": self._registry.chain,
-        })
+        yield _step(
+            "provider",
+            "reasoner selected",
+            {
+                "provider": reasoner.name,
+                "model": getattr(reasoner, "model", "unknown"),
+                "fallbackChain": self._registry.chain,
+            },
+        )
 
         try:
             raw = await reasoner.investigate(context)
@@ -333,16 +341,19 @@ class InvestigationService:
             yield _step("error", "reasoner failed", {"error": str(exc)[:500]})
             return
 
-        yield _step("reasoning", "provider returned a proposal", {
-            "classification": raw.classification.value,
-            "confidence": raw.confidence,
-            "citationCount": len(raw.citations),
-            "supportingEvidence": raw.supportingEvidence,
-        })
+        yield _step(
+            "reasoning",
+            "provider returned a proposal",
+            {
+                "classification": raw.classification.value,
+                "confidence": raw.confidence,
+                "citationCount": len(raw.citations),
+                "supportingEvidence": raw.supportingEvidence,
+            },
+        )
 
         result, report = self.self_check(context, raw)
-        yield _step("self_check", "claims verified against the supplied context",
-                    report.to_dict())
+        yield _step("self_check", "claims verified against the supplied context", report.to_dict())
 
         elapsed = time.perf_counter() - started
         record_request(reasoner.name, "success" if report.clean else "filtered")
@@ -369,17 +380,13 @@ class InvestigationService:
         ``provider="deterministic"`` so the UI, audit trail and funnel metrics
         can always tell it apart from a model answer.
         """
-        supporting = [
-            item.evidenceId for item in context.usable_evidence()
-        ]
+        supporting = [item.evidenceId for item in context.usable_evidence()]
         return InvestigationResult(
             investigationId=context.investigationId,
             classification=InvestigationClassification.AMBIGUOUS,
             confidence=0.0,
             supportingEvidence=supporting,
-            missingEvidence=[
-                requirement.type for requirement in context.unsatisfied_mandatory()
-            ],
+            missingEvidence=[requirement.type for requirement in context.unsatisfied_mandatory()],
             contradictions=list(context.contradictions),
             reasoningSummary=(
                 f"No AI provider was available ({detail}). This case is escalated to a human; "

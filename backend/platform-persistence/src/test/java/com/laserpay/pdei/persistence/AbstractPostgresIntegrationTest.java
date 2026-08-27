@@ -34,8 +34,20 @@ public abstract class AbstractPostgresIntegrationTest {
     @Autowired
     protected JdbcTemplate jdbcTemplate;
 
-    /** Guard used by {@code @EnabledIf} on the concrete tests so a Docker-less box skips them. */
+    /**
+     * Guard used by {@code @EnabledIf} on the concrete tests so a Docker-less developer box skips
+     * them instead of failing.
+     *
+     * <p><strong>In CI this deliberately never skips.</strong> A silent skip there would let the
+     * "Backend (integration)" job report success having executed nothing — the integration suite
+     * would be permanently, invisibly green. GitHub Actions sets {@code CI=true}, so on a runner
+     * without a usable Docker daemon these tests fail loudly, which is the correct outcome: the
+     * job exists precisely to prove the schema behaves against a real PostgreSQL.
+     */
     public static boolean dockerAvailable() {
+        if (Boolean.parseBoolean(System.getenv("CI"))) {
+            return true;
+        }
         try {
             return DockerClientFactory.instance().isDockerAvailable();
         } catch (RuntimeException ex) {

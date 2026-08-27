@@ -130,9 +130,7 @@ def test_build_request_substitutes_path_and_query() -> None:
     assert path == "/api/v1/ai-tools/timeline/TX-1"
     assert query == {}
 
-    path, query = tool_registry.get("findRelatedEvidence").build_request(
-        {"transactionId": "TX-1"}
-    )
+    path, query = tool_registry.get("findRelatedEvidence").build_request({"transactionId": "TX-1"})
     assert path == "/api/v1/ai-tools/evidence/related"
     assert query == {"transactionId": "TX-1"}
 
@@ -264,9 +262,7 @@ async def test_client_retries_a_503_then_succeeds() -> None:
         side_effect=[httpx.Response(503), httpx.Response(200, json=[])]
     )
     async with AiToolsClient(GATEWAY, "t", max_retries=2) as client:
-        data = await client.get(
-            "/api/v1/ai-tools/contradictions", {"transactionId": "TX-1"}
-        )
+        data = await client.get("/api/v1/ai-tools/contradictions", {"transactionId": "TX-1"})
 
     assert data == []
     assert route.call_count == 2
@@ -275,9 +271,7 @@ async def test_client_retries_a_503_then_succeeds() -> None:
 @respx.mock
 async def test_executor_end_to_end_against_a_mocked_gateway() -> None:
     respx.get(f"{GATEWAY}/api/v1/ai-tools/evidence/related").mock(
-        return_value=httpx.Response(
-            200, json=[{"evidenceId": "EV-1092", "type": "DELIVERY_PROOF"}]
-        )
+        return_value=httpx.Response(200, json=[{"evidenceId": "EV-1092", "type": "DELIVERY_PROOF"}])
     )
     async with AiToolsClient(GATEWAY, "t", max_retries=0) as client:
         executor = ToolExecutor(client, max_calls=4)
@@ -290,9 +284,7 @@ async def test_executor_end_to_end_against_a_mocked_gateway() -> None:
 
 @respx.mock
 async def test_executor_reports_upstream_failure_as_a_tool_error_not_a_crash() -> None:
-    respx.get(f"{GATEWAY}/api/v1/ai-tools/order/ORD-1").mock(
-        return_value=httpx.Response(500)
-    )
+    respx.get(f"{GATEWAY}/api/v1/ai-tools/order/ORD-1").mock(return_value=httpx.Response(500))
     async with AiToolsClient(GATEWAY, "t", max_retries=0) as client:
         executor = ToolExecutor(client)
         result = await executor.execute("getOrder", {"id": "ORD-1"})

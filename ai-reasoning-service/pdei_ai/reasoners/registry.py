@@ -109,9 +109,7 @@ class ReasonerRegistry:
         for name, error in self._construction_errors.items():
             if name not in self._built:
                 report.append(
-                    ReasonerHealth(
-                        provider=name, model="-", healthy=False, detail=error[:300]
-                    )
+                    ReasonerHealth(provider=name, model="-", healthy=False, detail=error[:300])
                 )
         return report
 

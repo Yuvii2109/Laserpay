@@ -167,9 +167,7 @@ class ToolExecutor:
             latencyMs=int(elapsed * 1000),
         )
 
-    async def execute_many(
-        self, calls: list[tuple[str, dict[str, Any]]]
-    ) -> list[ToolCallResult]:
+    async def execute_many(self, calls: list[tuple[str, dict[str, Any]]]) -> list[ToolCallResult]:
         """Run several calls in order. Sequential on purpose: the budget is shared."""
         results: list[ToolCallResult] = []
         for name, arguments in calls:

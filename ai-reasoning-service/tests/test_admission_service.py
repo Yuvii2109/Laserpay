@@ -67,17 +67,25 @@ def test_rounding_is_half_up_not_bankers() -> None:
 
 
 def test_financial_impact_saturates_at_the_cap(service: AdmissionService) -> None:
+    assert (
+        service.financial_impact(_request(disputeAmount=Money(amountMinor=0, currency="INR")))
+        == 0.0
+    )
     assert service.financial_impact(
-        _request(disputeAmount=Money(amountMinor=0, currency="INR"))
-    ) == 0.0
-    assert service.financial_impact(
-        _request(disputeAmount=Money(amountMinor=DEFAULT_FINANCIAL_IMPACT_CAP_MINOR // 2,
-                                     currency="INR"))
+        _request(
+            disputeAmount=Money(amountMinor=DEFAULT_FINANCIAL_IMPACT_CAP_MINOR // 2, currency="INR")
+        )
     ) == pytest.approx(0.5)
-    assert service.financial_impact(
-        _request(disputeAmount=Money(amountMinor=DEFAULT_FINANCIAL_IMPACT_CAP_MINOR * 5,
-                                     currency="INR"))
-    ) == 1.0
+    assert (
+        service.financial_impact(
+            _request(
+                disputeAmount=Money(
+                    amountMinor=DEFAULT_FINANCIAL_IMPACT_CAP_MINOR * 5, currency="INR"
+                )
+            )
+        )
+        == 1.0
+    )
 
 
 def test_deadline_urgency_boundaries(service: AdmissionService) -> None:
@@ -93,12 +101,12 @@ def test_deadline_urgency_boundaries(service: AdmissionService) -> None:
 
 def test_ambiguity_counts_contradictions_double(service: AdmissionService) -> None:
     assert service.ambiguity_score(_request(contradictionCount=0, gapCount=0)) == 0.0
-    assert service.ambiguity_score(
-        _request(contradictionCount=1, gapCount=0)
-    ) == pytest.approx(0.25)
-    assert service.ambiguity_score(
-        _request(contradictionCount=0, gapCount=2)
-    ) == pytest.approx(0.25)
+    assert service.ambiguity_score(_request(contradictionCount=1, gapCount=0)) == pytest.approx(
+        0.25
+    )
+    assert service.ambiguity_score(_request(contradictionCount=0, gapCount=2)) == pytest.approx(
+        0.25
+    )
     assert service.ambiguity_score(_request(contradictionCount=8, gapCount=8)) == 1.0
 
 
@@ -175,9 +183,7 @@ async def test_no_evidence_short_circuits_to_accept_liability(
 async def test_all_requirements_satisfied_short_circuits_to_prepare(
     service: AdmissionService,
 ) -> None:
-    decision = await service.decide(
-        _request(unsatisfiedMandatoryCount=0, contradictionCount=0)
-    )
+    decision = await service.decide(_request(unsatisfiedMandatoryCount=0, contradictionCount=0))
     assert decision.shortCircuit is ShortCircuit.ALL_REQUIREMENTS_SATISFIED
     assert decision.deterministicAction is RecommendedAction.PREPARE_REPRESENTMENT
     assert decision.admit is False

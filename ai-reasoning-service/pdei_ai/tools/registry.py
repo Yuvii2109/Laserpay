@@ -66,9 +66,7 @@ class ToolSpec:
                 "read-only by construction and only GET is permitted (platform contract 8.6)"
             )
         if not self.path.startswith(TOOLS_BASE_PATH + "/"):
-            raise ToolSpecError(
-                f"tool {self.name!r} path {self.path!r} escapes {TOOLS_BASE_PATH}"
-            )
+            raise ToolSpecError(f"tool {self.name!r} path {self.path!r} escapes {TOOLS_BASE_PATH}")
         placeholders = tuple(_PATH_PARAM_RE.findall(self.path))
         declared = tuple(param.name for param in self.path_params)
         if set(placeholders) != set(declared):
@@ -121,9 +119,7 @@ class ToolSpec:
         for placeholder in self._placeholders:
             path = path.replace("{" + placeholder + "}", cleaned[placeholder])
         query = {
-            param.name: cleaned[param.name]
-            for param in self.query_params
-            if param.name in cleaned
+            param.name: cleaned[param.name] for param in self.query_params if param.name in cleaned
         }
         if not path.startswith(TOOLS_BASE_PATH + "/"):  # pragma: no cover - defence in depth
             raise ToolSpecError(f"built path {path!r} escaped {TOOLS_BASE_PATH}")

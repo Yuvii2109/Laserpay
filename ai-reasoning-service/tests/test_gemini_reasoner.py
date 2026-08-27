@@ -88,13 +88,11 @@ def test_narrative_schema_demands_citations() -> None:
 
 
 def test_parse_json_accepts_plain_json() -> None:
-    assert _parse_json('{"classification": "DEFENDABLE"}') == {
-        "classification": "DEFENDABLE"
-    }
+    assert _parse_json('{"classification": "DEFENDABLE"}') == {"classification": "DEFENDABLE"}
 
 
 def test_parse_json_strips_a_markdown_fence() -> None:
-    fenced = "```json\n{\"confidence\": 0.9}\n```"
+    fenced = '```json\n{"confidence": 0.9}\n```'
     assert _parse_json(fenced) == {"confidence": 0.9}
 
 

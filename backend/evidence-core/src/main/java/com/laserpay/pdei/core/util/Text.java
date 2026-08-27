@@ -19,10 +19,10 @@ public final class Text {
             return "";
         }
         String value = Normalizer.normalize(raw, Normalizer.Form.NFKD)
-                .replaceAll("\p{M}+", "")
+                .replaceAll("\\p{M}+", "")
                 .toLowerCase(Locale.ROOT)
                 .replaceAll("[^a-z0-9 ]", " ")
-                .replaceAll("\s+", " ")
+                .replaceAll("\\s+", " ")
                 .trim();
         value = " " + value + " ";
         value = value
@@ -35,7 +35,7 @@ public final class Text {
                 .replace(" number ", " no ")
                 .replace(" nagar ", " ngr ")
                 .replace(" post office ", " po ");
-        return value.replaceAll("\s+", " ").trim();
+        return value.replaceAll("\\s+", " ").trim();
     }
 
     /** True when two addresses are the same place after normalisation. */
@@ -57,7 +57,7 @@ public final class Text {
         if (raw == null || raw.isBlank()) {
             return "";
         }
-        String[] tokens = raw.toLowerCase(Locale.ROOT).split("[^\p{Alnum}]+");
+        String[] tokens = raw.toLowerCase(Locale.ROOT).split("[^\\p{Alnum}]+");
         StringBuilder query = new StringBuilder();
         String last = null;
         for (String token : tokens) {

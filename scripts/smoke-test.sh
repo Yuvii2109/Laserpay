@@ -157,7 +157,8 @@ printf '%s\n' "+-------+-----------------------------+--------------------------
 printf '| %-5s | %-27s | %-51s | %-6s | %-8s |\n' "GROUP" "COMPONENT" "ENDPOINT" "STATUS" "LATENCY"
 printf '%s\n' "+-------+-----------------------------+-----------------------------------------------------+--------+----------+"
 for row in "${ROWS[@]}"; do
-  IFS='|' read -r g n e s d m <<< "${row}"
+  # Field 5 (detail) is only rendered in the failure summary above, not in this table.
+  IFS='|' read -r g n e s _ m <<< "${row}"
   colour="${C_GREEN}"; [ "${s}" = "UP" ] || colour="${C_RED}"
   # Trim the endpoint so the table never wraps.
   if [ "${#e}" -gt 51 ]; then e="${e:0:48}..."; fi

@@ -20,7 +20,7 @@
   </description>
 
   <dependencies>
-    <!-- Shared PDEI modules ---------------------------------------------------------------- -->
+    <!-- Shared PDEI modules -->
     <dependency>
       <groupId>com.laserpay.pdei</groupId>
       <artifactId>platform-common</artifactId>
@@ -34,7 +34,7 @@
       <artifactId>evidence-core</artifactId>
     </dependency>
 
-    <!-- Spring Boot: web is here for actuator + the small internal ops API only ------------- -->
+    <!-- Spring Boot: web is here for actuator + the small internal ops API only -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-web</artifactId>
@@ -48,7 +48,7 @@
       <artifactId>spring-boot-starter-validation</artifactId>
     </dependency>
 
-    <!-- Temporal ---------------------------------------------------------------------------- -->
+    <!-- Temporal -->
     <dependency>
       <groupId>io.temporal</groupId>
       <artifactId>temporal-sdk</artifactId>
@@ -61,17 +61,17 @@
     -->
     <dependency>
       <groupId>io.temporal</groupId>
-      <artifactId>temporal-spring-boot-starter-alpha</artifactId>
+      <artifactId>temporal-spring-boot-starter</artifactId>
       <version>${temporal.version}</version>
     </dependency>
 
-    <!-- Kafka: pdei.dispute.events.v1 in, pdei.case.events.v1 out --------------------------- -->
+    <!-- Kafka: pdei.dispute.events.v1 in, pdei.case.events.v1 out -->
     <dependency>
       <groupId>org.springframework.kafka</groupId>
       <artifactId>spring-kafka</artifactId>
     </dependency>
 
-    <!-- Observability ------------------------------------------------------------------------ -->
+    <!-- Observability -->
     <dependency>
       <groupId>io.micrometer</groupId>
       <artifactId>micrometer-registry-prometheus</artifactId>
@@ -83,7 +83,7 @@
       <optional>true</optional>
     </dependency>
 
-    <!-- Test --------------------------------------------------------------------------------- -->
+    <!-- Test -->
     <dependency>
       <groupId>io.temporal</groupId>
       <artifactId>temporal-testing</artifactId>

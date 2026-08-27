@@ -59,9 +59,7 @@ def default_output_dir() -> Path:
 
 
 def build_schema(model_cls: Any, filename: str, description: str) -> dict[str, Any]:
-    schema = model_cls.model_json_schema(
-        ref_template="#/$defs/{model}", mode="validation"
-    )
+    schema = model_cls.model_json_schema(ref_template="#/$defs/{model}", mode="validation")
     ordered: dict[str, Any] = {
         "$schema": SCHEMA_DIALECT,
         "$id": f"{SCHEMA_BASE_URI}/{filename}",

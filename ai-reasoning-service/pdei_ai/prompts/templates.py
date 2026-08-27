@@ -136,9 +136,7 @@ def render_context(context: InvestigationContext) -> str:
         entries = context.timeline[:_MAX_TIMELINE_ENTRIES]
         for entry in entries:
             at = entry.at.isoformat() if entry.at else "unknown time"
-            lines.append(
-                f"- {at} {entry.eventType or 'Event'} :: {_truncate(entry.summary)}"
-            )
+            lines.append(f"- {at} {entry.eventType or 'Event'} :: {_truncate(entry.summary)}")
         if len(context.timeline) > _MAX_TIMELINE_ENTRIES:
             omitted = len(context.timeline) - _MAX_TIMELINE_ENTRIES
             lines.append(f"- ... {omitted} earlier entries omitted")
@@ -148,9 +146,7 @@ def render_context(context: InvestigationContext) -> str:
     constraints = context.policyConstraints
     lines.append(f"- autoPrepareMinConfidence: {constraints.autoPrepareMinConfidence}")
     lines.append(f"- maxContradictions: {constraints.maxContradictions}")
-    prohibited = (
-        ", ".join(item.value for item in constraints.prohibitedEvidenceTypes) or "none"
-    )
+    prohibited = ", ".join(item.value for item in constraints.prohibitedEvidenceTypes) or "none"
     lines.append(f"- prohibitedEvidenceTypes: {prohibited}")
 
     history = context.historicalContext
@@ -162,9 +158,7 @@ def render_context(context: InvestigationContext) -> str:
     citable = sorted(context.evidence_ids())
     lines.append("")
     lines.append("## CITABLE EVIDENCE IDS")
-    lines.append(
-        ", ".join(citable) if citable else "(empty - you may not cite any evidence id)"
-    )
+    lines.append(", ".join(citable) if citable else "(empty - you may not cite any evidence id)")
 
     return "\n".join(lines)
 

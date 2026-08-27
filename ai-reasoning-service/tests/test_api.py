@@ -66,9 +66,7 @@ def test_ready_reports_the_active_provider_and_degraded_dependencies(
 @respx.mock
 def test_ready_stays_up_when_the_gateway_is_unreachable(client: TestClient) -> None:
     """A tool-surface outage degrades quality, not capability."""
-    respx.get(f"{GATEWAY}/api/v1/health/ready").mock(
-        side_effect=httpx.ConnectError("refused")
-    )
+    respx.get(f"{GATEWAY}/api/v1/health/ready").mock(side_effect=httpx.ConnectError("refused"))
 
     body = client.get("/ready").json()
 
@@ -142,9 +140,11 @@ def test_investigate_stream_emits_sse_steps(
         assert f"event: {step}" in body
 
     result_frame = next(
-        line for line in body.splitlines() if line.startswith("data:") and '"step": "result"' in line
+        line
+        for line in body.splitlines()
+        if line.startswith("data:") and '"step": "result"' in line
     )
-    payload = json.loads(result_frame[len("data:"):].strip())
+    payload = json.loads(result_frame[len("data:") :].strip())
     assert payload["detail"]["classification"] == "DEFENDABLE"
 
 

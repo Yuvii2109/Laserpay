@@ -404,9 +404,13 @@ Each maps to a chaos injection that proves it (`docs/testing-strategy.md` §7).
 Compose profiles: `--profile core` (infra only) · `app` · `obs`.
 Demo walkthrough: `docs/demo-script.md` (seed 4281, ~12 min).
 
-⚠️ **Java 21 and Maven are NOT installed on this machine** (node 24.16, python 3.14, docker
-29.4, git 2.54 are). The backend has never been compiled — build it in Docker via compose, or
-install a JDK + Maven. **This is the single biggest unverified risk in the repo.**
+**Backend build verified 2026-08-28.** `mvn test` → **BUILD SUCCESS, all 12 modules,
+505 tests, 0 failures.** Toolchain used: Temurin JDK 21.0.12 (user-scope install at
+`%LOCALAPPDATA%\Programs\Eclipse Adoptium\jdk-21.0.12.101-hotspot`) + Maven 3.9.9.
+
+⚠️ Maven is **not** installed system-wide and `JAVA_HOME` is **not** set globally — set both, or
+run Maven from a copy you unzip yourself. Docker Desktop must be running for the integration
+suite (Testcontainers) and for `docker compose`.
 
 ---
 
@@ -435,12 +439,69 @@ Representative classes of defect, worth re-checking after any large change:
   `pdei_events_processed_total` registered with two different tag-key sets.
 - **Missing CORS** on `simulator-service` (browser calls :8088 cross-origin).
 
+### First real build — 2026-08-28
+
+CI failed on first push (5 red / 2 green). Root causes found by compiling locally; six defects,
+all mechanical, none architectural:
+
+| # | Defect | Blast radius |
+|---|---|---|
+| 1 | `--` inside an XML comment in `case-orchestrator-service/pom.xml` (6 banner comments) — non-parseable POM | **entire reactor**; nothing compiled |
+| 2 | Unescaped backslashes, 7× in `Buckets.java`, `Text.java`, `BucketsTest.java` | `evidence-core` |
+| 3 | `CoreErrors.upstream(msg)` called a constructor that needs `(upstream, msg)`; 9 call sites updated to name MinIO | `evidence-core` |
+| 4 | `ExponentialBackOffWithMaxRetries` imported from `org.springframework.util.backoff`; it lives in `org.springframework.kafka.support` | 3 Kafka configs |
+| 5 | `io.temporal:temporal-spring-boot-starter-alpha:1.25.1` never existed — `-alpha` was retired at 1.23.2, artifact renamed | orchestrator |
+| 6 | `RawEventValidator` reported `required` violations against the containing object (`body`) instead of the missing field (`body.createdAt`) | ingestion API usability |
+
+Two of these are worth remembering. **#5**: the parent POM already had the correct non-alpha
+artifact in `dependencyManagement` while the child used `-alpha` — two agents, two answers,
+invisible until resolution ran. **#6** was a genuine API defect, not a typo: networknt reports a
+`required` violation against the *parent* object with the absent property in `getProperty()`,
+so integrators would have been told "something is wrong with `body`". Fixed in the validator
+(also covers `additionalProperties`), not by relaxing the test.
+
+Also fixed: `ruff format` on 22 of 53 Python files (the AI-service CI failure), and
+`Text.java` used `"\s+"`, which compiles — `\s` is a legal Java escape meaning a literal
+space — but silently failed to collapse tabs and newlines. A latent bug no test would catch.
+
+Infra CI failed on **shellcheck** alone (it exits non-zero on any finding): `C_DIM`/`C_BOLD`
+flagged unused in `lib.sh` (they are used by sourcing scripts — fixed with `export`, which is
+what the code meant), an `A && B || C` in `reset.sh` (SC2015 — rewritten as if/else), and an
+unused `read` field in `smoke-test.sh`. hadolint already passed: every finding is warning/info,
+below CI's `error` threshold. Compose config validates on all three profiles.
+
+### ⚠️ The integration suite is a false green
+
+`AbstractPostgresIntegrationTest.dockerAvailable()` gates the Testcontainers tests via
+`@EnabledIf`. When Docker is unreachable they **skip silently**, so "Backend (integration)"
+reports success having executed nothing:
+
+```
+EvidencePersistenceIntegrationTest       Tests run: 4, Skipped: 4   (0.002s)
+ProcessedEventRepositoryIntegrationTest  Tests run: 5, Skipped: 5   (0.001s)
+```
+
+Fixed by making the guard return `true` when `CI=true` (GitHub sets it), so a runner without
+Docker fails loudly instead of going green. **Local dev still skips gracefully.**
+
+Locally the skip is caused by a Docker Desktop quirk, not by the code: Testcontainers probes
+`\\.\pipe\docker_engine`, which Docker Desktop 29.4.3 answers with an empty HTTP 400 carrying
+only `com.docker.desktop.address`; the CLI uses `dockerDesktopLinuxEngine` instead. `DOCKER_HOST`
+override and a Testcontainers bump to 1.21.3 both failed to help, so the bump was reverted
+(still 1.20.3). Server API is 1.54 with a 1.40 floor, so it is not version negotiation.
+**Consequence: the integration tests have still never actually run — CI will be their first
+real execution.**
+
 ### Open gaps / TODOs
-- [ ] **Backend never compiled** — no JDK/Maven locally. Highest-priority verification.
-- [ ] Testcontainers integration tests never executed.
-- [ ] Python suite (9 test files) never executed; `uv` not installed.
+- [x] ~~Backend never compiled~~ — **compiles clean; 505 unit tests pass** (2026-08-28).
+- [ ] **Integration tests never actually executed** (see above). Verify on the next CI run.
+- [ ] `-DskipUTs` / `-DskipITs` are not defined as properties in `backend/pom.xml`, and no module
+      binds maven-failsafe (it is in `pluginManagement` only). The two CI matrix suites therefore
+      run identically, and `*IntegrationTest.java` is picked up by **surefire**, not failsafe.
+      Harmless today; tidy when convenient.
+- [ ] Python suite (9 test files) never executed; `uv` not installed. Only `ruff` was verified.
 - [ ] `docker compose up` never run end-to-end.
-- [ ] No git commits yet.
+- [ ] Only one commit (`a03ee6b`); the CI fixes above are uncommitted (38 files).
 - [ ] 16 MEDIUM/LOW audit findings logged but not fixed — re-run an audit to recover the list.
 - [ ] `InvestigationEntity.missingEvidence` (jsonb) has **no readers or writers** anywhere —
       dead field, or a persistence path that was never wired. Decide which.

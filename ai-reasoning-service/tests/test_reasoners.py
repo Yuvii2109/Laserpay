@@ -110,8 +110,7 @@ async def test_mock_narrative_is_deterministic_and_cited(
     assert first.model_dump_json(exclude=excluded) == second.model_dump_json(exclude=excluded)
     assert first.narrative
     assert all(
-        citation.evidenceId in defendable_context.evidence_ids()
-        for citation in first.citations
+        citation.evidenceId in defendable_context.evidence_ids() for citation in first.citations
     )
 
 

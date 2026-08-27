@@ -492,8 +492,9 @@ class GeminiReasoner(BaseReasoner):
                     contents=contents,
                 )
             except Exception as exc:
-                log.warning("gemini tool phase failed; continuing from context alone",
-                            error=str(exc)[:300])
+                log.warning(
+                    "gemini tool phase failed; continuing from context alone", error=str(exc)[:300]
+                )
                 break
 
             calls = _function_calls(response)
@@ -504,15 +505,9 @@ class GeminiReasoner(BaseReasoner):
                 result = await self._tool_executor.execute(call["name"], call.get("args") or {})
                 digest.append(
                     f"- {result.tool}({json.dumps(result.arguments, sort_keys=True)}) -> "
-                    + (
-                        json.dumps(result.data)[:1200]
-                        if result.ok
-                        else f"ERROR: {result.error}"
-                    )
+                    + (json.dumps(result.data)[:1200] if result.ok else f"ERROR: {result.error}")
                 )
-                contents.append(
-                    json.dumps({"functionResponse": result.to_model_payload()})
-                )
+                contents.append(json.dumps({"functionResponse": result.to_model_payload()}))
 
             if self._tool_executor.calls_made >= self.max_tool_calls:
                 break
@@ -561,9 +556,7 @@ class GeminiReasoner(BaseReasoner):
             model=self.model, contents=payload, config=config_obj
         )
 
-    def _metadata(
-        self, usage: dict[str, int], started: float, attempt: int
-    ) -> ModelMetadata:
+    def _metadata(self, usage: dict[str, int], started: float, attempt: int) -> ModelMetadata:
         # ``model`` stays exactly the configured model id (contract 9.2). The
         # prompt version is logged rather than appended, because ModelMetadata
         # has a fixed field set shared with Java and TypeScript.

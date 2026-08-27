@@ -304,7 +304,5 @@ async def test_stream_ends_with_an_error_step_when_the_provider_fails(
     settings: Settings, defendable_context: InvestigationContext
 ) -> None:
     service = _service(settings, overrides={"mock": _FailingReasoner()})
-    names = [
-        step["step"] async for step in service.investigate_stream(defendable_context)
-    ]
+    names = [step["step"] async for step in service.investigate_stream(defendable_context)]
     assert names[-1] == "error"
