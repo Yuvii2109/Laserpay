@@ -8,8 +8,6 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
  * Base class for the persistence integration tests: a real PostgreSQL 16 in Docker, migrated by
@@ -20,12 +18,25 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * <p>The container is shared by every subclass (one static instance), so the suite pays the
  * startup cost once. Subclasses call {@link #truncateAll()} for isolation.
  */
-@Testcontainers
 @SpringBootTest(classes = PersistenceTestApplication.class)
 public abstract class AbstractPostgresIntegrationTest {
 
-    @Container
-    @SuppressWarnings("resource") // Testcontainers stops the container via its JUnit extension
+    /**
+     * Singleton-container pattern: deliberately <strong>not</strong> annotated {@code @Container},
+     * and the class is deliberately <strong>not</strong> annotated {@code @Testcontainers}.
+     *
+     * <p>The JUnit Testcontainers extension stops an annotated static container at the end of
+     * <em>every</em> test class. Since this base class is shared, the second subclass would start a
+     * fresh container on a new random port while Spring reused its <em>cached</em> application
+     * context — which still pointed at the now-dead first container. The symptom was a 30s Hikari
+     * timeout ("Connection is not available, request timed out after 30001ms") on every test after
+     * the first class, while the first class passed cleanly.
+     *
+     * <p>Started lazily in {@link #datasourceProperties(DynamicPropertyRegistry)} instead, reused by
+     * every subclass for the lifetime of the JVM, and reaped by Ryuk or JVM exit. Lazy start also
+     * keeps {@link #dockerAvailable()} meaningful: a Docker-less box never touches Docker at all.
+     */
+    @SuppressWarnings("resource") // intentionally outlives every test class; see above
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
             .withDatabaseName("pdei")
             .withUsername("pdei")
@@ -57,6 +68,11 @@ public abstract class AbstractPostgresIntegrationTest {
 
     @DynamicPropertySource
     static void datasourceProperties(DynamicPropertyRegistry registry) {
+        // Runs only while building a context for an *enabled* test class, so a Docker-less box
+        // never starts anything. Idempotent: the first subclass starts it, the rest reuse it.
+        if (!POSTGRES.isRunning()) {
+            POSTGRES.start();
+        }
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);

@@ -470,7 +470,7 @@ what the code meant), an `A && B || C` in `reset.sh` (SC2015 — rewritten as if
 unused `read` field in `smoke-test.sh`. hadolint already passed: every finding is warning/info,
 below CI's `error` threshold. Compose config validates on all three profiles.
 
-### ⚠️ The integration suite is a false green
+### The integration suite — was a false green, now genuinely passes (9/9)
 
 `AbstractPostgresIntegrationTest.dockerAvailable()` gates the Testcontainers tests via
 `@EnabledIf`. When Docker is unreachable they **skip silently**, so "Backend (integration)"
@@ -484,22 +484,64 @@ ProcessedEventRepositoryIntegrationTest  Tests run: 5, Skipped: 5   (0.001s)
 Fixed by making the guard return `true` when `CI=true` (GitHub sets it), so a runner without
 Docker fails loudly instead of going green. **Local dev still skips gracefully.**
 
-Locally the skip is caused by a Docker Desktop quirk, not by the code: Testcontainers probes
-`\\.\pipe\docker_engine`, which Docker Desktop 29.4.3 answers with an empty HTTP 400 carrying
-only `com.docker.desktop.address`; the CLI uses `dockerDesktopLinuxEngine` instead. `DOCKER_HOST`
-override and a Testcontainers bump to 1.21.3 both failed to help, so the bump was reverted
-(still 1.20.3). Server API is 1.54 with a 1.40 floor, so it is not version negotiation.
-**Consequence: the integration tests have still never actually run — CI will be their first
-real execution.**
+Once they actually ran, **two genuine bugs** appeared — both environment-independent, and both
+were almost certainly the real CI failures:
+
+**1. Singleton-container anti-pattern (the serious one).**
+`AbstractPostgresIntegrationTest` was annotated `@Testcontainers` with a static `@Container`
+field, and its javadoc claimed the container was "shared by every subclass". It was not: the
+JUnit Testcontainers extension **stops an annotated static container at the end of every test
+class**. The second subclass then started a fresh container on a new random port while Spring
+reused its *cached* application context, still pointing at the dead one. Symptom: the first
+class passed, then every later test died on a 30s Hikari timeout
+(`Connection is not available, request timed out after 30001ms`).
+Fixed with the real singleton pattern — no `@Container`, no `@Testcontainers`, started lazily
+and idempotently inside `@DynamicPropertySource`, never stopped (Ryuk/JVM exit reaps it). Lazy
+start also keeps `dockerAvailable()` meaningful on a Docker-less box.
+
+**2. `migrationsApplied` counted a non-migration row.**
+It asserted `count(*) FROM flyway_schema_history WHERE success == 10` and got **11**. Flyway 10
+records a `<< Flyway Schema Creation >>` marker (NULL version, type `SCHEMA`) when it creates
+the schema. All ten migrations had applied correctly; the assertion was wrong. Now filtered
+with `AND version IS NOT NULL`.
+
+Independently verified that all ten migrations apply cleanly to a real PostgreSQL 16 by
+replaying `V1..V10` through `psql` — the schema itself was never at fault.
+
+**Local-only caveat (does not apply to CI).** Testcontainers could not reach Docker on this
+machine at all. Root cause, finally readable only via a TCP daemon:
+`client version 1.32 is too old. Minimum supported API version is 1.40`. docker-java falls back
+to API **v1.32**, and Docker 29 dropped everything below 1.40 — the client is too *old*, not too
+new (an earlier note in this file guessed the opposite; that was wrong). Bumping Testcontainers
+to 1.21.3 does not help and was reverted (still 1.20.3).
+Workaround used for local verification only: `-DargLine=-Dapi.version=1.44`.
+This is **not** applied to CI, because it is an artifact of driving a daemon over `DOCKER_HOST`
+(tcp) — the `EnvironmentAndSystemPropertyClientProviderStrategy` does not negotiate a version,
+whereas GitHub runners use the unix-socket strategy, which does.
+
+**How to run the integration suite on a machine where Docker Desktop blocks Testcontainers:**
+
+```bash
+docker network create pdei-test-net
+docker run -d --privileged --name pdei-dind --network pdei-test-net \
+  -e DOCKER_TLS_CERTDIR="" docker:dind --host=tcp://0.0.0.0:2375
+docker run --rm --network pdei-test-net -e DOCKER_HOST=tcp://pdei-dind:2375 \
+  -e CI=true -e TESTCONTAINERS_RYUK_DISABLED=true \
+  -v "<repo>:/repo" -v "$HOME/.m2:/root/.m2" -w /repo/backend \
+  maven:3.9-eclipse-temurin-21 \
+  mvn -B verify -DskipUTs=true -DargLine=-Dapi.version=1.44
+```
 
 ### Open gaps / TODOs
 - [x] ~~Backend never compiled~~ — **compiles clean; 505 unit tests pass** (2026-08-28).
-- [ ] **Integration tests never actually executed** (see above). Verify on the next CI run.
-- [ ] `-DskipUTs` / `-DskipITs` are not defined as properties in `backend/pom.xml`, and no module
-      binds maven-failsafe (it is in `pluginManagement` only). The two CI matrix suites therefore
-      run identically, and `*IntegrationTest.java` is picked up by **surefire**, not failsafe.
-      Harmless today; tidy when convenient.
-- [ ] Python suite (9 test files) never executed; `uv` not installed. Only `ruff` was verified.
+- [x] ~~Integration tests never actually executed~~ — **9/9 pass** against real PostgreSQL 16.
+- [x] ~~`skipUTs`/`skipITs` undefined; failsafe never bound~~ — **fixed**. Both properties now
+      exist; surefire excludes `*IntegrationTest.java`/`*IT.java` and honours `skipUTs`; failsafe
+      includes exactly those, honours `skipITs`, and is bound to `integration-test`+`verify` for
+      every module. The CI matrix's two suites are now genuinely different.
+- [x] ~~Python suite never executed~~ — **89 pytest tests pass**, plus ruff, ruff-format and mypy
+      (42 files) clean. `uv.lock` committed (74 packages), which also fixes `setup-uv`'s cache
+      glob and activates the `uv sync --frozen` reproducible path.
 - [ ] `docker compose up` never run end-to-end.
 - [ ] Only one commit (`a03ee6b`); the CI fixes above are uncommitted (38 files).
 - [ ] 16 MEDIUM/LOW audit findings logged but not fixed — re-run an audit to recover the list.
