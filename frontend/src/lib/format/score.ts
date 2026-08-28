@@ -141,15 +141,15 @@ export const SAFETY_DECISION_TONE: Readonly<Record<SafetyDecision, Tone>> = {
   DENY: 'critical',
 };
 
-/** `92` -> `92`, null -> `—`. Scores are integers 0-100 by contract 7. */
+/** `92` -> `92`, null -> `-`. Scores are integers 0-100 by contract 7. */
 export function formatScore(score: number | null | undefined): string {
-  if (score === null || score === undefined || !Number.isFinite(score)) return '—';
+  if (score === null || score === undefined || !Number.isFinite(score)) return '-';
   return String(Math.round(score));
 }
 
 /** Confidence in [0,1] -> `97.3%`. AI confidences are shown to one decimal. */
 export function formatConfidence(confidence: number | null | undefined): string {
-  if (confidence === null || confidence === undefined || !Number.isFinite(confidence)) return '—';
+  if (confidence === null || confidence === undefined || !Number.isFinite(confidence)) return '-';
   return `${(confidence * 100).toFixed(1)}%`;
 }
 

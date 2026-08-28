@@ -108,7 +108,7 @@ function describeFrame(frame: WsFrame): FrameSummary {
     }
     case 'HEARTBEAT':
     default:
-      return { subject: '—', detail: 'heartbeat', spoken: 'heartbeat', href: null };
+      return { subject: '-', detail: 'heartbeat', spoken: 'heartbeat', href: null };
   }
 }
 

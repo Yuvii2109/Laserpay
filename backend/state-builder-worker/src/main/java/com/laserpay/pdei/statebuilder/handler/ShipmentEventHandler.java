@@ -30,7 +30,7 @@ import java.util.Set;
  * <p>Derived evidence (docs/event-catalog.md §3):
  * <ul>
  *   <li>{@code ShipmentDispatched} -> {@code SHIPPING_RECORD}</li>
- *   <li>{@code ShipmentDelivered} -> {@code DELIVERY_PROOF} — the single most decisive artifact for
+ *   <li>{@code ShipmentDelivered} -> {@code DELIVERY_PROOF} - the single most decisive artifact for
  *       {@code GOODS_NOT_RECEIVED}, which is why its absence is a CRITICAL gap.</li>
  * </ul>
  *

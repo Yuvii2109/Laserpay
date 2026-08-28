@@ -1,4 +1,4 @@
-# `backend/ingestion-service` — PDEI Event Intake (port 8081)
+# `backend/ingestion-service` - PDEI Event Intake (port 8081)
 
 > Module context. Normative references, in precedence order:
 > `docs/PLATFORM-CONTRACT.md` → `docs/SHARED-LIBRARY-API.md` → `docs/event-catalog.md` →
@@ -14,7 +14,7 @@
 | REST base | `http://localhost:8081/ingest/v1` |
 | Health | `/actuator/health` · Metrics `/actuator/prometheus` |
 | Produces to | `pdei.raw.events.v1`, `pdei.dlq.v1` |
-| Consumes from | *nothing* — this service has no Kafka consumer |
+| Consumes from | *nothing* - this service has no Kafka consumer |
 | Consumer group (idempotency ledger only) | `pdei-ingestion-service` |
 
 ---
@@ -89,7 +89,7 @@ backend/ingestion-service/
     │   │   └── IngestionMetrics.java          contract §13 meters + the /stats counters
     │   ├── model/
     │   │   ├── IngestRequest.java             submission DTO (mirrors raw-event.schema.json)
-    │   │   ├── IngestResponse.java            {accepted, rejected[], duplicates} — exactly §8.2
+    │   │   ├── IngestResponse.java            {accepted, rejected[], duplicates} - exactly §8.2
     │   │   ├── RejectedEvent.java             one rejection, with a stable machine-readable code
     │   │   ├── FieldError.java                {field, message, code, schemaPath}
     │   │   ├── IngestBatchResult.java         internal: response + assigned ids
@@ -122,12 +122,12 @@ backend/ingestion-service/
 
 ### Shared assets owned by this module
 
-`/schemas/events/` at the repository root — **32 files**, created here and consumed by
+`/schemas/events/` at the repository root - **32 files**, created here and consumed by
 normalization-worker, simulator-service, the Python service and the frontend:
 
-- `canonical-event.schema.json` — the PLATFORM-CONTRACT §3 envelope (strict:
+- `canonical-event.schema.json` - the PLATFORM-CONTRACT §3 envelope (strict:
   `additionalProperties: false`);
-- `raw-event.schema.json` — the ingestion submission **and** the `pdei.raw.events.v1` payload
+- `raw-event.schema.json` - the ingestion submission **and** the `pdei.raw.events.v1` payload
   (permissive: `additionalProperties: true`);
 - 30 payload schemas, one per `EventType`, named in kebab-case:
   `payment-created`, `payment-authorized`, `payment-captured`, `payment-failed`,
@@ -190,7 +190,7 @@ Submission body ≡ `schemas/events/raw-event.schema.json`. Required: `sourceSys
 
 ### 4.2 Redis
 
-`SETNX pdei:idem:{key}` with a 7 day TTL, where `{key}` is the event's idempotency key — which
+`SETNX pdei:idem:{key}` with a 7 day TTL, where `{key}` is the event's idempotency key - which
 defaults to its event id, so the key is literally `pdei:idem:{eventId}` in the ordinary case
 (PLATFORM-CONTRACT §12).
 
@@ -219,11 +219,11 @@ None. This service has no consumer and no `@KafkaListener`.
   `shipmentId`, `deliveryId`, `refundId`, `communicationId`, `evidenceId`, `disputeId`, `caseId`,
   `transactionId`, `customerId` (camelCase or snake_case), then a bare `id` last. If nothing is
   found, the key falls back to `RawEventEnvelope.partitionKey()` =
-  `merchantId + ":" + idempotencyKey` — still merchant-scoped, still stable per fact.
+  `merchantId + ":" + idempotencyKey` - still merchant-scoped, still stable per fact.
 - **Record headers** (`common.kafka.EventHeaders`): `pdei-event-id`, `pdei-event-type` (the
   *source* event type), `pdei-merchant-id`, `pdei-correlation-id`, `pdei-schema-version`,
   `pdei-attempt` (`1`), and `traceparent` when the caller supplied one.
-- **Envelope `headers` map** — the free-form source metadata plus these PDEI routing hints, which
+- **Envelope `headers` map** - the free-form source metadata plus these PDEI routing hints, which
   `normalization-worker` needs to build a `CanonicalEvent` without re-deriving them from the body:
 
   | Key | Meaning |
@@ -318,10 +318,10 @@ because Spring's relaxed binding otherwise reads a dotted key as a nested map.
 
 ### 6.3 Profiles
 
-- **default** — signature verification on, everything pointed at localhost.
-- **`dev`** — `ingestion.webhook.signature-verification-enabled=false` and DEBUG logging. The
+- **default** - signature verification on, everything pointed at localhost.
+- **`dev`** - `ingestion.webhook.signature-verification-enabled=false` and DEBUG logging. The
   verifier logs a WARN on every unauthenticated call, on purpose.
-- **`test`** — excludes the JPA/Redis/Flyway autoconfigurations and disables topic creation so a
+- **`test`** - excludes the JPA/Redis/Flyway autoconfigurations and disables topic creation so a
   context starts with no infrastructure at all.
 
 ---
@@ -341,7 +341,7 @@ Nothing depends on `evidence-core`; ingestion has no domain logic. Downstream, o
 ## 8. Build and run
 
 ```bash
-# from the repo root — the module POM copies /schemas/events into the jar, so build from here
+# from the repo root - the module POM copies /schemas/events into the jar, so build from here
 mvn -f backend/pom.xml -pl ingestion-service -am -DskipTests package
 
 # tests (MockMvc + unit; no broker, no Redis, no Postgres required)
@@ -350,7 +350,7 @@ mvn -f backend/pom.xml -pl ingestion-service test
 # run against a local dev stack
 mvn -f backend/ingestion-service/pom.xml spring-boot:run -Dspring-boot.run.profiles=dev
 
-# container — build context is the REPOSITORY ROOT
+# container - build context is the REPOSITORY ROOT
 docker build -f backend/ingestion-service/Dockerfile -t pdei/ingestion-service:dev .
 docker run --rm -p 8081:8081 --network pdei-net pdei/ingestion-service:dev
 ```
@@ -383,7 +383,7 @@ curl -sS http://localhost:8081/actuator/prometheus | grep pdei_events
    the record.
 3. **Dedupe claims the idempotency key, which defaults to the event id.** This satisfies
    `pdei:idem:{eventId}` exactly in the ordinary case while still honouring an `Idempotency-Key`
-   header. On a batch the header is used as a *prefix* with the array index appended — otherwise one
+   header. On a batch the header is used as a *prefix* with the array index appended - otherwise one
    header would suppress 999 distinct events.
 4. **A content SHA-256 is the last-resort idempotency key.** An adapter that supplies no identity at
    all still cannot double-book a fact by retrying.

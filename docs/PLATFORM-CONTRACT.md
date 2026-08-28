@@ -1,4 +1,4 @@
-# Pre-Dispute Evidence Intelligence — Platform Contract (NORMATIVE)
+# Pre-Dispute Evidence Intelligence - Platform Contract (NORMATIVE)
 
 > This file is the **single source of truth** for cross-service identifiers.
 > Every service in this repository MUST conform to it. If code and this file
@@ -152,7 +152,7 @@ All consumers MUST be idempotent (dedupe on `eventId` via Redis SETNX + Postgres
 
 `pdei.raw.events.v1` carries **source-shaped** events: `RawEventEnvelope.sourceEventType` is the
 word the originating system uses, not a canonical `EventType`. Translating one into the other is
-normalization-worker's entire job, so both sides need the same table — and until this section
+normalization-worker's entire job, so both sides need the same table - and until this section
 existed they did not have it. The simulator emitted `document.uploaded` and `message.sent`, no
 adapter mapped either, and **49% of every event produced on first boot went to the DLQ**,
 including every evidence-bearing event.
@@ -198,7 +198,7 @@ and `-` ignored (`AbstractSourceAdapter.normalizeKey`).
 
 Two rules follow from this table:
 
-1. An adapter MUST NOT be narrowed to only the canonical emissions — the aliases are the point of
+1. An adapter MUST NOT be narrowed to only the canonical emissions - the aliases are the point of
    having an adapter layer at all.
 2. Adding a canonical emission to `simulator/world/SourceVocabulary.java` without adding it here
    and to the owning adapter silently routes those events to the DLQ. The `pdei-event-type`
@@ -228,7 +228,7 @@ V11__evidence_lineage_quality.sql
 
 **V11 exists because §6 and §7 already required these three columns and V3 never created them.**
 `parent_evidence_id` is the *backward* pointer of the version chain that `EvidenceLineageService`
-walks and `EvidenceGraphService` renders as `SUPERSEDES` edges — the complement of
+walks and `EvidenceGraphService` renders as `SUPERSEDES` edges - the complement of
 `superseded_by`, not a duplicate of it. `provenance_verified` is what raises
 `GapType.UNVERIFIABLE_PROVENANCE`, which carries the **−20** penalty in §7.
 `quality_score` (`DOUBLE PRECISION`, 0.0–1.0) is what raises `GapType.LOW_QUALITY`; it is not
@@ -237,7 +237,7 @@ money and never enters an amount, so the integer-minor-units rule below does not
 **Money rule (non-negotiable):** every monetary column is
 `amount_minor BIGINT NOT NULL` + `currency CHAR(3) NOT NULL`. No FLOAT/DOUBLE/NUMERIC for money.
 Java type: `com.laserpay.pdei.common.money.Money` (record of `long amountMinor`, `String currency`).
-TypeScript: `{ amountMinor: number; currency: string }` — format only at render time.
+TypeScript: `{ amountMinor: number; currency: string }` - format only at render time.
 
 Time rule: all timestamps `TIMESTAMPTZ`, stored UTC. Java `Instant`. Never `LocalDateTime`.
 
@@ -246,7 +246,7 @@ ID conventions (human-readable prefixed, `VARCHAR(64)` primary keys):
 
 ---
 
-## 6. Core Domain Enums (shared across Java / Python / TS — spell identically)
+## 6. Core Domain Enums (shared across Java / Python / TS - spell identically)
 
 ```
 EvidenceType:      PAYMENT_PROOF, INVOICE, ORDER_RECORD, SHIPPING_RECORD,
@@ -294,7 +294,7 @@ ChaosType:         DUPLICATE_EVENT, DELAYED_EVENT, OUT_OF_ORDER_EVENT, DROP_EVEN
 
 ---
 
-## 7. Readiness Scoring (deterministic — `evidence-core`)
+## 7. Readiness Scoring (deterministic - `evidence-core`)
 
 `ReadinessEngine.compute(transactionId, reasonCode?) -> ReadinessSnapshot`
 
@@ -321,7 +321,7 @@ entity, policy version change, and a nightly sweep for expiry transitions.
 
 ## 8. REST API Surface
 
-### 8.1 `api-gateway-service` — base `http://localhost:8080/api/v1`
+### 8.1 `api-gateway-service` - base `http://localhost:8080/api/v1`
 
 ```
 GET    /health/ready
@@ -375,7 +375,7 @@ SSE  /api/v1/stream/cases/{caseId}        case progress
 WebSocket frame envelope:
 `{ "type": "READINESS_UPDATED"|"EVIDENCE_ADDED"|"DISPUTE_CREATED"|"CASE_UPDATED"|"GAP_DETECTED"|"CHAOS_INJECTED"|"HEARTBEAT", "at": iso8601, "merchantId": "...", "data": {} }`
 
-### 8.2 `ingestion-service` — base `http://localhost:8081/ingest/v1`
+### 8.2 `ingestion-service` - base `http://localhost:8081/ingest/v1`
 
 ```
 POST /events            single raw event  (header: Idempotency-Key)
@@ -387,7 +387,7 @@ GET  /stats             accepted/rejected/deduped counters
 
 Responses: `202 Accepted` with `{ "accepted": n, "rejected": [...], "duplicates": n }`.
 
-### 8.3 `document-processor-service` — `http://localhost:8086/docproc/v1`
+### 8.3 `document-processor-service` - `http://localhost:8086/docproc/v1`
 
 ```
 POST /extract           {objectKey} -> {text, metadata, pageCount, sha256}
@@ -395,7 +395,7 @@ POST /reprocess/{evidenceId}
 GET  /stats
 ```
 
-### 8.4 `audit-service` — `http://localhost:8087/audit/v1`
+### 8.4 `audit-service` - `http://localhost:8087/audit/v1`
 
 ```
 GET  /events            ?entityType&entityId&actor&from&to
@@ -403,7 +403,7 @@ GET  /chain/verify      recompute hash chain, returns first divergence if any
 GET  /export            NDJSON export
 ```
 
-### 8.5 `simulator-service` — `http://localhost:8088/sim/v1`
+### 8.5 `simulator-service` - `http://localhost:8088/sim/v1`
 
 ```
 POST /runs              {seed, merchants, transactions, days, disputeRateBps, failureProfile} -> runId
@@ -417,7 +417,7 @@ GET  /scenarios         curated demo scenarios
 POST /scenarios/{key}/run
 ```
 
-**`disputeRateBps` is an integer in basis points** — `200` is 2%, `10000` is 100%. It is an
+**`disputeRateBps` is an integer in basis points** - `200` is 2%, `10000` is 100%. It is an
 integer for the same reason money is: a generated world must be byte-reproducible from its seed,
 and that must not depend on floating-point rounding. `disputeRate` is accepted as a deprecated
 alias **also in basis points**.
@@ -425,10 +425,10 @@ alias **also in basis points**.
 > This field previously appeared here as bare `disputeRate` with no unit, and every caller
 > guessed differently: `seed-demo.sh` and the frontend's `RunLauncher` both sent a *fraction*
 > (`0.02`, `percent * 0.01`) into an `Integer` field, Jackson truncated it to `0`, and every run
-> produced **zero disputes** — no cases, no workflows, no AI investigations — while the UI
+> produced **zero disputes** - no cases, no workflows, no AI investigations - while the UI
 > cheerfully echoed "0 bps" back at whoever asked for 3%. Nothing errored.
 
-**`GET /runs` and `GET /runs/{runId}` both return the run object unwrapped** — the list returns
+**`GET /runs` and `GET /runs/{runId}` both return the run object unwrapped** - the list returns
 `SimulationRun[]`, the detail returns one `SimulationRun`, same fields. The detail response MUST
 NOT be wrapped in an envelope such as `{"run": …, "progress": …}`: it once was, so `seed-demo.sh`
 and the frontend both read `status` from the top level and found nothing, and every seeded run
@@ -438,7 +438,7 @@ overlaid onto the returned object's counters rather than being carried beside th
 `POST /scenarios/{key}/run` is the one exception and returns `{"run": …, "scenario": …}`,
 because the caller needs the scenario's expectations to assert against.
 
-### 8.6 `ai-reasoning-service` (Python FastAPI) — `http://localhost:8000`
+### 8.6 `ai-reasoning-service` (Python FastAPI) - `http://localhost:8000`
 
 ```
 GET  /health
@@ -496,7 +496,7 @@ These endpoints are **read-only by construction** (no POST/PUT/DELETE under `/ai
 }
 ```
 
-### 9.2 `InvestigationResult` (response — schema-constrained, Pydantic + JSON Schema)
+### 9.2 `InvestigationResult` (response - schema-constrained, Pydantic + JSON Schema)
 
 ```json
 {
@@ -746,7 +746,7 @@ config, dependencies, extension points, and known gaps/TODOs.
 
 1. The LLM is never the source of truth.
 2. The LLM never mutates financial state.
-3. Never invent evidence — unsupported claims are rejected.
+3. Never invent evidence - unsupported claims are rejected.
 4. No floating-point money, ever.
 5. No technology without a workload that needs it.
 6. Simple correct implementation before distributed complexity.

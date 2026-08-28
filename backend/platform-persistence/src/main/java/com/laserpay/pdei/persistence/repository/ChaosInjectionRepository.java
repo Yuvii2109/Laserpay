@@ -9,7 +9,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-/** Chaos injection history ({@code GET /sim/v1/chaos}) — the evidence that failures were real. */
+/** Chaos injection history ({@code GET /sim/v1/chaos}) - the evidence that failures were real. */
 @Repository
 public interface ChaosInjectionRepository extends JpaRepository<ChaosInjectionEntity, String> {
 

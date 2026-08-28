@@ -18,7 +18,7 @@
   <description>
     PDEI normalization-worker (port 8082). Consumes pdei.raw.events.v1, upcasts legacy schema
     versions, translates each source system's shape into a CanonicalEvent through a SourceAdapter,
-    and publishes to pdei.canonical.events.v1. Anything unmappable goes to pdei.dlq.v1 — never
+    and publishes to pdei.canonical.events.v1. Anything unmappable goes to pdei.dlq.v1 - never
     silently dropped.
 
     Deliberately does NOT depend on evidence-core: normalization owns translation only. It never

@@ -1,4 +1,4 @@
-# `platform-common` — the frozen shared API
+# `platform-common` - the frozen shared API
 
 > Implements **`docs/SHARED-LIBRARY-API.md` section 1** exactly. That document is the contract;
 > this one explains the implementation. Where they disagree, the contract wins and this file is
@@ -13,7 +13,7 @@ Java package root: `com.laserpay.pdei.common`
 
 Every other JVM module in PDEI depends on this one, and none of them may redefine what it declares.
 It exists so that "an event", "an amount of money", "an evidence id", "a readiness band" and "a
-topic name" mean precisely one thing across nine services — and so that a change to any of those
+topic name" mean precisely one thing across nine services - and so that a change to any of those
 meanings is a single, visible, reviewable edit rather than nine drifting copies.
 
 Its API surface is **frozen** by `docs/SHARED-LIBRARY-API.md`. Adding a helper is fine; renaming,
@@ -110,14 +110,14 @@ src/test/java/com/laserpay/pdei/common/
 Integer minor units plus an ISO-4217 code, exactly mirroring `amount_minor BIGINT` +
 `currency CHAR(3)`. Arithmetic uses `Math.addExact`/`subtractExact`/`multiplyExact`, so a
 financial overflow throws instead of silently wrapping. Mixing currencies throws
-`CurrencyMismatchException` — PDEI performs no FX, so mixed currency is always a bug.
+`CurrencyMismatchException` - PDEI performs no FX, so mixed currency is always a bug.
 
 Currency codes are normalised to trimmed upper case in the compact constructor, so
 `Money.of(10, "inr").equals(Money.of(10, "INR"))`. `toDisplayString()` is the only decimal
 rendering in the platform, uses the ISO-4217 fraction digits (JPY 0, INR 2, KWD 3), falls back to 2
 for codes the JVM does not know, and must never be parsed back.
 
-`CurrencyMismatchException` extends `RuntimeException`, **not** `PdeiException` — the contract says
+`CurrencyMismatchException` extends `RuntimeException`, **not** `PdeiException` - the contract says
 so, and it keeps the money package dependency-free.
 
 ### 4.2 `CanonicalEvent`
@@ -126,7 +126,7 @@ The compact constructor is deliberately *tolerant where it can be and strict whe
 
 | Field | Behaviour when absent |
 |---|---|
-| `eventId`, `aggregateId`, `merchantId`, `occurredAt`, `eventType`, `source` | `ValidationException` — an event without these cannot be routed, deduped or audited |
+| `eventId`, `aggregateId`, `merchantId`, `occurredAt`, `eventType`, `source` | `ValidationException` - an event without these cannot be routed, deduped or audited |
 | `schemaVersion` | defaults to `1` |
 | `aggregateType` | derived from `eventType.aggregateType()` |
 | `observedAt` | defaults to `occurredAt` |
@@ -140,7 +140,7 @@ key. `Builder.causedBy(parent)` propagates `correlationId` and `merchantId` and 
 `causationId`, which is what keeps the causal chain from a PSP webhook to a submitted representment
 walkable.
 
-`payloadFrom(Object)` is intentionally *not* an overload of `payload(JsonNode)` — an overload pair
+`payloadFrom(Object)` is intentionally *not* an overload of `payload(JsonNode)` - an overload pair
 would make `payload(null)` ambiguous at the call site.
 
 ### 4.3 `AuditEvent` and hashing
@@ -153,7 +153,7 @@ seals in one step, `verifyLink(previous)` checks both the link and the content.
 
 `Hashes.chain(previousHash, payloadHash)` = `sha256(previous || payload)` with a null/blank previous
 normalised to `GENESIS_HASH` (64 zeros). It is available for any other chain (evidence version
-chains, package manifests) and is *not* used inside `AuditEvent.computeHash()` — see Known gaps.
+chains, package manifests) and is *not* used inside `AuditEvent.computeHash()` - see Known gaps.
 
 **Do not change `Json.canonical()` casually.** Every stored audit hash in every environment was
 computed with it; changing the canonical form invalidates them all.
@@ -169,7 +169,7 @@ depth, preserves array order (array order is semantic), and emits no whitespace.
 
 Ids are `PREFIX + 8` characters from Crockford base32 without `I L O U`, so they survive being read
 aloud or copied out of a log. `Ids.withSeed(seed)` returns a generator whose entire output sequence
-— including UUID-shaped `eventId()`s — is reproducible, which is what makes a simulator run
+- including UUID-shaped `eventId()`s - is reproducible, which is what makes a simulator run
 replayable byte for byte. The static methods draw from `ThreadLocalRandom` and are not reproducible
 by design.
 
@@ -178,7 +178,7 @@ by design.
 Sealed with exactly the seven permitted subclasses from the contract, all `final`, all in this
 package (a sealed hierarchy in an unnamed module must be single-package). Each carries a stable
 `code()`, an advisory `httpStatus()` so `api-gateway-service` needs no translation table, and an
-immutable `details()` map. `isRetryable()` is true only for `UpstreamUnavailableException` — this is
+immutable `details()` map. `isRetryable()` is true only for `UpstreamUnavailableException` - this is
 what Temporal activity retry policies and Kafka retry/DLQ logic should branch on.
 `ValidationException` and `PolicyViolationException` are the contract's non-retryable activity
 failures (PLATFORM-CONTRACT section 10).
@@ -227,7 +227,7 @@ here, the logic belongs in the consuming service instead.
 
 ## 8. Dependencies on other modules
 
-None. `platform-common` is the root of the internal dependency graph and must stay there — it may
+None. `platform-common` is the root of the internal dependency graph and must stay there - it may
 never depend on `platform-persistence`, `evidence-core`, or any service module.
 
 ## 9. Build and run
@@ -251,7 +251,7 @@ Coverage report: `backend/platform-common/target/site/jacoco/index.html`.
   if PDEI produces it), update `docs/PLATFORM-CONTRACT.md` section 3.1, then the Python and
   TypeScript mirrors. `Topics.forEventType` routes automatically from the aggregate/type predicates.
 - **New domain enum value:** add to the enum, update contract section 6, then the two mirrors.
-  Consumers that `switch` exhaustively will fail to compile — that is the point.
+  Consumers that `switch` exhaustively will fail to compile - that is the point.
 - **New failure class:** you cannot add one without editing the `permits` clause of
   `PdeiException`, which is deliberate. Prefer reusing an existing code with richer `details()`.
 - **New metric:** add the constant to `MetricNames` (and `ALL`) *and* to contract section 13; keep
@@ -270,16 +270,16 @@ Coverage report: `backend/platform-common/target/site/jacoco/index.html`.
    of those fields the chaining is intrinsic. `Hashes.chain()` is therefore a general-purpose
    primitive here rather than the audit chain's implementation. If audit-service prefers the
    explicit two-step form (`chain(previousHash, payloadHash)`), that is a contract clarification, not
-   a local change — both sides must move together or stored hashes stop verifying.
+   a local change - both sides must move together or stored hashes stop verifying.
 3. **`micrometer-core` is a dependency but only `MetricNames` (plain strings) is implemented.** No
    registry helper, no `Timer`/`Counter` factory, no common tag set. Deliberate: the contract lists
    only `MetricNames`. If several services end up writing the same registration boilerplate, promote
-   a helper here — and document it, since it widens the frozen surface.
+   a helper here - and document it, since it widens the frozen surface.
 4. **No JSON Schema generation.** `schemas/events/` is empty. The canonical envelope currently
    exists as a Java record, a Pydantic model and a TS interface with nothing mechanically checking
    they agree. Generating or validating against `schemas/events/canonical-event.schema.json` in CI
    is the obvious follow-up (contract section 4 already names the schemas as the referee).
-5. **`Money.toDisplayString()` is ISO-4217-digit aware but not locale aware** — grouping is always
+5. **`Money.toDisplayString()` is ISO-4217-digit aware but not locale aware** - grouping is always
    `Locale.ROOT` comma groups, so it renders `INR 12,999.00` rather than the Indian lakh grouping
    `INR 12,999.00` → `₹12,999.00`. Display formatting for the merchant UI belongs in the frontend;
    this method is for logs and debugging.

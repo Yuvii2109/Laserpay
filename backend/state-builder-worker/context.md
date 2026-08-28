@@ -1,4 +1,4 @@
-# state-builder-worker — module context
+# state-builder-worker - module context
 
 > Reload file. Everything a future session needs to work on this module without re-deriving it.
 > Normative references: `docs/PLATFORM-CONTRACT.md`, `docs/SHARED-LIBRARY-API.md`,
@@ -122,7 +122,7 @@ backend/state-builder-worker/
 | Headers read | `pdei-merchant-id`, `pdei-correlation-id`, `pdei-attempt`, `traceparent` |
 
 Event types handled: all PAYMENT, ORDER, SHIPMENT, REFUND, COMMUNICATION, EVIDENCE and DISPUTE
-types (contract §3.1). READINESS, CASE and AUDIT types are skipped — they are other services'
+types (contract §3.1). READINESS, CASE and AUDIT types are skipped - they are other services'
 output, not this worker's input.
 
 ### Tables written
@@ -166,11 +166,11 @@ Nothing is derived without a transaction: evidence in this platform always belon
 
 ### Metrics (PLATFORM-CONTRACT §13)
 
-- `pdei_events_processed_total{service="state-builder-worker",type,outcome}` — outcome is
+- `pdei_events_processed_total{service="state-builder-worker",type,outcome}` - outcome is
   `success` | `duplicate` | `skipped` | `dead_lettered`
 - `pdei_events_duplicate_total{service="state-builder-worker"}`
 - `pdei_event_processing_latency_seconds{service,type}`
-- `pdei_evidence_total{type,status}` — emitted by `evidence-core` on every derived artifact
+- `pdei_evidence_total{type,status}` - emitted by `evidence-core` on every derived artifact
 
 ---
 
@@ -188,14 +188,14 @@ watermark and an arriving event, `ProjectionWatermark.shouldApply` decides:
 
 **Why `occurredAt` and not arrival order.** The partition key is `merchantId + ":" + aggregateId`,
 so events about *one* aggregate arrive in order. Events about *different* aggregates of the same
-transaction do not — `docs/event-catalog.md` §12 says so explicitly — and a source system that was
+transaction do not - `docs/event-catalog.md` §12 says so explicitly - and a source system that was
 offline for six hours replays its backlog in bulk. The source's own `occurredAt` is the only
 ordering that survives both.
 
 **Where the watermark lives.** In the row's `metadata` JSONB column, under `lastEventId` and
 `lastEventOccurredAt`. `transactions` and `disputes` additionally have dedicated `last_event_id`
 columns, which the handlers keep in sync. The other tables carry it in `metadata` only, because
-`platform-persistence` owns the schema and this module does not add migrations to it — see
+`platform-persistence` owns the schema and this module does not add migrations to it - see
 "Known gaps" #1.
 
 **The consequence, stated plainly.** A stale event is dropped in full, not merged field-by-field.
@@ -218,7 +218,7 @@ converges on the same database.
 
 `transactions.captured_amount_minor` is summed from `payments` rows in state `CAPTURED`;
 `refunded_amount_minor` comes from `RefundRepository.sumProcessedAmountMinor`. An accumulator
-(`captured += amount`) would be shorter and wrong — a redelivered `PaymentCaptured` would double the
+(`captured += amount`) would be shorter and wrong - a redelivered `PaymentCaptured` would double the
 total with no way to notice afterwards. All arithmetic is exact integer arithmetic on `long` minor
 units.
 
@@ -227,14 +227,14 @@ units.
 `payments.transaction_id`, `shipments.order_id`, `deliveries.shipment_id` and
 `customers.merchant_id` are real foreign keys, and events arrive out of order across aggregates.
 `ReferenceData` creates a minimal parent row on demand: zero money, earliest status, timestamps from
-the event that forced it, `metadata.pdeiStub = true`, and **no watermark** — so the real event fills
+the event that forced it, `metadata.pdeiStub = true`, and **no watermark** - so the real event fills
 it in properly whenever it lands. Stubs are visible rather than hidden, which makes "how much of
 this projection is inferred?" an SQL query.
 
 ### 6.3 Derived evidence is content-addressed and therefore idempotent
 
 `DerivedEvidenceService` builds the artifact's bytes as canonical JSON (sorted keys) over
-**event-derived fields only** — no clock reading, no random id, and deliberately not `observedAt`.
+**event-derived fields only** - no clock reading, no random id, and deliberately not `observedAt`.
 `EvidenceService.createEvidence` deduplicates on `(sha256, transactionId)`, so a replayed event
 returns the existing artifact rather than creating a second one. Idempotency is a property of the
 content, not of a lock.
@@ -242,7 +242,7 @@ content, not of a lock.
 ### 6.4 Only the transaction row needs a status ladder
 
 Per-aggregate rows are written only by events about that aggregate, which share a partition key and
-therefore arrive in order — the watermark suffices and status is set directly. The transaction row
+therefore arrive in order - the watermark suffices and status is set directly. The transaction row
 is written by payments, refunds and disputes, which are different aggregates on different
 partitions with nothing ordering them, so its status moves through `TransactionStatus.promote` and
 never regresses.
@@ -305,7 +305,7 @@ credentials for evidence storage, and `audit.publish-to-kafka: true`.
 | `platform-persistence` | every projection entity and repository, plus `ProcessedEventRepository` and the Flyway-owned schema |
 | `evidence-core` | `EvidenceService` (evidence creation, hashing, versioning, audit, `EvidenceAdded` publication); its `KafkaEventPublisher` uses the `KafkaTemplate` declared in `KafkaConsumerConfig` |
 
-Runtime infrastructure: Kafka, PostgreSQL, MinIO (evidence storage) — all required; Redis optional.
+Runtime infrastructure: Kafka, PostgreSQL, MinIO (evidence storage) - all required; Redis optional.
 
 Downstream consumers of what this worker produces: `readiness-worker` (evidence topic),
 `case-orchestrator-service` (dispute topic), `audit-service` (audit topic),
@@ -344,10 +344,10 @@ Health: `http://localhost:8083/actuator/health` · Metrics: `/actuator/prometheu
 |---|---|
 | Project a new aggregate | Implement `AggregateEventHandler`, declare a `@Bean` in `StateBuilderConfig`. The dispatcher indexes it; a claimed `EventType` collision fails startup. |
 | Derive a new evidence type | Call `derivedEvidenceService.derive(event, EvidenceType.X, transactionId, relatedEntityId, summary)` from the handler that observes the fact. Keep the summary factual: it reaches the AI context. |
-| Change the out-of-order rule | `ProjectionWatermark.shouldApply` — one method, and update §5 of this file with it. |
+| Change the out-of-order rule | `ProjectionWatermark.shouldApply` - one method, and update §5 of this file with it. |
 | Add a transaction status | `TransactionStatus.LADDER` plus the `ck_transactions_status` constraint in `V2__transactions.sql` (owned by platform-persistence). |
 | Forward to another topic | `EventForwarder.forward(topic, event)` from the relevant handler. |
-| Add a parent-row stub | `ReferenceData.ensureX` — zero money, earliest status, `stubMetadata(reason)`, no watermark. |
+| Add a parent-row stub | `ReferenceData.ensureX` - zero money, earliest status, `stubMetadata(reason)`, no watermark. |
 | Replay history | Reset the `pdei-state-builder-worker` group offsets (or delete its `processed_events` rows) and let the topic replay. Watermarks and content-addressed evidence make this converge. |
 
 ---
@@ -369,7 +369,7 @@ Health: `http://localhost:8083/actuator/health` · Metrics: `/actuator/prometheu
 4. **No cross-aggregate contradiction detection here.** "delivered before dispatched", "refunded more
    than captured" and address mismatches are flagged by `evidence-core`'s `ContradictionDetector`,
    which reads these projections. This worker's job is to make the numbers true, not to judge them.
-5. **`pdei_kafka_consumer_lag{group,topic}` is not published by this module** — same gap as
+5. **`pdei_kafka_consumer_lag{group,topic}` is not published by this module** - same gap as
    normalization-worker.
 6. **No integration test against real infrastructure.** Handlers are unit-tested against in-memory
    repositories; an end-to-end Testcontainers test (canonical topic in → Postgres rows + evidence
@@ -380,7 +380,7 @@ Health: `http://localhost:8083/actuator/health` · Metrics: `/actuator/prometheu
    Spring and Kafka dependencies. A `platform-worker` module is the natural home.
 8. **Optimistic-locking retries are untested under real concurrency.** Two consumer threads applying
    events for different aggregates of the same transaction will contend on the `transactions` row.
-   The retry policy handles it, but the behaviour under sustained contention has not been measured —
+   The retry policy handles it, but the behaviour under sustained contention has not been measured -
    and measuring rather than asserting is a house rule.
 9. **A transaction with no stated amount stays at zero** until a payment event supplies one. Dispute
    and communication events deliberately do not set it: a disputed amount is not necessarily the

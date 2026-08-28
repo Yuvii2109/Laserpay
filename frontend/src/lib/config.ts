@@ -21,9 +21,9 @@ function deriveSimBaseUrl(apiBaseUrl: string): string {
 }
 
 export const config = {
-  /** api-gateway-service REST base — contract §8.1. */
+  /** api-gateway-service REST base - contract §8.1. */
   apiBaseUrl: trimTrailingSlash(process.env.NEXT_PUBLIC_API_BASE_URL ?? DEFAULT_API_BASE_URL),
-  /** Control-tower WebSocket — contract §8.1 streaming. */
+  /** Control-tower WebSocket - contract §8.1 streaming. */
   wsUrl: process.env.NEXT_PUBLIC_WS_URL ?? DEFAULT_WS_URL,
   /**
    * When true the api client and the socket serve deterministic fixtures from `src/mocks`

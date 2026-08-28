@@ -21,7 +21,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 /**
- * Representment case ({@code CASE-} ids) — the durable projection of one
+ * Representment case ({@code CASE-} ids) - the durable projection of one
  * {@code DisputeCaseWorkflow} execution (Temporal workflow id {@code case-{caseId}}).
  *
  * <p>{@code safetyDecision} records what the deterministic gate decided about the AI proposal;

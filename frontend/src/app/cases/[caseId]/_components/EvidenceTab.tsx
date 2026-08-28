@@ -192,7 +192,7 @@ export function EvidenceTab({ xray }: EvidenceTabProps) {
         packageIds.has(row.evidenceId) ? (
           <Badge variant="primary">included</Badge>
         ) : (
-          <span className="text-2xs text-muted-foreground">—</span>
+          <span className="text-2xs text-muted-foreground">-</span>
         ),
       sortValue: (row) => packageIds.has(row.evidenceId),
     },

@@ -52,7 +52,7 @@ export function ReadinessMeter({
           )}
           style={{ color: scored ? color : 'hsl(var(--muted-foreground))' }}
         >
-          {scored ? formatScore(score) : '—'}
+          {scored ? formatScore(score) : '-'}
           {variant === 'hero' ? <span className="ml-1 text-base font-normal opacity-70">/100</span> : null}
         </span>
         <span className="text-xs font-medium text-muted-foreground">

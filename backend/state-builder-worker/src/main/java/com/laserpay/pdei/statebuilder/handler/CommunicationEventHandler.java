@@ -32,8 +32,8 @@ import java.util.Set;
  * merchant) both derive an artifact. The inbound direction matters as much as the outbound: a
  * customer who wrote "thanks, received it" has said something a representment can quote.
  *
- * <p>A communication with no transaction is still projected — it is real history, and a later
- * correlation may attach it — but no evidence is derived from it, because evidence in this platform
+ * <p>A communication with no transaction is still projected - it is real history, and a later
+ * correlation may attach it - but no evidence is derived from it, because evidence in this platform
  * always belongs to a transaction.
  */
 public class CommunicationEventHandler implements AggregateEventHandler {

@@ -1,7 +1,7 @@
 # Event Catalog
 
 Every canonical event in PDEI, its payload, its producer, and what consumes it.
-Envelope fields are defined once in `PLATFORM-CONTRACT.md` §3 and are not repeated per event —
+Envelope fields are defined once in `PLATFORM-CONTRACT.md` §3 and are not repeated per event -
 only the `payload` object is described below.
 
 Conventions:
@@ -13,7 +13,7 @@ Conventions:
 
 ---
 
-## 1. Payment events — `aggregateType: PAYMENT`
+## 1. Payment events - `aggregateType: PAYMENT`
 
 ### `PaymentCreated`
 Produced by: PSP adapter · Consumed by: state-builder-worker
@@ -48,7 +48,7 @@ Failed payments do not create dispute-eligible transactions.
 
 ---
 
-## 2. Order events — `aggregateType: ORDER`
+## 2. Order events - `aggregateType: ORDER`
 
 ### `OrderCreated`
 ```json
@@ -74,7 +74,7 @@ Failed payments do not create dispute-eligible transactions.
 
 ---
 
-## 3. Shipment events — `aggregateType: SHIPMENT`
+## 3. Shipment events - `aggregateType: SHIPMENT`
 
 ### `ShipmentCreated`
 ```json
@@ -82,7 +82,7 @@ Failed payments do not create dispute-eligible transactions.
   "trackingNumber": "…", "lines": [{"sku": "…", "quantity": 1}],
   "createdAt": "…" }
 ```
-A single order may produce several shipments — the `multi-shipment-order` scenario exists
+A single order may produce several shipments - the `multi-shipment-order` scenario exists
 specifically to test that partial fulfilment does not read as a gap.
 
 ### `ShipmentDispatched`
@@ -98,7 +98,7 @@ specifically to test that partial fulfilment does not read as a gap.
   "signedBy": "…", "deliveryAddress": {…}, "proofType": "SIGNATURE|PHOTO|OTP|GPS",
   "proofObjectKey": "…", "geo": {"lat": 0.0, "lon": 0.0} }
 ```
-**Derives evidence:** `DELIVERY_PROOF` — the single most decisive artifact for
+**Derives evidence:** `DELIVERY_PROOF` - the single most decisive artifact for
 `GOODS_NOT_RECEIVED`, which is why its absence is a `CRITICAL` gap.
 
 **Contradiction sources:** `deliveredAt` earlier than `ShipmentDispatched.dispatchedAt`;
@@ -106,7 +106,7 @@ specifically to test that partial fulfilment does not read as a gap.
 
 ---
 
-## 4. Refund events — `aggregateType: REFUND`
+## 4. Refund events - `aggregateType: REFUND`
 
 ### `RefundCreated`
 ```json
@@ -126,7 +126,7 @@ specifically to test that partial fulfilment does not read as a gap.
 
 ---
 
-## 5. Communication events — `aggregateType: COMMUNICATION`
+## 5. Communication events - `aggregateType: COMMUNICATION`
 
 ### `CommunicationCreated` (merchant → customer)
 ### `CommunicationReceived` (customer → merchant)
@@ -143,7 +143,7 @@ establishes what the customer was told and when.
 
 ---
 
-## 6. Evidence events — `aggregateType: EVIDENCE`
+## 6. Evidence events - `aggregateType: EVIDENCE`
 
 These are produced by the platform itself, not by external systems.
 
@@ -174,7 +174,7 @@ Always triggers readiness recomputation and an audit entry.
 
 ---
 
-## 7. Dispute events — `aggregateType: DISPUTE`
+## 7. Dispute events - `aggregateType: DISPUTE`
 
 ### `DisputeCreated`
 Produced by: PSP adapter, or `POST /api/v1/disputes`, or chaos `INJECT_DISPUTE`
@@ -185,7 +185,7 @@ Produced by: PSP adapter, or `POST /api/v1/disputes`, or chaos `INJECT_DISPUTE`
   "status": "OPEN", "deadlineAt": "…", "receivedAt": "…" }
 ```
 This is the event that starts a `DisputeCaseWorkflow` (workflow id `case-{caseId}`).
-Duplicate deliveries are harmless — the workflow ID reuse policy absorbs them.
+Duplicate deliveries are harmless - the workflow ID reuse policy absorbs them.
 
 ### `DisputeUpdated`
 ```json
@@ -203,7 +203,7 @@ Ends the workflow's follow-up loop.
 
 ---
 
-## 8. Readiness events — `aggregateType: TRANSACTION` (internal)
+## 8. Readiness events - `aggregateType: TRANSACTION` (internal)
 
 ### `ReadinessRecomputed`
 Produced by: readiness-worker
@@ -227,7 +227,7 @@ Drives the `GAP_DETECTED` frame and the at-risk feed behind `GET /gaps`.
 
 ---
 
-## 9. Case events — `aggregateType: CASE` (internal)
+## 9. Case events - `aggregateType: CASE` (internal)
 
 Produced by: case-orchestrator-service, one per workflow step of consequence.
 
@@ -242,11 +242,11 @@ Produced by: case-orchestrator-service, one per workflow step of consequence.
 | `CaseClosed` | workflow completes | `outcome`, `durationSeconds` |
 
 `aiInvoked: false` with a populated `bypassReason` is how the funnel proves that
-deterministic short-circuits are working — it is the source of the AI-reduction metric.
+deterministic short-circuits are working - it is the source of the AI-reduction metric.
 
 ---
 
-## 10. Audit events — topic `pdei.audit.events.v1`
+## 10. Audit events - topic `pdei.audit.events.v1`
 
 Not a `CanonicalEvent`; uses the `AuditEvent` record (contract §3, SHARED-LIBRARY-API §1.3).
 
@@ -268,7 +268,7 @@ auditable rather than merely asserted.
 
 ---
 
-## 11. Dead letters — topic `pdei.dlq.v1`
+## 11. Dead letters - topic `pdei.dlq.v1`
 
 ```json
 { "originalTopic": "pdei.raw.events.v1", "partition": 3, "offset": 918273,
@@ -294,4 +294,4 @@ All topics are keyed `merchantId + ":" + aggregateId`. This guarantees:
 That last point is deliberate and is why consumers cannot assume cross-aggregate ordering.
 A `ShipmentDelivered` may be processed before the `OrderCreated` it belongs to. Handlers
 tolerate this by writing what they know and letting readiness recomputation converge once
-both facts land — the system is eventually consistent by construction, not by accident.
+both facts land - the system is eventually consistent by construction, not by accident.

@@ -323,7 +323,7 @@ export function EvidenceGraphView({ graph, className, highlightedIds }: Evidence
                   markerEnd={`url(#${conflict ? 'pdei-graph-arrow-conflict' : 'pdei-graph-arrow'})`}
                   opacity={activeId && !touched ? 0.35 : 1}
                 >
-                  <title>{`${edge.from} —${String(edge.relation)}→ ${edge.to}`}</title>
+                  <title>{`${edge.from} -${String(edge.relation)}→ ${edge.to}`}</title>
                 </path>
               );
             })}
@@ -491,7 +491,7 @@ function GraphTable({ graph }: { graph: EvidenceGraph }) {
                 </td>
                 <td className="px-3 py-1.5 text-xs text-muted-foreground">{humanizeEnum(node.type)}</td>
                 <td className="px-3 py-1.5 text-xs text-muted-foreground">
-                  {node.status ? humanizeEnum(node.status) : '—'}
+                  {node.status ? humanizeEnum(node.status) : '-'}
                 </td>
               </tr>
             ))}

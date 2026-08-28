@@ -489,7 +489,7 @@ function BypassBanner({
           {reconstructed ? (
             <p className="inline-flex items-center gap-1.5 text-2xs" style={{ color: 'var(--status-warning)' }}>
               <Bot className="size-3" aria-hidden />
-              Reconstructed by the console from the stored case state — the gateway did not
+              Reconstructed by the console from the stored case state - the gateway did not
               return an AdmissionDecision for this case.
             </p>
           ) : null}

@@ -22,13 +22,13 @@ const eslintConfig = [
         'warn',
         { prefer: 'type-imports', fixStyle: 'inline-type-imports' },
       ],
-      // Money must never be rendered by hand — always MoneyDisplay / formatMoney.
+      // Money must never be rendered by hand - always MoneyDisplay / formatMoney.
       'no-restricted-syntax': [
         'warn',
         {
           selector: "BinaryExpression[operator='/'][right.value=100]",
           message:
-            'Do not divide by 100 to render money. Use formatMoney()/MoneyDisplay — currency exponents vary (JPY=0, KWD=3).',
+            'Do not divide by 100 to render money. Use formatMoney()/MoneyDisplay - currency exponents vary (JPY=0, KWD=3).',
         },
       ],
     },

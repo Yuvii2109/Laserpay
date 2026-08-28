@@ -14,7 +14,7 @@ import org.hibernate.type.SqlTypes;
  * One synthetic-world generation run ({@code SIM-} ids).
  *
  * <p>(seed, parameters) fully determine the generated data, so benchmarks are reproducible
- * (rule 11). {@code disputeRateBps} is an integer basis-point rate — even a rate never gets to
+ * (rule 11). {@code disputeRateBps} is an integer basis-point rate - even a rate never gets to
  * be a float in this codebase.
  */
 @Entity

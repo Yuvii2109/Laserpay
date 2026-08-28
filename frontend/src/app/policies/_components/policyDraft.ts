@@ -23,7 +23,7 @@ export const CELL_VALUES: readonly CellValue[] = [
 ] as const;
 
 export const CELL_SHORT: Readonly<Record<CellValue, string>> = {
-  NONE: '—',
+  NONE: '-',
   MANDATORY: 'M',
   RECOMMENDED: 'R',
   OPTIONAL: 'O',

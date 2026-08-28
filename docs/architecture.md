@@ -12,9 +12,9 @@ what things are called; read this for what they are for.
 > long-lived state that must be continuously maintained.
 
 A card payment completes in seconds. The dispute that attacks it may arrive 90 days later.
-In that interval the evidence needed to defend the payment — the invoice, the carrier's
+In that interval the evidence needed to defend the payment - the invoice, the carrier's
 delivery scan, the customer's email, the refund policy that was in force *on the day of
-sale* — sits in six different systems, each with its own retention window, each free to
+sale* - sits in six different systems, each with its own retention window, each free to
 change or lose data without telling anyone.
 
 Traditional dispute tooling starts working when the dispute arrives. By then the evidence
@@ -58,7 +58,7 @@ case with no evidence at all, and neither does one already past its deadline.
 
 ## 3. The three planes
 
-### 3.1 Truth plane — *what happened*
+### 3.1 Truth plane - *what happened*
 
 Kafka, PostgreSQL, MinIO, and the evidence domain model. Everything here is deterministic
 and reproducible. Amounts are integers. Timestamps are UTC instants. Documents are content
@@ -67,7 +67,7 @@ and reproducible. Amounts are integers. Timestamps are UTC instants. Documents a
 The truth plane answers questions of fact: *does EV-1092 exist, what is its hash, which
 transaction is it attached to, when was it observed, what version superseded it.*
 
-### 3.2 Intelligence plane — *what it means*
+### 3.2 Intelligence plane - *what it means*
 
 FastAPI, Gemini, the tool layer, the investigation context. Everything here is advisory.
 It reads a curated context and returns a structured opinion.
@@ -76,7 +76,7 @@ The intelligence plane answers questions of interpretation: *given a delivery sc
 delivery on the 3rd and a customer email on the 5th saying nothing arrived, which is more
 credible and what does the merchant's best defence look like.*
 
-### 3.3 Control plane — *what we are allowed to do*
+### 3.3 Control plane - *what we are allowed to do*
 
 The policy engine, Temporal workflows, the safety gate, authorization and audit. It sits
 above both other planes and constrains them.
@@ -96,7 +96,7 @@ The justification for each:
 
 | Component | The workload that requires it |
 |---|---|
-| **Kafka** | Evidence arrives from independent systems at unrelated times, late and out of order. We need durable, replayable, partition-ordered ingestion — and replay is a first-class product feature (rebuild all state from the log), not just an ops trick. |
+| **Kafka** | Evidence arrives from independent systems at unrelated times, late and out of order. We need durable, replayable, partition-ordered ingestion - and replay is a first-class product feature (rebuild all state from the log), not just an ops trick. |
 | **PostgreSQL** | Financial truth needs transactions, constraints, and joins. The evidence graph is small enough per transaction that adjacency in SQL beats a graph database (see ADR-0003). |
 | **MinIO** | Evidence artifacts are blobs (PDFs, EMLs, images). They must be content-addressed and versioned, and they must not live in the database. |
 | **Redis** | Idempotency keys, recompute debouncing, distributed locks, the AI token bucket, hot readiness cache. All ephemeral; none authoritative. |
@@ -208,7 +208,7 @@ labelled as such (reference doc §37).
 
 - **The evidence that was never captured.** No amount of engineering recovers a delivery
   scan the carrier never emitted. This is why readiness is monitored continuously and why
-  `EXPIRING_SOON` fires at 7 days — the product's value is in the window where a gap is
+  `EXPIRING_SOON` fires at 7 days - the product's value is in the window where a gap is
   still fixable.
 - **Policy drift.** The refund policy in force at sale time is not today's policy. Policy
   versions are immutable and cases resolve the version applicable at transaction time.
@@ -225,7 +225,7 @@ labelled as such (reference doc §37).
 ## 8. Deployment shape
 
 Local: one Docker Compose file, three profiles (`core` infrastructure, `app` services,
-`obs` observability). Zero cost — Gemini's free tier is the only external dependency, and
+`obs` observability). Zero cost - Gemini's free tier is the only external dependency, and
 `PDEI_AI_PROVIDER=mock` removes even that.
 
 Production-oriented: the same containers on Kubernetes, with worker autoscaling driven by
@@ -237,9 +237,9 @@ scales on queue depth of admitted investigations, which is intentionally tiny.
 
 ## 9. Reading order for a new contributor
 
-1. `planner/pre-dispute-evidence-intelligence-reference.md` — the product intent.
-2. This file — the shape and the reasoning.
-3. `docs/PLATFORM-CONTRACT.md` — the normative identifiers you must not deviate from.
-4. `docs/SHARED-LIBRARY-API.md` — the shared types you build on.
-5. `backend/evidence-core/context.md` — the domain engine, where the real logic lives.
-6. `context.md` at the repo root — the living index of everything.
+1. `planner/pre-dispute-evidence-intelligence-reference.md` - the product intent.
+2. This file - the shape and the reasoning.
+3. `docs/PLATFORM-CONTRACT.md` - the normative identifiers you must not deviate from.
+4. `docs/SHARED-LIBRARY-API.md` - the shared types you build on.
+5. `backend/evidence-core/context.md` - the domain engine, where the real logic lives.
+6. `context.md` at the repo root - the living index of everything.

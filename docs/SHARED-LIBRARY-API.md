@@ -21,7 +21,7 @@ public record Money(long amountMinor, String currency) implements Comparable<Mon
     public Money multiply(long factor);
     public boolean isZero();
     public boolean isPositive();
-    public String toDisplayString();          // e.g. "INR 12,999.00" — display ONLY
+    public String toDisplayString();          // e.g. "INR 12,999.00" - display ONLY
 }
 public final class CurrencyMismatchException extends RuntimeException {}
 ```
@@ -120,7 +120,7 @@ public record AuditEvent(
 public enum ActorType { SYSTEM, MERCHANT_USER, OPERATOR, AI_SERVICE, SIMULATOR }
 ```
 
-### 1.4 `…common.domain` (enums shared everywhere — see contract §6)
+### 1.4 `…common.domain` (enums shared everywhere - see contract §6)
 
 `EvidenceType`, `EvidenceStatus`, `EvidenceSource`, `DisputeReasonCode`, `DisputeStatus`,
 `CaseStatus`, `ReadinessBand`, `RequirementStrength`, `GapType`, `GapSeverity`,
@@ -226,7 +226,7 @@ AuditEventEntity, SimulationRunEntity, ChaosInjectionEntity
 Money is mapped as two columns via `@Embeddable MoneyEmbeddable(long amountMinor, String currency)`
 with converters to/from `Money`.
 
-Repositories (`…persistence.repository`) — Spring Data interfaces named `<Entity>Repository`,
+Repositories (`…persistence.repository`) - Spring Data interfaces named `<Entity>Repository`,
 e.g. `EvidenceRepository extends JpaRepository<EvidenceEntity, String>` plus derived queries:
 
 ```java
@@ -237,7 +237,7 @@ Optional<EvidenceEntity> findByShaAndTransactionId(String sha256, String txId);
 ```
 
 `ProcessedEventRepository.markProcessed(eventId, consumerGroup)` uses
-`INSERT … ON CONFLICT DO NOTHING` and returns `boolean firstTime` — this is the
+`INSERT … ON CONFLICT DO NOTHING` and returns `boolean firstTime` - this is the
 canonical Postgres-side idempotency primitive.
 
 `…persistence.config.PersistenceAutoConfiguration` registers entity scan + repository scan
@@ -265,7 +265,7 @@ The deterministic domain engine. Library (not a Spring Boot app). Depends on
 …core.policy.PolicyEngine               applicablePolicy(merchantId, reasonCode),
                                         requirements(reasonCode), isActionPermitted(...)
 …core.policy.PolicyVersionService       immutable versioning
-…core.safety.AiResultValidator          contract §9.3 — returns SafetyDecision + reasons
+…core.safety.AiResultValidator          contract §9.3 - returns SafetyDecision + reasons
 …core.safety.SafetyGate                 combines validator + policy + thresholds
 …core.ai.AiReasoningClient              interface  (investigate / narrative / admissionScore)
 …core.ai.HttpAiReasoningClient          calls ai-reasoning-service over HTTP
@@ -296,7 +296,7 @@ The same logical types exist three times and MUST stay field-identical:
 | Money | `common.money.Money` | `pdei_ai.models.common.Money` | `types/common.ts` |
 | InvestigationContext | `core.model.InvestigationContext` | `pdei_ai.models.investigation.InvestigationContext` | `types/ai.ts` |
 | InvestigationResult | `core.model.InvestigationResult` | `pdei_ai.models.investigation.InvestigationResult` | `types/ai.ts` |
-| ReadinessSnapshot | `core.model.ReadinessSnapshot` | — | `types/readiness.ts` |
-| CaseXRay | `core.model.CaseXRay` | — | `types/case.ts` |
+| ReadinessSnapshot | `core.model.ReadinessSnapshot` | - | `types/readiness.ts` |
+| CaseXRay | `core.model.CaseXRay` | - | `types/case.ts` |
 
 JSON Schemas in `/schemas` are the referee when the three disagree.

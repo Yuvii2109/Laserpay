@@ -35,7 +35,7 @@ public interface ProcessedEventRepository extends JpaRepository<ProcessedEventEn
     /**
      * Atomically claims {@code (eventId, consumerGroup)}.
      *
-     * @return {@code true} if this call inserted the row (first sighting — the caller must
+     * @return {@code true} if this call inserted the row (first sighting - the caller must
      *     process the event), {@code false} if the pair was already recorded (duplicate).
      */
     default boolean markProcessed(String eventId, String consumerGroup) {

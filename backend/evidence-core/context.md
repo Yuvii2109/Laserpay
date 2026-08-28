@@ -1,4 +1,4 @@
-# evidence-core — module context
+# evidence-core - module context
 
 > Maven artifact `evidence-core`, package root `com.laserpay.pdei.core`.
 > Implements section 3 of `docs/SHARED-LIBRARY-API.md` and sections 7, 9.3, 9.4 and 11 of
@@ -52,7 +52,7 @@ Temporal workflows (case-orchestrator-service), document text extraction
 
 ## 3. Package and file map
 
-### `core.model` — immutable records shared across services
+### `core.model` - immutable records shared across services
 
 | File | Notes |
 |---|---|
@@ -152,7 +152,7 @@ graph builder and the timeline are pure functions over data rather than over a d
 | `AuditRecorder` | hash-chained append plus Kafka publish; `verifyChain` recomputes and reports the first divergence |
 | `AuditCommand`, `ChainVerification` | audit input and verification result |
 
-### `core.spi` — the persistence boundary
+### `core.spi` - the persistence boundary
 
 Ports: `EvidenceRepositoryPort`, `TransactionRepositoryPort`, `PolicyRepositoryPort`,
 `ReadinessRepositoryPort`, `CaseRepositoryPort`, `AuditRepositoryPort`, `EventPublisherPort`.
@@ -175,7 +175,7 @@ Adapters: `spi.jdbc.*` (six `NamedParameterJdbcTemplate` adapters plus `JdbcSupp
 
 `ReadinessEngine.score(ReadinessInput)` is a pure function. Same input, same output, always.
 
-**Step 1 — the base ratio.** Each requirement contributes its weight, discounted by strength:
+**Step 1 - the base ratio.** Each requirement contributes its weight, discounted by strength:
 MANDATORY counts fully, RECOMMENDED counts at half, OPTIONAL and PROHIBITED do not count at all
 (they still appear in the snapshot so the UI can show them, but they cannot move the number).
 Default weights come from `RequirementStrength.weight()`: MANDATORY 3, RECOMMENDED 2, OPTIONAL 1,
@@ -187,10 +187,10 @@ denominator = SUM weight(all MANDATORY)       + 0.5 * SUM weight(all RECOMMENDED
 base        = 100 * numerator / denominator
 ```
 
-If the denominator is zero — a policy with neither mandatory nor recommended requirements — the base
+If the denominator is zero - a policy with neither mandatory nor recommended requirements - the base
 is **100**, not an error: there is nothing outstanding to be unready about.
 
-**Step 2 — when is a requirement satisfied?** Exactly one definition, in
+**Step 2 - when is a requirement satisfied?** Exactly one definition, in
 `RequirementMatching.satisfying`, used by both the engine and the gap detector so they can never
 disagree. An artifact satisfies a requirement when all of these hold:
 
@@ -205,7 +205,7 @@ disagree. An artifact satisfies a requirement when all of these hold:
 A PROHIBITED requirement is never satisfied. Its presence is a policy problem handled by rule 6 of
 the safety validator, not a credit towards readiness.
 
-**Step 3 — penalties.** Four rules, applied to the gap list:
+**Step 3 - penalties.** Four rules, applied to the gap list:
 
 | Rule | Cost | Applies to |
 |---|---|---|
@@ -218,7 +218,7 @@ MISSING, LOW_QUALITY and VERSION_CONFLICT gaps carry **no** extra penalty: they 
 into the base ratio through requirement satisfaction, and charging for them twice would punish the
 same fact in two places.
 
-**Step 4 — the final number.**
+**Step 4 - the final number.**
 
 ```
 score = clamp(round_half_up(base - penalties), 0, 100)
@@ -227,20 +227,20 @@ band  = ReadinessBand.fromScore(score)   // READY >= 90, NEARLY_READY 75-89, AT_
 
 Rounding is `BigDecimal.HALF_UP` (`Scores.roundHalfUp`). BigDecimal is used here only because the
 score is a dimensionless number; **money never touches a decimal or floating type anywhere in this
-module** — it is always `(long amountMinor, String currency)`.
+module** - it is always `(long amountMinor, String currency)`.
 
 **Reason code, or baseline.** `compute(transactionId, reasonCode)` scores against that reason code's
 requirements. `compute(transactionId)` scores against the merchant's **baseline requirement
 profile**: the union of MANDATORY requirements across the merchant's top reason codes (from their
-dispute history; if they have none, the platform default top three — GOODS_NOT_RECEIVED,
+dispute history; if they have none, the platform default top three - GOODS_NOT_RECEIVED,
 FRAUDULENT_TRANSACTION, PRODUCT_NOT_AS_DESCRIBED). Everything in that union stays MANDATORY, because
 "mandatory under any reason code this merchant actually receives" is the right bar to hold a
 transaction to before a dispute exists.
 
 **Recomputation triggers** (owned by readiness-worker, not by this module): any EVIDENCE event, any
 state change on a linked entity, a policy version change, and a nightly sweep for expiry
-transitions. Recomputation is safe to run as often as needed because gap ids are deterministic —
-`GAP-` plus a hash of transaction, gap type, evidence type and discriminator — so repeated runs
+transitions. Recomputation is safe to run as often as needed because gap ids are deterministic -
+`GAP-` plus a hash of transaction, gap type, evidence type and discriminator - so repeated runs
 upsert instead of accumulating duplicates.
 
 ---
@@ -259,28 +259,28 @@ upsert instead of accumulating duplicates.
 | VERSION_CONFLICT | more than one live version in the same chain | HIGH / MEDIUM / MEDIUM |
 | CONTRADICTORY | one per contradiction | the contradiction's own severity |
 
-When artifacts of a required type exist but none is usable, a MISSING gap is still raised — but only
+When artifacts of a required type exist but none is usable, a MISSING gap is still raised - but only
 if nothing more specific already explains why (so an expired document produces EXPIRED, not
 EXPIRED *and* MISSING).
 
 `ContradictionDetector.detect(facts, evidence, now)` implements ten rules:
 
-1. delivery timestamp earlier than the shipment dispatch timestamp — HIGH, field `deliveredAt`
-2. a delivery exists for a shipment that was never dispatched — HIGH, field `dispatchedAt`
-3. delivery timestamp earlier than the order creation timestamp — HIGH, field `deliveredAt`
-4. total refunded greater than total captured — CRITICAL, field `refundAmount`
-5. a single refund greater than the payment it refunds — CRITICAL, field `refundAmount`
-6. refund currency different from the payment currency — CRITICAL, field `currency`
-7. delivery address different from the order shipping address — HIGH, field `deliveryAddress`
-8. shipment destination different from the order shipping address — MEDIUM, field `deliveryAddress`
-9. shipped quantity different from ordered quantity — MEDIUM, field `quantity`
-10. captured amount different from the single order total — MEDIUM, field `amountMinor`
+1. delivery timestamp earlier than the shipment dispatch timestamp - HIGH, field `deliveredAt`
+2. a delivery exists for a shipment that was never dispatched - HIGH, field `dispatchedAt`
+3. delivery timestamp earlier than the order creation timestamp - HIGH, field `deliveredAt`
+4. total refunded greater than total captured - CRITICAL, field `refundAmount`
+5. a single refund greater than the payment it refunds - CRITICAL, field `refundAmount`
+6. refund currency different from the payment currency - CRITICAL, field `currency`
+7. delivery address different from the order shipping address - HIGH, field `deliveryAddress`
+8. shipment destination different from the order shipping address - MEDIUM, field `deliveryAddress`
+9. shipped quantity different from ordered quantity - MEDIUM, field `quantity`
+10. captured amount different from the single order total - MEDIUM, field `amountMinor`
 
 Money comparisons are always `long` minor units after a currency check; a currency mismatch is
 reported as its own contradiction instead of being compared numerically. Addresses are compared
 after `Text.normalizeAddress` (accent stripping, case folding, punctuation removal, whitespace
 collapse and a small abbreviation table) so formatting alone never raises a false conflict. **Missing
-data is never a contradiction** — an absent address or quantity is a provenance/completeness gap and
+data is never a contradiction** - an absent address or quantity is a provenance/completeness gap and
 belongs to `GapDetector`.
 
 Each contradiction names both sides. When an evidence artifact documents one of the conflicting
@@ -345,7 +345,7 @@ filled in from the seeded matrix), then the seeded default. Every fallback is de
 engine keeps working with an empty policy table.
 
 `PolicyVersionService.publish` never rewrites a stored version. It appends a new one, closes the
-previous interval by setting `effective_to`, and audits the transition — so a decision made months
+previous interval by setting `effective_to`, and audits the transition - so a decision made months
 ago can be replayed against exactly the rules that were in force at the time. Each version carries a
 `checksum` (canonical-JSON sha256 of the draft) so a no-op republish is visible in the audit trail.
 
@@ -353,40 +353,40 @@ ago can be replayed against exactly the rules that were in force at the time. Ea
 
 ## 7. The safety model
 
-### 7.1 `AiResultValidator` — the seven hard rejection rules (contract 9.3)
+### 7.1 `AiResultValidator` - the seven hard rejection rules (contract 9.3)
 
 An `InvestigationResult` is **rejected** when ANY of these hold. Each has a stable reason code that
 appears in `SafetyVerdict.reasons`:
 
-1. **`RULE_1_UNKNOWN_EVIDENCE`** — an evidence id in `supportingEvidence` or `citations` does not
+1. **`RULE_1_UNKNOWN_EVIDENCE`** - an evidence id in `supportingEvidence` or `citations` does not
    exist in Postgres. This is the anti-hallucination rule: the model cannot invent a document.
-2. **`RULE_2_EVIDENCE_NOT_LINKED`** — an evidence item exists but belongs to a different
+2. **`RULE_2_EVIDENCE_NOT_LINKED`** - an evidence item exists but belongs to a different
    transaction. The model cannot borrow another case's proof.
-3. **`RULE_3_ACTION_NOT_PERMITTED`** — `recommendedAction` is not in the applicable policy's
+3. **`RULE_3_ACTION_NOT_PERMITTED`** - `recommendedAction` is not in the applicable policy's
    permitted set (or no policy applies at all).
-4. **`RULE_4_CONFIDENCE_BELOW_THRESHOLD`** — `confidence < policy.autoPrepareMinConfidence` while
+4. **`RULE_4_CONFIDENCE_BELOW_THRESHOLD`** - `confidence < policy.autoPrepareMinConfidence` while
    the action is PREPARE_REPRESENTMENT. Only checked for that action.
-5. **`RULE_5_TOO_MANY_CONTRADICTIONS`** — `contradictions.size() > policy.maxContradictions` while
+5. **`RULE_5_TOO_MANY_CONTRADICTIONS`** - `contradictions.size() > policy.maxContradictions` while
    the action is PREPARE_REPRESENTMENT.
-6. **`RULE_6_PROHIBITED_EVIDENCE_TYPE`** — a prohibited evidence type appears in
+6. **`RULE_6_PROHIBITED_EVIDENCE_TYPE`** - a prohibited evidence type appears in
    `supportingEvidence`.
-7. **`RULE_7_DEFENDABLE_WITH_UNSATISFIED_MANDATORY`** — the classification is DEFENDABLE while a
+7. **`RULE_7_DEFENDABLE_WITH_UNSATISFIED_MANDATORY`** - the classification is DEFENDABLE while a
    MANDATORY requirement is unsatisfied. The deterministic readiness view overrules the model's
    optimism.
 
 Any rejection yields `SafetyDecision.DENY`, which routes the case to `AWAITING_HUMAN_REVIEW`. Rules 1
-and 2 additionally populate `unsupportedClaims` — the model's own citation text paired with the
-reason it could not be backed — and increment `pdei_ai_unsupported_claims_total`. The validator
+and 2 additionally populate `unsupportedClaims` - the model's own citation text paired with the
+reason it could not be backed - and increment `pdei_ai_unsupported_claims_total`. The validator
 never mutates anything; it only reports.
 
-### 7.2 `SafetyGate` — the escalation layer
+### 7.2 `SafetyGate` - the escalation layer
 
 The gate runs the validator first. A DENY is final. Otherwise it applies the policy automation
 thresholds (`PolicyEngine.evaluateAction`) and a set of escalation heuristics, and downgrades to
 `ALLOW_WITH_REVIEW` when any of these hold:
 
 - a policy threshold failed (confidence, contradictions, readiness floor, or value ceiling);
-- the recommended action is anything other than PREPARE_REPRESENTMENT — accepting liability,
+- the recommended action is anything other than PREPARE_REPRESENTMENT - accepting liability,
   escalating and requesting a policy review are human decisions by nature;
 - confidence is below the unattended threshold (0.95 by default, deliberately stricter than the
   policy's auto-prepare floor);
@@ -394,7 +394,7 @@ thresholds (`PolicyEngine.evaluateAction`) and a set of escalation heuristics, a
 - the representment deadline has already passed;
 - any CRITICAL readiness gap remains, or a mandatory requirement is still unsatisfied.
 
-Only a clean pass through all of that yields `ALLOW`. Every gate decision — allow, review or deny —
+Only a clean pass through all of that yields `ALLOW`. Every gate decision - allow, review or deny -
 is audited and counted into `pdei_policy_gate_total{decision}`.
 
 `evaluateDeterministic` applies the same thresholds to a proposal the platform generated itself, so
@@ -408,12 +408,12 @@ the short-circuited path is governed by exactly the same rules as the AI path.
 
 **Deterministic short-circuits, evaluated first, in this order:**
 
-1. **PAST_DEADLINE** — the dispute is already past its deadline. Deterministic action
+1. **PAST_DEADLINE** - the dispute is already past its deadline. Deterministic action
    `ESCALATE_TO_HUMAN`. Checked first because spending money on a case that can no longer be
    submitted is pure waste.
-2. **NO_EVIDENCE** — no evidence at all is attached. Deterministic action `ACCEPT_LIABILITY`; a model
+2. **NO_EVIDENCE** - no evidence at all is attached. Deterministic action `ACCEPT_LIABILITY`; a model
    cannot reason about documents that do not exist.
-3. **ALL_REQUIREMENTS_SATISFIED** — every MANDATORY requirement is satisfied and there are zero
+3. **ALL_REQUIREMENTS_SATISFIED** - every MANDATORY requirement is satisfied and there are zero
    contradictions. Deterministic action `PREPARE_REPRESENTMENT`; there is nothing for a model to add.
 
 **Priority formula, for everything that survives:**
@@ -612,7 +612,7 @@ pdei:
 |---|---|
 | `platform-common` | **hard.** Money, ids, events, enums, hashing, JSON, clocks, exceptions. Every one of these names is fixed by `docs/SHARED-LIBRARY-API.md`. |
 | `platform-persistence` | schema ownership (Flyway) and `DataSource`/JPA autoconfiguration. This module deliberately imports **no** JPA entity or Spring Data repository; it reaches the schema through its own SPI ports. |
-| `spring-boot-starter` | context, binding, logging. No web starter — this is a library. |
+| `spring-boot-starter` | context, binding, logging. No web starter - this is a library. |
 | `spring-web` | `RestClient` for the single AI call. Brings no servlet container, so worker modules stay non-web. |
 | `spring-boot-starter-data-redis` | `StringRedisTemplate` for the audit lock and the AI budget gate. |
 | `spring-kafka` | `KafkaTemplate` for event publication. |
@@ -656,8 +656,8 @@ To use it from a service module:
 The two auto-configurations register themselves through
 `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`:
 
-1. `CorePersistenceAutoConfiguration` — the JDBC port adapters, active when a `DataSource` exists.
-2. `CoreAutoConfiguration` — the domain services, ordered after it.
+1. `CorePersistenceAutoConfiguration` - the JDBC port adapters, active when a `DataSource` exists.
+2. `CoreAutoConfiguration` - the domain services, ordered after it.
 
 The split matters: the domain service beans are `@ConditionalOnBean` on the ports, and a nested member
 class inside `CoreAutoConfiguration` would be processed *after* the outer class's own bean methods,
@@ -705,14 +705,14 @@ scenarios rather than as 21-argument constructor calls.
   off on `@ConditionalOnMissingBean`. A Spring Data implementation over the platform-persistence
   entities is a drop-in replacement.
 - **Swap the AI transport.** Implement `AiReasoningClient` (gRPC, a queue, an in-process mock). The
-  admission controller and safety gate are unaffected — they never see the transport.
+  admission controller and safety gate are unaffected - they never see the transport.
 - **Change the throttling strategy.** Implement `AiBudgetGate`. `AiBudgetGate.unlimited()` is the
   no-throttle case used by tests.
 - **Add an evidence relation.** Add a constant to `EvidenceEdge` and use it from
   `EvidenceService.link`; the graph and lineage renderers pass relation names through unchanged.
 - **Tune the safety gate.** Escalation heuristics live in one method (`SafetyGate.evaluate`); the
   seven hard rules in `AiResultValidator` should be treated as fixed, since they are normative.
-- **Custom readiness inputs.** Implement `ReadinessDataProvider` — for example a simulator provider
+- **Custom readiness inputs.** Implement `ReadinessDataProvider` - for example a simulator provider
   that scores hypothetical evidence sets without writing anything.
 
 ---
@@ -732,25 +732,25 @@ Ordered by how likely they are to bite a future session.
    BadSqlGrammarException ... column "id" does not exist
    ```
 
-   so `pdei.evidence` was never read or written and the platform held zero evidence — 31 failures
+   so `pdei.evidence` was never read or written and the platform held zero evidence - 31 failures
    in state-builder on one seeded run. **No table in schema `pdei` has a column named `id`; every
    primary key is `<entity>_id`.** Three kinds of divergence showed up, and only the first is a
    simple rename:
 
-   - *renames* — `evidence.id` → `evidence_id`, `evidence_versions.id`/`.version` →
+   - *renames* - `evidence.id` → `evidence_id`, `evidence_versions.id`/`.version` →
      `evidence_version_id`/`version_number`, `evidence_relationships.id`/`.relation` →
      `relationship_id`/`relationship_type`. Now handled with SQL aliases (`evidence_id AS id`) so
      the row mappers keep the record's vocabulary.
-   - *a semantic collision* — the query selected `evidence.version` meaning the version number.
+   - *a semantic collision* - the query selected `evidence.version` meaning the version number.
      That column exists, and it is the JPA optimistic-lock counter; the version number is
      `current_version`. This would have compiled, run, and returned the wrong integer. **Worse than
      a missing column, because nothing would have failed.**
-   - *columns that genuinely did not exist* — `parent_evidence_id`, `quality_score`,
+   - *columns that genuinely did not exist* - `parent_evidence_id`, `quality_score`,
      `provenance_verified`, `status_reason`. Not dead code: they drive the version-chain walk, the
      `UNVERIFIABLE_PROVENANCE` −20 readiness penalty and `LOW_QUALITY` gaps, all of which contract
      §6/§7 already required. Added by `V11__evidence_lineage_quality.sql`.
 
-   **Still to do — the other five adapters, all with the same `id` assumption:**
+   **Still to do - the other five adapters, all with the same `id` assumption:**
 
    | File | bare `id` | other columns that do not exist |
    |---|---|---|
@@ -765,7 +765,7 @@ Ordered by how likely they are to bite a future session.
    would make the gate compare `0.90` to `9000`.
 
    Enum-set columns (`policy_versions.permitted_actions`, `prohibited_evidence_types`) are still
-   assumed to be comma-separated text rather than Postgres arrays — unverified.
+   assumed to be comma-separated text rather than Postgres arrays - unverified.
 
    **None of this is reachable from a unit test:** every test in this module stubs the ports, so the
    SQL is only executed against a real database by the integration suite or a running stack. A
@@ -793,7 +793,7 @@ Ordered by how likely they are to bite a future session.
    the schema exists. This is the biggest single hole and the natural next piece of work.
 8. **`historicalContext` is not assembled here.** `CaseRepositoryPort.merchantWinRate` and
    `similarCaseCount` exist and are implemented, but no service in this module currently builds an
-   `InvestigationContext` end to end — case-orchestrator-service assembles it from the pieces this
+   `InvestigationContext` end to end - case-orchestrator-service assembles it from the pieces this
    module exposes. A future `InvestigationContextFactory` here would remove that duplication.
 9. **Readiness caching is configured but not implemented.** `pdei.core.readiness.cache-ttl` and the
    `pdei:readiness:{transactionId}` key of contract 12 exist; `ReadinessEngine` currently recomputes
@@ -810,7 +810,7 @@ Ordered by how likely they are to bite a future session.
 13. **The audit chain lock is best effort.** If Redis is unavailable two concurrent appends can both
     claim the same predecessor, producing a visible fork that `verifyChain` reports. A unique index on
     `(merchant_id, previous_hash)` in platform-persistence would make this impossible rather than
-    merely detectable — worth adding.
+    merely detectable - worth adding.
 14. **Contradiction rule 10 (captured vs order total) only fires for single-order transactions.**
     Split-order transactions would need an allocation model to compare fairly, and guessing one would
     produce false contradictions.

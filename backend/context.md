@@ -1,4 +1,4 @@
-# `backend/` — PDEI Maven Reactor (`pdei-backend`)
+# `backend/` - PDEI Maven Reactor (`pdei-backend`)
 
 > Module context for the reactor root. Normative references, in precedence order:
 > `docs/PLATFORM-CONTRACT.md` → `docs/SHARED-LIBRARY-API.md` → `planner/pre-dispute-evidence-intelligence-reference.md`.
@@ -48,9 +48,9 @@ If you add a library whose version must differ from Boot's, pin it the same way,
 
 | # | Module | Package root | Kind | Port |
 |---|---|---|---|---|
-| 1 | `platform-common` | `com.laserpay.pdei.common` | library | — |
-| 2 | `platform-persistence` | `com.laserpay.pdei.persistence` | library (JPA + Flyway) | — |
-| 3 | `evidence-core` | `com.laserpay.pdei.core` | library (domain engine) | — |
+| 1 | `platform-common` | `com.laserpay.pdei.common` | library | - |
+| 2 | `platform-persistence` | `com.laserpay.pdei.persistence` | library (JPA + Flyway) | - |
+| 3 | `evidence-core` | `com.laserpay.pdei.core` | library (domain engine) | - |
 | 4 | `api-gateway-service` | `com.laserpay.pdei.api` | Spring Boot web | 8080 |
 | 5 | `ingestion-service` | `com.laserpay.pdei.ingestion` | Spring Boot web | 8081 |
 | 6 | `normalization-worker` | `com.laserpay.pdei.normalization` | worker | 8082 |
@@ -71,7 +71,7 @@ HTTP. Nothing depends on a service module.
 backend/
 ├── pom.xml                 reactor root: modules, dependencyManagement, pluginManagement
 ├── context.md              this file
-├── platform-common/        IMPLEMENTED — see platform-common/context.md
+├── platform-common/        IMPLEMENTED - see platform-common/context.md
 ├── platform-persistence/   (owned elsewhere)
 ├── evidence-core/          (owned elsewhere)
 ├── api-gateway-service/    (owned elsewhere)
@@ -132,9 +132,9 @@ with no version.
 | `maven-compiler-plugin` | 3.13.0 | `release=21`, `<parameters>true</parameters>` + explicit `-parameters`, `-Xlint:all,-serial,-processing,-this-escape` |
 | `maven-surefire-plugin` | 3.5.1 | `trimStackTrace=false`, `useModulePath=false` (classpath build, no JPMS) |
 | `maven-failsafe-plugin` | 3.5.1 | reserved for Testcontainers `*IT` tests |
-| `maven-jar-plugin` | 3.4.2 | — |
+| `maven-jar-plugin` | 3.4.2 | - |
 | `jacoco-maven-plugin` | 0.8.12 | `prepare-agent` + `report` at `verify` |
-| `spring-boot-maven-plugin` | 3.3.5 | **pluginManagement only** — see below |
+| `spring-boot-maven-plugin` | 3.3.5 | **pluginManagement only** - see below |
 
 `build/plugins` (actually activated for the parent and inherited by all modules): compiler,
 surefire, jacoco.
@@ -227,7 +227,7 @@ Infrastructure (Postgres, Kafka, Redis, MinIO, Temporal, observability stack) co
 
 - **Adding a module:** create the directory with a POM whose `<parent>` is this one, add a
   `<module>` entry here, and add its artifact to `dependencyManagement` if other modules will
-  depend on it. Update `docs/PLATFORM-CONTRACT.md` sections 1 and 2 first — the contract leads.
+  depend on it. Update `docs/PLATFORM-CONTRACT.md` sections 1 and 2 first - the contract leads.
 - **Adding a dependency:** declare it (no version) in the consuming module; pin the version here
   only if Spring Boot does not already manage it or manages a version you must override.
 - **Integration tests:** `maven-failsafe-plugin` is pre-configured in `pluginManagement`; a module
@@ -247,5 +247,5 @@ Infrastructure (Postgres, Kafka, Redis, MinIO, Temporal, observability stack) co
 - No `maven-enforcer-plugin` pinning the JDK/Maven version, no `.mvn/maven.config`, no wrapper
   (`mvnw`). Worth adding once CI exists.
 - No `dependency-check`/SBOM plugin, no `spotless`/checkstyle. Formatting is by convention only.
-- JaCoCo has no coverage thresholds (`check` goal not bound) — reports only.
+- JaCoCo has no coverage thresholds (`check` goal not bound) - reports only.
 - No `<distributionManagement>` / release profile; artifacts are local-install only.

@@ -162,20 +162,20 @@ export function CaseQueueBoard() {
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <StatTile
               label="Open cases"
-              value={isLoading ? '—' : openRows.length}
+              value={isLoading ? '-' : openRows.length}
               hint="Everything not in CLOSED."
               loading={isLoading}
             />
             <StatTile
               label="Waiting on a human"
-              value={isLoading ? '—' : awaitingHuman.length}
+              value={isLoading ? '-' : awaitingHuman.length}
               tone={awaitingHuman.length > 0 ? 'warning' : 'neutral'}
               hint="Parked on the humanDecision signal (contract 10, step 8)."
               loading={isLoading}
             />
             <StatTile
               label="Failed workflows"
-              value={isLoading ? '—' : rows.filter((row) => row.failed).length}
+              value={isLoading ? '-' : rows.filter((row) => row.failed).length}
               tone={rows.some((row) => row.failed) ? 'critical' : 'neutral'}
               hint="Non-retryable activity failure; needs an operator."
               loading={isLoading}
@@ -184,7 +184,7 @@ export function CaseQueueBoard() {
               label="Amount at risk"
               value={
                 exposureEntries.length === 0 ? (
-                  '—'
+                  '-'
                 ) : (
                   <MoneyDisplay
                     money={{

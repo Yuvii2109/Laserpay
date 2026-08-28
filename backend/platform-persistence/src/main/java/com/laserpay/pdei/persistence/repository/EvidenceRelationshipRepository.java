@@ -28,7 +28,7 @@ public interface EvidenceRelationshipRepository extends JpaRepository<EvidenceRe
             Collection<String> fromIds, Collection<String> toIds);
 
     /**
-     * Every edge whose endpoints belong to the given transaction — one query for the whole
+     * Every edge whose endpoints belong to the given transaction - one query for the whole
      * graph payload of {@code GET /transactions/{transactionId}/graph}.
      */
     @Query(value = """
@@ -39,7 +39,7 @@ public interface EvidenceRelationshipRepository extends JpaRepository<EvidenceRe
             """, nativeQuery = true)
     List<EvidenceRelationshipEntity> findByTransactionId(@Param("transactionId") String transactionId);
 
-    /** Contradiction count for a transaction — a direct input to the safety gate. */
+    /** Contradiction count for a transaction - a direct input to the safety gate. */
     @Query(value = """
             SELECT count(*) FROM pdei.evidence_relationships r
             JOIN pdei.evidence ef ON ef.evidence_id = r.from_evidence_id

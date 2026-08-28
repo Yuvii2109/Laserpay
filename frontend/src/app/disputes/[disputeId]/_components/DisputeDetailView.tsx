@@ -40,7 +40,7 @@ const CASE_LOOKUP_PAGE_SIZE = 200;
  *
  * A dispute is only interesting in company: the transaction it attacks, the case assembled to
  * defend it, the clock, and the evidence its reason code demands. All four are on this page so
- * the decision — defend or accept — can be made without navigating away.
+ * the decision - defend or accept - can be made without navigating away.
  */
 export function DisputeDetailView({ disputeId }: DisputeDetailViewProps) {
   const disputeQuery = useQuery({

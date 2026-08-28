@@ -34,7 +34,7 @@ export function HashDisplay({
   const [copied, setCopied] = useState(false);
 
   if (!sha256) {
-    return <span className={cn('text-muted-foreground', className)}>—</span>;
+    return <span className={cn('text-muted-foreground', className)}>-</span>;
   }
 
   const copy = async () => {

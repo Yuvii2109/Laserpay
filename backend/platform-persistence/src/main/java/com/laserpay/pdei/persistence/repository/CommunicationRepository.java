@@ -9,7 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-/** Customer communications — CUSTOMER_COMMUNICATION evidence source and timeline input. */
+/** Customer communications - CUSTOMER_COMMUNICATION evidence source and timeline input. */
 @Repository
 public interface CommunicationRepository extends JpaRepository<CommunicationEntity, String> {
 

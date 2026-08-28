@@ -89,41 +89,41 @@ export function hrefForId(id: string | null | undefined): string | null {
  * eyeball-match it against a log line.
  */
 export function shortenId(id: string | null | undefined, head = 8, tail = 4): string {
-  if (!id) return '—';
+  if (!id) return '-';
   if (id.length <= head + tail + 1) return id;
   return `${id.slice(0, head)}…${id.slice(-tail)}`;
 }
 
 /** `9f1c0b7e-...` -> `9f1c0b7e`. For correlation/event UUIDs in dense tables. */
 export function shortenUuid(uuid: string | null | undefined): string {
-  if (!uuid) return '—';
+  if (!uuid) return '-';
   const [first] = uuid.split('-');
   return first ?? uuid.slice(0, 8);
 }
 
 /** `a3f9...c1` for a sha256, keeping enough to compare two hashes by eye. */
 export function shortenHash(sha256: string | null | undefined): string {
-  if (!sha256) return '—';
+  if (!sha256) return '-';
   return sha256.length <= 16 ? sha256 : `${sha256.slice(0, 10)}…${sha256.slice(-6)}`;
 }
 
 /** MinIO object key -> the filename at its tail (contract 11 layout). */
 export function objectKeyFilename(objectKey: string | null | undefined): string {
-  if (!objectKey) return '—';
+  if (!objectKey) return '-';
   const parts = objectKey.split('/');
   return parts[parts.length - 1] ?? objectKey;
 }
 
 /** `SCREAMING_SNAKE_CASE` -> `Screaming snake case`, for enum labels. */
 export function humanizeEnum(value: string | null | undefined): string {
-  if (!value) return '—';
+  if (!value) return '-';
   const lower = value.toLowerCase().replace(/_/g, ' ');
   return lower.charAt(0).toUpperCase() + lower.slice(1);
 }
 
 /** `PaymentCaptured` -> `Payment captured`, for EventType labels. */
 export function humanizeEventType(value: string | null | undefined): string {
-  if (!value) return '—';
+  if (!value) return '-';
   const spaced = value.replace(/([a-z0-9])([A-Z])/g, '$1 $2');
   return spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase();
 }

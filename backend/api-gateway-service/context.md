@@ -1,4 +1,4 @@
-# api-gateway-service — module context
+# api-gateway-service - module context
 
 > Maven artifact `api-gateway-service`, package root `com.laserpay.pdei.api`, port **8080**.
 > Implements section 8.1 (and the callback surface of 8.6) of `docs/PLATFORM-CONTRACT.md`.
@@ -13,7 +13,7 @@ api-gateway-service is **the frontend's only backend** and **the AI service's on
 platform**. Everything the Next.js app renders comes through here, and every fact the Python
 reasoner is allowed to know it fetches from here.
 
-The module owns no domain logic. Not "very little" — none. The readiness formula lives in
+The module owns no domain logic. Not "very little" - none. The readiness formula lives in
 `ReadinessEngine`, the seven safety rules in `AiResultValidator`, evidence versioning in
 `EvidenceService`, package assembly in `CaseAssemblyService`. This module decides which of those to
 call, turns the result into JSON, and enforces the things that are genuinely HTTP concerns:
@@ -174,46 +174,46 @@ Base `http://localhost:8080/api/v1`. `page` is zero-based; `size` defaults to 25
 
 | Method | Path | Request | Response | Notes |
 |---|---|---|---|---|
-| GET | `/health/ready` | — | `HealthResponse` | 200 READY/DEGRADED, 503 NOT_READY. Only Postgres is fatal |
+| GET | `/health/ready` | - | `HealthResponse` | 200 READY/DEGRADED, 503 NOT_READY. Only Postgres is fatal |
 | GET | `/merchants` | `page`, `size` | `PageResponse<MerchantResponse>` | sorted by id |
-| GET | `/merchants/{merchantId}` | — | `MerchantResponse` | 404 when unknown |
-| GET | `/merchants/{merchantId}/summary` | — | `MerchantSummaryResponse` | control-tower KPIs; counts only, no money aggregate |
+| GET | `/merchants/{merchantId}` | - | `MerchantResponse` | 404 when unknown |
+| GET | `/merchants/{merchantId}/summary` | - | `MerchantSummaryResponse` | control-tower KPIs; counts only, no money aggregate |
 | GET | `/transactions` | `merchantId`, `band`, `from`, `to`, `page`, `size` | `PageResponse<TransactionResponse>` | window is half-open `[from, to)`; sorted by `occurredAt` desc |
-| GET | `/transactions/{transactionId}` | — | `TransactionDetailResponse` | row + `TransactionFacts` + readiness + evidence summary |
-| GET | `/transactions/{transactionId}/timeline` | — | `TimelineResponse` | ordered by when things happened, not when observed |
+| GET | `/transactions/{transactionId}` | - | `TransactionDetailResponse` | row + `TransactionFacts` + readiness + evidence summary |
+| GET | `/transactions/{transactionId}/timeline` | - | `TimelineResponse` | ordered by when things happened, not when observed |
 | GET | `/transactions/{transactionId}/readiness` | `reasonCode?` | `ReadinessSnapshot` | stored snapshot when it matches the reason code, else computed |
 | POST | `/transactions/{transactionId}/readiness/recompute` | `reasonCode?` | `ReadinessSnapshot` | recomputes **and persists**; idempotent; publishes no event |
-| GET | `/transactions/{transactionId}/evidence` | — | `List<EvidenceView>` | |
-| GET | `/transactions/{transactionId}/graph` | — | `EvidenceGraph` | nodes + edges incl. `CONTRADICTS` |
+| GET | `/transactions/{transactionId}/evidence` | - | `List<EvidenceView>` | |
+| GET | `/transactions/{transactionId}/graph` | - | `EvidenceGraph` | nodes + edges incl. `CONTRADICTS` |
 | GET | `/evidence` | `merchantId`, `type`, `status`, `q`, `transactionId`, `page`, `size` | `PageResponse<EvidenceView>` | `q` triggers Postgres FTS |
-| GET | `/evidence/{evidenceId}` | — | `EvidenceView` | |
-| GET | `/evidence/{evidenceId}/versions` | — | `EvidenceVersionsResponse` | row chain + stored-object ledger |
-| GET | `/evidence/{evidenceId}/lineage` | — | `EvidenceGraph` | version chain + provenance |
-| GET | `/evidence/{evidenceId}/download` | — | 302 `Location` | presigned MinIO URL; bytes are never proxied |
+| GET | `/evidence/{evidenceId}` | - | `EvidenceView` | |
+| GET | `/evidence/{evidenceId}/versions` | - | `EvidenceVersionsResponse` | row chain + stored-object ledger |
+| GET | `/evidence/{evidenceId}/lineage` | - | `EvidenceGraph` | version chain + provenance |
+| GET | `/evidence/{evidenceId}/download` | - | 302 `Location` | presigned MinIO URL; bytes are never proxied |
 | POST | `/evidence` | multipart: `file` + JSON `metadata` (`EvidenceUploadRequest`) | 201 `EvidenceView` + `Location` | idempotent by content; sha256 computed from stored bytes |
-| POST | `/evidence/{evidenceId}/verify` | — | `IntegrityReport` | 200 even when `intact: false`; a mismatch invalidates the artifact |
+| POST | `/evidence/{evidenceId}/verify` | - | `IntegrityReport` | 200 even when `intact: false`; a mismatch invalidates the artifact |
 | GET | `/disputes` | `merchantId`, `status`, `reasonCode`, `page`, `size` | `PageResponse<DisputeView>` | |
-| GET | `/disputes/{disputeId}` | — | `DisputeView` | |
+| GET | `/disputes/{disputeId}` | - | `DisputeView` | |
 | POST | `/disputes` | `CreateDisputeRequest` | 201 `DisputeView` + `Location` | idempotent per open transaction; `amountMinor` + `currency` |
-| GET | `/disputes/{disputeId}/transitions` | — | `List<DisputeStatus>` | **additive**: legal next statuses for the UI |
+| GET | `/disputes/{disputeId}/transitions` | - | `List<DisputeStatus>` | **additive**: legal next statuses for the UI |
 | GET | `/cases` | `merchantId`, `status`, `page`, `size` | `PageResponse<CaseView>` | queue swimlanes |
-| GET | `/cases/{caseId}` | — | `CaseView` | |
-| GET | `/cases/{caseId}/xray` | — | `CaseXRay` | heaviest read in the API; computed fresh |
+| GET | `/cases/{caseId}` | - | `CaseView` | |
+| GET | `/cases/{caseId}/xray` | - | `CaseXRay` | heaviest read in the API; computed fresh |
 | POST | `/cases/{caseId}/approve` | `CaseDecisionRequest` | `CaseDecisionResponse` | `AWAITING_APPROVAL`/`INVESTIGATING` → `PREPARED`, emits `CasePrepared` |
 | POST | `/cases/{caseId}/reject` | `CaseDecisionRequest` (note required) | `CaseDecisionResponse` | → `AWAITING_EVIDENCE`, emits `CaseEscalated` |
 | POST | `/cases/{caseId}/submit` | `CaseDecisionRequest` | `CaseDecisionResponse` | `PREPARED`/`AWAITING_APPROVAL` → `SUBMITTED`, emits `CaseSubmitted` |
-| GET | `/cases/{caseId}/package` | — | `PackageManifest` | 404 until assembled; a GET never assembles |
-| GET | `/investigations/{investigationId}` | — | `InvestigationResponse` | proposal + verdict + findings |
+| GET | `/cases/{caseId}/package` | - | `PackageManifest` | 404 until assembled; a GET never assembles |
+| GET | `/investigations/{investigationId}` | - | `InvestigationResponse` | proposal + verdict + findings |
 | GET | `/policies` | `merchantId` (required) | `List<PolicyView>` | |
-| GET | `/policies/{policyId}` | — | `PolicyView` | version currently in force |
-| GET | `/policies/{policyId}/history` | — | `List<PolicyView>` | **additive**: immutable version history |
-| GET | `/policies/{policyId}/requirements` | — | `RequirementsResponse` | |
+| GET | `/policies/{policyId}` | - | `PolicyView` | version currently in force |
+| GET | `/policies/{policyId}/history` | - | `List<PolicyView>` | **additive**: immutable version history |
+| GET | `/policies/{policyId}/requirements` | - | `RequirementsResponse` | |
 | PUT | `/policies/{policyId}` | `PolicyUpsertRequest` | `PolicyView` | appends a version, closes the previous interval |
 | GET | `/requirements` | `reasonCode`, `merchantId?` | `RequirementsResponse` | merchant-scoped or the seeded default matrix |
 | GET | `/audit` | `entityType`+`entityId`, or `merchantId` (+`actor`, `from`, `to`), `page`, `size` | `PageResponse<AuditEvent>` | entity filters must be supplied together |
 | GET | `/audit/verify-chain` | `merchantId` | `ChainVerification` | a broken chain is 200 with `intact: false` |
 | GET | `/gaps` | `merchantId` (required), `type`, `severity`, `page`, `size` | `PageResponse<ReadinessGap>` | at-risk feed, severity desc |
-| GET | `/gaps/transaction/{transactionId}` | — | `List<ReadinessGap>` | **additive**: feed drill-down |
+| GET | `/gaps/transaction/{transactionId}` | - | `List<ReadinessGap>` | **additive**: feed drill-down |
 | GET | `/metrics/funnel` | `merchantId?`, `from?`, `to?` | `FunnelResponse` | default window 7 days |
 
 ### Streaming
@@ -233,7 +233,7 @@ Frame envelope, exactly as contract section 8.1:
 `type` ∈ `READINESS_UPDATED | EVIDENCE_ADDED | DISPUTE_CREATED | CASE_UPDATED | GAP_DETECTED |
 CHAOS_INJECTED | HEARTBEAT`.
 
-### AI tool surface (contract section 8.6) — GET only, `X-PDEI-Service-Token` required
+### AI tool surface (contract section 8.6) - GET only, `X-PDEI-Service-Token` required
 
 | Method | Path | Response |
 |---|---|---|
@@ -278,7 +278,7 @@ Every failure is rendered as `com.laserpay.pdei.common.error.ErrorResponse`:
 | anything else | 500 | `INTERNAL_ERROR` (generic message; the correlation id is the way in) |
 
 > **Deliberate divergence, recorded in section 10.** `PdeiException.httpStatus()` in platform-common
-> carries 422 for `PolicyViolationException` and 409 for `EvidenceIntegrityException` — the reverse
+> carries 422 for `PolicyViolationException` and 409 for `EvidenceIntegrityException` - the reverse
 > of the two bolded rows. The gateway's HTTP surface is specified by the table above, so
 > `GlobalExceptionHandler` maps explicitly per exception type and does **not** read `httpStatus()`.
 
@@ -306,7 +306,7 @@ Every failure is rendered as `com.laserpay.pdei.common.error.ErrorResponse`:
 `pdei:idem:{eventId}:pdei-api-gateway-service`.
 
 **HTTP called out:** `POST {orchestrator}/orchestrator/v1/cases/{caseId}/signals/humanDecision`
-(assumed shape — see known gaps).
+(assumed shape - see known gaps).
 
 **Tables reached** (through the ports and repositories, never with hand-written SQL in this module):
 `merchants`, `transactions`, `payments`, `orders`, `order_lines`, `shipments`, `deliveries`,

@@ -47,7 +47,7 @@ interface ChecklistRow {
  * Two sources, joined on evidence type: `GET /requirements?reasonCode=` gives the *rules*
  * (strength, max age, provenance, quality floor) from the applicable policy version, and the
  * transaction's `ReadinessSnapshot` gives the *result* (satisfied, and by which artifact).
- * Keeping them separate matters — a requirement can be unsatisfied because the artifact is
+ * Keeping them separate matters - a requirement can be unsatisfied because the artifact is
  * missing, or because the artifact exists and is too old for this policy.
  */
 export function RequiredEvidenceChecklist({
@@ -182,7 +182,7 @@ function SatisfactionMark({
     return (
       <span
         className="mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full border border-dashed border-border"
-        title="Satisfaction unknown — no readiness snapshot"
+        title="Satisfaction unknown - no readiness snapshot"
       >
         <Minus className="size-3 text-muted-foreground" aria-hidden />
         <span className="sr-only">Unknown</span>

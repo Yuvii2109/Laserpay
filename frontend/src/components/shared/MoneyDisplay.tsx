@@ -24,7 +24,7 @@ export function MoneyDisplay({
   ...options
 }: MoneyDisplayProps) {
   if (!money) {
-    return <span className={cn('text-muted-foreground', className)}>—</span>;
+    return <span className={cn('text-muted-foreground', className)}>-</span>;
   }
   const rendered = withCode
     ? formatMoneyWithCode(money, options.locale)

@@ -12,7 +12,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 /**
- * Transactions — the readiness unit of work.
+ * Transactions - the readiness unit of work.
  *
  * <p>{@link #searchByFilters} backs {@code GET /transactions?merchantId&band&from&to&page&size};
  * every filter is optional, which is why it is a JPQL query with null guards rather than a
@@ -77,7 +77,7 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
                 pageable);
     }
 
-    /** Transactions whose readiness has never been computed or is stale — sweep input. */
+    /** Transactions whose readiness has never been computed or is stale - sweep input. */
     @Query("""
             SELECT t FROM TransactionEntity t
             WHERE t.readinessComputedAt IS NULL OR t.readinessComputedAt < :staleBefore

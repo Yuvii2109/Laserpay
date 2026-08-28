@@ -35,10 +35,10 @@ export interface EvidenceDetailViewProps {
  * `/evidence/[evidenceId]` (contract 14).
  *
  * The page answers one question in four parts: *can this artifact be trusted?*
- *   provenance — where did it come from, and when did we see it?
- *   integrity  — do the stored bytes still hash to what we recorded?
- *   versions   — what did it look like before, and is that history intact?
- *   lineage    — what is it derived from, and what does it conflict with?
+ *   provenance - where did it come from, and when did we see it?
+ *   integrity  - do the stored bytes still hash to what we recorded?
+ *   versions   - what did it look like before, and is that history intact?
+ *   lineage    - what is it derived from, and what does it conflict with?
  */
 export function EvidenceDetailView({ evidenceId }: EvidenceDetailViewProps) {
   const evidenceQuery = useQuery({
@@ -95,7 +95,7 @@ export function EvidenceDetailView({ evidenceId }: EvidenceDetailViewProps) {
       ),
       hint: evidence.sourceEventId
         ? 'The canonical event this artifact was derived from.'
-        : 'Without a source event the provenance cannot be walked back — this is what UNVERIFIABLE_PROVENANCE reports.',
+        : 'Without a source event the provenance cannot be walked back - this is what UNVERIFIABLE_PROVENANCE reports.',
     },
     {
       label: 'Created',
@@ -147,7 +147,7 @@ export function EvidenceDetailView({ evidenceId }: EvidenceDetailViewProps) {
       value: evidence.relatedEntityId ? (
         <CopyableId id={evidence.relatedEntityId} />
       ) : (
-        <span className="text-muted-foreground">—</span>
+        <span className="text-muted-foreground">-</span>
       ),
       hint: evidence.parentEvidenceId
         ? `Supersedes ${evidence.parentEvidenceId}`

@@ -14,7 +14,7 @@ import java.util.Map;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-/** Merchant order ({@code ORD-} ids) — the ORDER_RECORD evidence source. */
+/** Merchant order ({@code ORD-} ids) - the ORDER_RECORD evidence source. */
 @Entity
 @Table(name = "orders", schema = PdeiSchema.NAME)
 public class OrderEntity extends VersionedEntity {

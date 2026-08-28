@@ -45,7 +45,7 @@ public class EvidenceRelationshipEntity extends VersionedEntity {
     @Column(name = "confidence_bps")
     private Integer confidenceBps;
 
-    /** DETERMINISTIC|AI|MERCHANT|SYSTEM — who asserted the edge. */
+    /** DETERMINISTIC|AI|MERCHANT|SYSTEM - who asserted the edge. */
     @Column(name = "detected_by", nullable = false, length = 32)
     private String detectedBy = "DETERMINISTIC";
 

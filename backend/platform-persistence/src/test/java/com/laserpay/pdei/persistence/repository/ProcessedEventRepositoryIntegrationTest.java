@@ -37,7 +37,7 @@ class ProcessedEventRepositoryIntegrationTest extends AbstractPostgresIntegratio
     void migrationsApplied() {
         // `version IS NOT NULL` filters out Flyway 10's "<< Flyway Schema Creation >>" marker row,
         // which it records with a NULL version and type SCHEMA when it creates the pdei schema.
-        // Counting raw rows here asserted 10 and got 11 — all ten migrations had in fact applied.
+        // Counting raw rows here asserted 10 and got 11 - all ten migrations had in fact applied.
         Integer applied = jdbcTemplate.queryForObject(
                 "SELECT count(*) FROM pdei.flyway_schema_history WHERE success AND version IS NOT NULL",
                 Integer.class);

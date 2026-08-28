@@ -1,4 +1,4 @@
-# normalization-worker — module context
+# normalization-worker - module context
 
 > Reload file. Everything a future session needs to work on this module without re-deriving it.
 > Normative references: `docs/PLATFORM-CONTRACT.md`, `docs/SHARED-LIBRARY-API.md`,
@@ -109,8 +109,8 @@ backend/normalization-worker/
 | Payload | `com.laserpay.pdei.common.event.RawEventEnvelope`, consumed as `String` and parsed here |
 | Consumer group | `pdei-normalization-worker` (`ConsumerGroups.PDEI_NORMALIZATION_WORKER`) |
 | Headers read | `pdei-correlation-id`, `pdei-merchant-id`, `pdei-schema-version`, `pdei-attempt`, `traceparent` |
-| Table written | `pdei.processed_events` — `(event_id, consumer_group)`, insert-only |
-| Redis key | `pdei:idem:{eventId}` — completion cache, TTL 7d, never authoritative |
+| Table written | `pdei.processed_events` - `(event_id, consumer_group)`, insert-only |
+| Redis key | `pdei:idem:{eventId}` - completion cache, TTL 7d, never authoritative |
 
 Producers of the raw topic: `ingestion-service`, `simulator-service`.
 
@@ -128,13 +128,13 @@ Producers of the raw topic: `ingestion-service`, `simulator-service`.
 An alias claimed by two adapters is a startup failure, not a warning: silent misrouting would send
 a source system's events through the wrong vocabulary.
 
-### The `sourceEventType` vocabulary is normative — PLATFORM-CONTRACT §4.1
+### The `sourceEventType` vocabulary is normative - PLATFORM-CONTRACT §4.1
 
 The table above routes on `sourceSystem`. Which **`sourceEventType`** strings each adapter must
 accept is now pinned in contract §4.1, and it was not before. That gap cost the first end-to-end
 run: `simulator-service` emits one canonical string per event type from
-`simulator/world/SourceVocabulary.java` — a class whose javadoc calls itself "the mapping table
-normalization-worker must implement" — and for two source systems this worker implemented a
+`simulator/world/SourceVocabulary.java` - a class whose javadoc calls itself "the mapping table
+normalization-worker must implement" - and for two source systems this worker implemented a
 different one. **2489 of 5672 raw events, 49%, dead-lettered as `UnmappableEventException`:**
 
 | Simulator emitted | Adapter | Adapter's vocabulary at the time | DLQ'd |
@@ -179,7 +179,7 @@ Canonical event types produced, and the source vocabulary that maps to each, are
 
 ### Metrics (PLATFORM-CONTRACT §13)
 
-- `pdei_events_processed_total{service="normalization-worker",type,outcome}` — outcome is
+- `pdei_events_processed_total{service="normalization-worker",type,outcome}` - outcome is
   `success` | `duplicate` | `dead_lettered`
 - `pdei_events_duplicate_total{service="normalization-worker"}`
 - `pdei_event_processing_latency_seconds{service,type}`
@@ -209,7 +209,7 @@ out-of-order handling in state-builder-worker and the `DELAYED_EVENT` chaos type
 
 `Payloads.money` accepts minor-unit integers, snake/camel variants, and decimal **strings**
 (converted by digit shifting in `minorFromDecimalText`). A JSON floating-point literal for a
-monetary amount raises `MonetaryPrecisionException` and is dead-lettered — it is a producer bug, and
+monetary amount raises `MonetaryPrecisionException` and is dead-lettered - it is a producer bug, and
 rounding it here would launder the bug into the ledger. Excess fraction digits are likewise
 rejected, never truncated.
 
@@ -220,14 +220,14 @@ a scalar amount is never paired with the configured fallback currency when the s
 
 `normalizeAndPublish` is `@Transactional`. The idempotency claim and the Kafka send commit together:
 a broker failure rolls the claim back and redelivery re-normalizes. Fire-and-forget publication
-would let a claim commit for an event that never reached the canonical topic — an event silently
+would let a claim commit for an event that never reached the canonical topic - an event silently
 lost, which is the one failure mode this platform will not accept.
 
 ### 6.5 Values are consumed as `String`, not as a typed record
 
 A deserialization failure inside the container is awkward to route: the record reaches the error
-handler without a usable body. Parsing in the listener means an unparseable payload — a common real
-failure — still reaches the DLQ with its original text preserved as a JSON string node.
+handler without a usable body. Parsing in the listener means an unparseable payload - a common real
+failure - still reaches the DLQ with its original text preserved as a JSON string node.
 
 ### 6.6 Unmapped dispute reason codes are dead-lettered, not guessed
 
@@ -317,7 +317,7 @@ Health: `http://localhost:8082/actuator/health` · Metrics: `/actuator/prometheu
 | Add a vendor alias for an existing source | Add it to that adapter's `ALIASES`. A collision fails startup. |
 | Support a new source event name | Add an entry to that adapter's `MAPPINGS`. |
 | Handle a retired vendor event name | Add it to `RetiredSourceEventTypeUpcaster.RENAMES`. |
-| Migrate an old payload shape | Implement `EventUpcaster`, declare it as a `@Bean`. `UpcasterChain` orders by `fromVersion()`. Keep `upcast()` idempotent — `supports()` must become false afterwards. |
+| Migrate an old payload shape | Implement `EventUpcaster`, declare it as a `@Bean`. `UpcasterChain` orders by `fromVersion()`. Keep `upcast()` idempotent - `supports()` must become false afterwards. |
 | Add a network reason code | Add it to `DisputeReasonCodes.TABLE`, then replay the dead letters. |
 | Change money-shape tolerance | `Payloads.money` / `Payloads.minorFromDecimalText`. Do not introduce floating point. |
 | Replay after a fix | Reset the `pdei-normalization-worker` group offsets (or delete its `processed_events` rows) and let the topic replay. Deterministic ids make this safe. |

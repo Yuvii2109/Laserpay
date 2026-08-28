@@ -1,4 +1,4 @@
-# `frontend` (`pdei-web`) — module context
+# `frontend` (`pdei-web`) - module context
 
 > Living document for the PDEI operator console. Read this before touching anything under
 > `frontend/`. Normative sources that outrank this file: `docs/PLATFORM-CONTRACT.md` and
@@ -19,7 +19,7 @@
 It is a **read-mostly** console. The only writes it performs are the human decisions the platform
 explicitly asks for: readiness recompute, evidence upload/verify, dispute creation, case
 approve/reject/submit, policy versioning, and simulator/chaos control. It never edits financial
-state directly, and it never sends anything to an AI service — AI lives in
+state directly, and it never sends anything to an AI service - AI lives in
 `ai-reasoning-service` and reaches the UI only as stored, gated results.
 
 ---
@@ -29,7 +29,7 @@ state directly, and it never sends anything to an AI service — AI lives in
 - Render every route in contract §14 inside one consistent shell.
 - Own the **typed mirror** of the platform's DTOs and enums (`src/lib/types`), field-identical to
   the Java records listed in `docs/SHARED-LIBRARY-API.md` §4.
-- Own **all** network access through one client (`src/lib/api/client.ts`) — contract §14 requires it.
+- Own **all** network access through one client (`src/lib/api/client.ts`) - contract §14 requires it.
 - Keep server state in TanStack Query and UI state in Zustand, and keep them separate.
 - Hold exactly one control-tower WebSocket per browser tab, and convert its frames into query
   invalidations rather than into direct state writes.
@@ -39,7 +39,7 @@ state directly, and it never sends anything to an AI service — AI lives in
 Explicitly **not** its responsibilities: business rules (readiness scoring, policy evaluation,
 safety gating) live in `evidence-core`; the console displays their outputs and never re-derives
 them. The one deliberate exception is `src/mocks`, which mirrors the readiness formula so the
-fixture data is internally consistent — it is labelled as a mirror in the file.
+fixture data is internally consistent - it is labelled as a mirror in the file.
 
 ---
 
@@ -99,7 +99,7 @@ query key.
 | `src/app/loading.tsx` / `error.tsx` / `not-found.tsx` | Route-level fallbacks. `error.tsx` surfaces the correlation id and Next's `digest`. |
 | `src/app/api/health/route.ts` | `GET /api/health` → `{status, service, checkedAt, config}`. Reports the process, not the platform: it deliberately does not probe the gateway. |
 
-### 5.2 Types (`src/lib/types`) — the contract mirror
+### 5.2 Types (`src/lib/types`) - the contract mirror
 
 | File | Contents |
 |---|---|
@@ -137,13 +137,13 @@ paired with a `readonly T[]` constant for iteration (`EVIDENCE_TYPES`, `CASE_STA
 | `endpoints/audit.ts` | `list`, `verifyChain`. |
 | `endpoints/gaps.ts` | `list`. |
 | `endpoints/metrics.ts` | `funnel`. |
-| `endpoints/simulation.ts` | `startRun`, `listRuns`, `getRun`, `stopRun`, `injectChaos`, `listChaos`, `replay`, `listScenarios`, `runScenario` — all against `config.simBaseUrl`. |
+| `endpoints/simulation.ts` | `startRun`, `listRuns`, `getRun`, `stopRun`, `injectChaos`, `listChaos`, `replay`, `listScenarios`, `runScenario` - all against `config.simBaseUrl`. |
 
 ### 5.4 Query layer (`src/lib/query`)
 
 | File | Contents |
 |---|---|
-| `keys.ts` | `queryKeys` — hierarchical, typed, rooted at `['pdei']`. `allResourceKeys()` for a full refresh. |
+| `keys.ts` | `queryKeys` - hierarchical, typed, rooted at `['pdei']`. `allResourceKeys()` for a full refresh. |
 | `QueryProvider.tsx` | One `QueryClient` per session. 30s stale time, no window-focus refetch (the socket does that job), no retry on non-retryable `ApiError`, **no automatic mutation retry**. |
 | `useInvalidateOnWsEvent.ts` | `keysForFrame(frame)` maps each WS frame type to the keys it invalidates; the hook replays the tail in arrival order and is mounted once by `AppShell`. |
 
@@ -165,14 +165,14 @@ paired with a `readonly T[]` constant for iteration (`EVIDENCE_TYPES`, `CASE_STA
 
 | File | Contents |
 |---|---|
-| `money.ts` | `currencyExponent()`, `formatMoney()`, `formatMoneyCompact()`, `formatMoneyWithCode()`, `parseMoneyInput()`, `addMoney`/`sumMoney` (throw on currency mismatch), `formatBps`, `formatRatio`. Integer split — **never** a hardcoded `/100`. |
+| `money.ts` | `currencyExponent()`, `formatMoney()`, `formatMoneyCompact()`, `formatMoneyWithCode()`, `parseMoneyInput()`, `addMoney`/`sumMoney` (throw on currency mismatch), `formatBps`, `formatRatio`. Integer split - **never** a hardcoded `/100`. |
 | `date.ts` | `formatInstant/formatDate/formatTime` (UTC by default and labelled), `formatRelative`, `formatSpan`, `formatLatency`, `deadlineState()` (contract §9.4's 48h urgency), `nowIso`, `daysAgoIso`. |
 | `id.ts` | `entityKind()`, `hrefForId()` (prefix → detail route), `shortenId/shortenUuid/shortenHash`, `objectKeyFilename`, `humanizeEnum`, `humanizeEventType`. |
 | `score.ts` | `bandFromScore()` (the only score→band mapping), `BAND_LABEL/DESCRIPTION/TONE`, `bandColorVar`, `toneColorVar`, per-enum tone maps, `formatScore`, `formatConfidence`, `scoreFraction`, `BAND_THRESHOLDS`. |
 
 ### 5.8 Components
 
-`src/components/ui` — shadcn primitives: `alert`, `badge`, `button`, `card`, `dialog`,
+`src/components/ui` - shadcn primitives: `alert`, `badge`, `button`, `card`, `dialog`,
 `dropdown-menu`, `input`, `label`, `progress`, `scroll-area`, `select`, `separator`, `sheet`,
 `skeleton`, `sonner` (Toaster + `toast`), `table`, `tabs`, `tooltip`.
 
@@ -190,7 +190,7 @@ paired with a `readonly T[]` constant for iteration (`EVIDENCE_TYPES`, `CASE_STA
 | `EmptyState` / `ErrorState` / `LoadingState` | The three non-happy paths. `ErrorState` distinguishes "gateway unreachable" from "gateway said no" and always shows the correlation id. |
 | `StatTile` | One KPI: label, value, optional delta chip, optional tone. |
 | `ReadinessBadge` / `ReadinessMeter` | Band badge and the 0-100 meter with band threshold ticks. |
-| `StatusBadge` | One variant per status enum (`evidence`, `dispute`, `case`, `severity`, `safety`, `simulation`, `chaos`) — icon + label + reserved tone. |
+| `StatusBadge` | One variant per status enum (`evidence`, `dispute`, `case`, `severity`, `safety`, `simulation`, `chaos`) - icon + label + reserved tone. |
 | `EvidenceTypeIcon` | Icon and label per `EvidenceType`. |
 | `MoneyDisplay` | The only sanctioned way to render money. |
 | `TimestampDisplay` | Relative after mount, absolute in the title, UTC-aware. |
@@ -206,8 +206,8 @@ paired with a `readonly T[]` constant for iteration (`EVIDENCE_TYPES`, `CASE_STA
 | `random.ts` | `createRng(seed)` (mulberry32) + `seededUuid`, `sequentialId`. |
 | `matrix.ts` | Mirror of `DefaultPolicyMatrix`: requirements per reason code, max-age rules, automation thresholds. |
 | `dataset.ts` | `buildMockDataset(seed, now)` → merchants, transactions (+facts), evidence (+versions/lineage/integrity), readiness snapshots computed with the contract §7 formula, gaps, contradictions, timelines, graphs, disputes, cases, X-Rays, package manifests, investigations, policies, a hash-chained audit log, per-merchant summaries and funnels, simulation runs, chaos injections, scenarios. |
-| `router.ts` | `resolveMockRequest` — every route of contract §8.1 and §8.5, with filtering, paging, sorting and a simulated 120 ms latency. Envelopes match the gateway exactly: `PageResponse` is `{content, …, totalElements, totalPages}`, `/transactions/{id}` is nested, `/policies` is a bare array, both requirement routes return `RequirementsResponse`, and `/gaps` and `/policies` reject a missing `merchantId` with a 400 the way the controllers do. Unknown routes throw a 404-shaped `ApiRequestError`. |
-| `socket.ts` | `startMockSocket` — deterministic frame feed including heartbeats, duplicates and late timestamps. |
+| `router.ts` | `resolveMockRequest` - every route of contract §8.1 and §8.5, with filtering, paging, sorting and a simulated 120 ms latency. Envelopes match the gateway exactly: `PageResponse` is `{content, …, totalElements, totalPages}`, `/transactions/{id}` is nested, `/policies` is a bare array, both requirement routes return `RequirementsResponse`, and `/gaps` and `/policies` reject a missing `merchantId` with a 400 the way the controllers do. Unknown routes throw a 404-shaped `ApiRequestError`. |
+| `socket.ts` | `startMockSocket` - deterministic frame feed including heartbeats, duplicates and late timestamps. |
 | `index.ts` | Public entry (`resolveMockRequest`, `startMockSocket`, `mockDataset`). |
 
 Fixture shape (seed `20260826`): 4 merchants, 66 transactions, ~400 evidence artifacts, ~146
@@ -264,7 +264,7 @@ Defined once in `src/app/globals.css`; Tailwind reads them through `tailwind.con
   Never reused as a series colour, and never rendered without an icon and a label.
 - **Readiness bands** map onto that ramp: READY→good, NEARLY_READY→warning, AT_RISK→serious,
   NOT_READY→critical (`--band-*`, and `bandColorVar()` in code).
-- **Viz chrome:** `--viz-surface`, `--viz-grid`, `--viz-axis`, `--viz-ink*` — already applied to
+- **Viz chrome:** `--viz-surface`, `--viz-grid`, `--viz-axis`, `--viz-ink*` - already applied to
   Recharts elements by `globals.css`.
 
 Charting rules for the page agents: one y-axis per chart (**never** a dual-axis chart); legend
@@ -276,7 +276,7 @@ figures for standalone hero numbers.
 
 ## 8. Inbound contracts (what this module consumes)
 
-**REST — `api-gateway-service`, base `NEXT_PUBLIC_API_BASE_URL` (contract §8.1):**
+**REST - `api-gateway-service`, base `NEXT_PUBLIC_API_BASE_URL` (contract §8.1):**
 `/health/ready`; `/merchants`, `/merchants/{id}`, `/merchants/{id}/summary`; `/transactions`,
 `/transactions/{id}`, `/timeline`, `/readiness`, `/readiness/recompute`, `/evidence`, `/graph`;
 `/evidence`, `/evidence/{id}`, `/versions`, `/lineage`, `/download`, `POST /evidence`,
@@ -285,15 +285,15 @@ figures for standalone hero numbers.
 `/investigations/{id}`; `/policies`, `/policies/{id}`, `/requirements`, `PUT /policies/{id}`,
 `/requirements?reasonCode=`; `/audit`, `/audit/verify-chain`; `/gaps`; `/metrics/funnel`.
 
-**REST — `simulator-service`, base `NEXT_PUBLIC_SIM_BASE_URL` (contract §8.5):**
+**REST - `simulator-service`, base `NEXT_PUBLIC_SIM_BASE_URL` (contract §8.5):**
 `/runs`, `/runs/{id}`, `/runs/{id}/stop`, `/chaos`, `/replay`, `/scenarios`,
 `/scenarios/{key}/run`.
 
-**WebSocket — `WS /ws/control-tower?merchantId=` (contract §8.1):** frames
+**WebSocket - `WS /ws/control-tower?merchantId=` (contract §8.1):** frames
 `READINESS_UPDATED`, `EVIDENCE_ADDED`, `DISPUTE_CREATED`, `CASE_UPDATED`, `GAP_DETECTED`,
 `CHAOS_INJECTED`, `HEARTBEAT`, in the envelope `{type, at, merchantId, data}`.
 
-No database, Kafka topic or object store is touched from the browser — ever.
+No database, Kafka topic or object store is touched from the browser - ever.
 
 ### Expected response shapes
 
@@ -308,7 +308,7 @@ wins and this file is wrong.
   (`transactions`, `averageReadinessScore`, `dominantBand`, `readinessDistribution`,
   `evidenceByStatus`, `casesByStatus`, `openDisputes`, `atRiskTransactions`, `expiringEvidence`,
   `casesRequiringReview`, `blockingGaps`, `generatedAt`). **No aggregated money and no AI
-  counters** — one total across mixed currencies would be a lie (contract §5), and the funnel is
+  counters** - one total across mixed currencies would be a lie (contract §5), and the funnel is
   `GET /metrics/funnel`'s job.
 - `GET /gaps` → `PageResponse<ReadinessGap>`: merchant-scoped (`merchantId` is required) but the
   rows carry no merchantId, score, band or disputeId. The at-risk feed reads the band from
@@ -318,7 +318,7 @@ wins and this file is wrong.
 - `GET /policies?merchantId` → a bare `PolicyView[]`, not a page; `merchantId` is required.
 - `GET /requirements` and `GET /policies/{id}/requirements` → `api.dto.RequirementsResponse` =
   `{merchantId, reasonCode, policyId, policyVersionId, defaultPolicy, requirements,
-  mandatoryCount}` — never a bare `RequirementSpec[]`.
+  mandatoryCount}` - never a bare `RequirementSpec[]`.
 - `GET /health/ready` → `api.dto.HealthResponse` = `{status, service, dependencies, degraded,
   at}`. `dependencies` is keyed by infrastructure component (`postgres`, `redis`, `kafka`,
   `objectStore`), never by service name.
@@ -352,7 +352,7 @@ Still assumed: the case commands return `CaseCommandResult`; `GET /investigation
 | `NEXT_PUBLIC_USE_MOCKS` | `false` | `true` serves everything from `src/mocks`, REST and socket alike. |
 | `NEXT_PUBLIC_SIM_BASE_URL` | derived: gateway host on port 8088 + `/sim/v1` | simulator-service base (contract §8.5); the simulator is beside the gateway, not behind it. |
 
-`NEXT_PUBLIC_*` values are inlined at **build** time — the Dockerfile takes them as build args.
+`NEXT_PUBLIC_*` values are inlined at **build** time - the Dockerfile takes them as build args.
 Copy `.env.local.example` to `.env.local` for local work. There are no server-side secrets in this
 module, and none may be added: everything here reaches the browser.
 
@@ -364,7 +364,7 @@ module, and none may be added: everything here reaches the browser.
 |---|---|
 | `api-gateway-service` | Every REST call and the WebSocket. Hard runtime dependency. |
 | `simulator-service` | Simulation and chaos console only. Degrades to an error panel when absent. |
-| `evidence-core` | Source of truth for the DTO shapes mirrored in `src/lib/types` and for the readiness formula mirrored in `src/mocks`. Compile-time only — no code is shared. |
+| `evidence-core` | Source of truth for the DTO shapes mirrored in `src/lib/types` and for the readiness formula mirrored in `src/mocks`. Compile-time only - no code is shared. |
 | `platform-common` | Source of the enums and the money/event envelope shapes. Compile-time only. |
 | `ai-reasoning-service` | Never called from the browser. AI output reaches the UI as stored `InvestigationResult` + `SafetyVerdict` through the gateway. |
 
@@ -384,7 +384,7 @@ npm run typecheck    # tsc --noEmit
 npm run lint         # eslint (next/core-web-vitals + next/typescript)
 ```
 
-**With the backend down** — the whole console still works:
+**With the backend down** - the whole console still works:
 
 ```bash
 NEXT_PUBLIC_USE_MOCKS=true npm run dev
@@ -435,7 +435,7 @@ boundary), `PageHeader` at the top of every route, `DataTable` for every list, `
 
 ## 14. Extension points
 
-- **A new route:** add it to `src/lib/navigation.ts` (plain data — importable by both server and
+- **A new route:** add it to `src/lib/navigation.ts` (plain data - importable by both server and
   client components) and create `src/app/<route>/page.tsx`.
 - **A new endpoint:** add a typed function to the matching `src/lib/api/endpoints/*.ts` and a key
   to `queryKeys`. Never call the client from a component.
@@ -445,7 +445,7 @@ boundary), `PageHeader` at the top of every route, `DataTable` for every list, `
 - **A new status enum:** add the union to the right `types/*.ts`, a tone map in `format/score.ts`,
   and a `StatusKind` branch in `StatusBadge`.
 - **A new fixture:** extend `buildMockDataset` and add the route to `src/mocks/router.ts`. Keep it
-  deterministic — draw from the seeded `Rng`, never from `Math.random`.
+  deterministic - draw from the seeded `Rng`, never from `Math.random`.
 - **Theming:** add tokens to both `:root` and the dark block in `globals.css`, then expose them in
   `tailwind.config.ts`. Never introduce a colour that exists in only one theme.
 
@@ -479,7 +479,7 @@ boundary), `PageHeader` at the top of every route, `DataTable` for every list, `
 7. **Zustand persistence rehydrates after mount**, so the selected merchant can flash its default
    for one frame on a cold load. The theme does not, because of the pre-paint script.
 8. **No auth.** The console assumes an unauthenticated local platform (contract dev posture).
-   When a service token or session arrives, it belongs in `client.ts` as a single header — nowhere
+   When a service token or session arrives, it belongs in `client.ts` as a single header - nowhere
    else.
 9. **Mobile is functional, not designed.** The sidebar is hidden below `md` and no drawer replaces
    it yet; `Sheet` is already available for that.
@@ -494,7 +494,7 @@ boundary), `PageHeader` at the top of every route, `DataTable` for every list, `
 
 > Authored by the operational-surfaces page agent. Covers `/control-tower`, `/transactions`,
 > `/transactions/[transactionId]`, `/evidence`, `/evidence/[evidenceId]`, `/disputes` and
-> `/disputes/[disputeId]` — the seven routes of contract §14 that answer "is this merchant's
+> `/disputes/[disputeId]` - the seven routes of contract §14 that answer "is this merchant's
 > evidence ready, and what is missing?". Sections 1–15 above are the scaffold agent's and were
 > not modified. The case, policy, simulation and observability routes belong to another agent.
 
@@ -512,7 +512,7 @@ boundary), `PageHeader` at the top of every route, `DataTable` for every list, `
 3. **Merchant scope.** Every list route reads `uiStore.selectedMerchantId` and renders an explicit
    "No merchant selected" empty state rather than an empty table when it is `null`.
 4. **Filters live in `uiStore.filters`.** The bag is deliberately cross-page (see §5.6), so every
-   list route ships a `FilterBar` with a visible **Clear** action — the way back out of a filter
+   list route ships a `FilterBar` with a visible **Clear** action - the way back out of a filter
    carried in from another page.
 5. **Live updates come from invalidation, never from the socket.** No page subscribes to the
    WebSocket. `AppShell` owns the one socket, `useInvalidateOnWsEvent` maps frames to keys, and
@@ -525,7 +525,7 @@ boundary), `PageHeader` at the top of every route, `DataTable` for every list, `
 
 The Merchant Control Tower. Above the fold, five tiles answer "what do I work next": average
 readiness, at-risk transactions, open disputes, cases awaiting review, evidence expiring. All
-five are counts — `MerchantSummaryResponse` aggregates no money, so there is deliberately no
+five are counts - `MerchantSummaryResponse` aggregates no money, so there is deliberately no
 exposure tile (see §8). Below, the readiness distribution, the at-risk feed, the dispute queue,
 the live ticker, the expiring-evidence list and the case-status queue.
 
@@ -536,9 +536,9 @@ the live ticker, the expiring-evidence list and the case-status queue.
 | Band badge per at-risk row | `GET /transactions/{id}/readiness` | `queryKeys.transactions.readiness(id)` |
 | Open dispute queue | `GET /disputes?merchantId&page&size` | `queryKeys.disputes.list(query)` |
 | Expiring evidence | `GET /evidence?merchantId&status=EXPIRING` | `queryKeys.evidence.list(query)` |
-| Live ticker | `WS /ws/control-tower` (read from `liveStore`) | — |
+| Live ticker | `WS /ws/control-tower` (read from `liveStore`) | - |
 
-Files: `page.tsx`, `loading.tsx`, `error.tsx`, and `_components/` — `PanelCard` (the titled
+Files: `page.tsx`, `loading.tsx`, `error.tsx`, and `_components/` - `PanelCard` (the titled
 `<section>` every panel uses), `ReadinessDistributionChart`, `AtRiskTransactionFeed`,
 `OpenDisputeQueue`, `ExpiringEvidencePanel`.
 
@@ -551,11 +551,11 @@ Decisions that are not obvious from the code:
 - **The band badge costs one fetch per visible row.** A `GET /gaps` row is a bare `ReadinessGap`
   with no score, band or disputeId, so the feed runs `useQueries` over the transactions it
   actually shows (at most `limit`, default 8) against
-  `queryKeys.transactions.readiness(transactionId)` — the same key the transaction detail page
+  `queryKeys.transactions.readiness(transactionId)` - the same key the transaction detail page
   uses, so opening a row costs nothing extra. A row renders without a badge rather than with a
   guessed one. A `GapFeedResponse` projection on the gateway would remove the fan-out.
 - **"Open" disputes are computed client-side.** `GET /disputes` takes one `status`, and open is
-  nine of the ten statuses in contract §6, so the queue filters with `isTerminalDispute()` — the
+  nine of the ten statuses in contract §6, so the queue filters with `isTerminalDispute()` - the
   TS mirror of `DisputeView.isTerminal()`.
 - **The expiring panel narrows `EvidenceStatus.EXPIRING` to 7 days.** The status itself is set
   against the merchant policy's `expiringSoonDays`; contract §7 penalises the last 7 days. The
@@ -606,7 +606,7 @@ this page reads `transactionId`, `amount` or `status` off the envelope itself.
 
 `POST /transactions/{id}/readiness/recompute` seeds its response straight into
 `queryKeys.transactions.readiness(id)` and then invalidates the transaction detail, `gaps.all()`
-and the merchant summary — explicitly, rather than waiting for a `READINESS_UPDATED` frame that
+and the merchant summary - explicitly, rather than waiting for a `READINESS_UPDATED` frame that
 may never arrive (§6 rule 5).
 
 **Why the timeline shows two clocks.** `TimelineEntry.at` is the business instant. The observation
@@ -614,7 +614,7 @@ instant lives beside the entity, so the page builds an `aggregateId → observed
 evidence list and the transaction itself and hands `EventTimeline` a resolver. Entries are ordered
 by `occurredAt`; anything observed more than 60 s later is labelled *observed N late*, and anything
 observed before something that occurred earlier is labelled *out of order*. Contract §17 rules 9
-and 10 require the platform to tolerate this — the UI has to make it visible, or a chaos run
+and 10 require the platform to tolerate this - the UI has to make it visible, or a chaos run
 proves nothing.
 
 **Why the readiness tab is a breakdown, not a score.** Contract §7 is deterministic, so it is
@@ -634,7 +634,7 @@ Full-text explorer: one search box, two facet rails, one result table.
 - Endpoint: `GET /evidence?merchantId&q&type&status&page&size` → `queryKeys.evidence.list`.
 - `q` is sent as raw text; the gateway turns it into a Postgres `tsquery` against the columns
   added by `V10__fts.sql`. The client never builds query syntax.
-- Facets are single-select toggle rails (`FacetRail`) with `aria-pressed`, **without counts** — the
+- Facets are single-select toggle rails (`FacetRail`) with `aria-pressed`, **without counts** - the
   gateway exposes no aggregation endpoint and a count taken from the visible page would misstate
   the corpus. The table caption says this out loud.
 - Deep links: `?q=`, `?type=`, `?status=`; unknown enum members are dropped in the server shell
@@ -673,7 +673,7 @@ Files: `page.tsx`, `loading.tsx`, `error.tsx`, `_components/EvidenceDetailView.t
 ### 16.7 `/disputes` and `/disputes/[disputeId]`
 
 List: `GET /disputes?merchantId&status&reasonCode&page&size`, filtered by status and reason code,
-**sorted by deadline** — the response window is the only clock that matters. Terminal disputes show
+**sorted by deadline** - the response window is the only clock that matters. Terminal disputes show
 their close date instead of a countdown.
 
 Detail assembles four things around the dispute:
@@ -689,7 +689,7 @@ Detail assembles four things around the dispute:
 - The checklist joins **rules** (`RequirementSpec`: strength, `maxAgeDays`, `provenanceRequired`,
   `minQualityScore`) with **results** (`RequirementView.satisfied` and `satisfyingEvidenceIds`) on
   evidence type. The rules arrive inside a `RequirementsResponse`, so the component reads
-  `data.requirements` — the route never returns a bare array. Keeping the two apart matters: a requirement can be unsatisfied because the
+  `data.requirements` - the route never returns a bare array. Keeping the two apart matters: a requirement can be unsatisfied because the
   artifact is missing, or because it exists and is too old for this policy version.
 - Readiness is requested **with** the dispute's `reasonCode`, so the checklist reflects the profile
   that will actually be scored rather than the merchant baseline.
@@ -723,7 +723,7 @@ no second api client exists, and no type was redefined.
 | `ReadinessBreakdown` | The contract §7 formula made legible | transaction Readiness tab |
 
 **`EvidenceGraphView` layout algorithm** (worth knowing before touching it): a three-step
-Sugiyama-style pass over the *structural* edges only — (1) longest-path layer assignment, bounded
+Sugiyama-style pass over the *structural* edges only - (1) longest-path layer assignment, bounded
 by the node count so a cycle cannot hang it; (2) barycentre ordering within each layer, two forward
 sweeps and one backward, ties broken by original index; (3) fixed-pitch placement with short
 columns centred against the tallest. `CONTRADICTS` edges are excluded from layering and drawn as
@@ -753,12 +753,12 @@ and edges. Aggregate types map to `--chart-1..8` in fixed order and are never cy
    validator over the four band colours reports the adjacent pair `#fab219 ↔ #ec835a` at ΔE 13.6
    for normal vision (floor 15), and both below 3:1 against the light surface. The ramp is
    normative in `globals.css` and shared with `ReadinessBadge` / `ReadinessMeter`, so it was not
-   changed. Every use of it here carries the required relief — the band **name** on the category
-   axis, a direct count label on each bar, a tooltip, and a table view — so identity never rests on
+   changed. Every use of it here carries the required relief - the band **name** on the category
+   axis, a direct count label on each bar, a tooltip, and a table view - so identity never rests on
    the hue. If the ramp is ever re-stepped, re-run the validator for both surfaces.
 2. **No `GET /cases?disputeId=`.** The dispute detail finds its case by pulling
    `GET /cases?merchantId&size=200` and matching on `disputeId`. Correct at fixture scale and wrong
-   at real scale — the gateway should expose the filter, or `DisputeView` should carry `caseId`.
+   at real scale - the gateway should expose the filter, or `DisputeView` should carry `caseId`.
 3. **`GET /transactions` has no `q` in contract §8.1.** The search box sends `q` and the mock router
    honours it; the gateway must implement it or the box degrades to a no-op filter. The parameter
    is already declared in `TransactionQuery`.
@@ -775,7 +775,7 @@ and edges. Aggregate types map to `--chart-1..8` in fixed order and are never cy
    `evidenceQuery`), not a local `useState` that would break the bag's contract.
 8. **No `POST /evidence` upload surface.** The explorer reads only. Merchant-portal upload is
    declared in contract §8.1 and `evidenceApi.upload()` exists, but no page calls it (and mock mode
-   cannot simulate multipart — §15 gap 1).
+   cannot simulate multipart - §15 gap 1).
 9. **Recompute is unconfirmed.** `Recompute readiness` fires straight from the button: it is
    deterministic, idempotent and mutates no financial state, so it does not go through
    `ConfirmDialog`. Actions that signal a Temporal workflow must.
@@ -788,7 +788,7 @@ and edges. Aggregate types map to `--chart-1..8` in fixed order and are never cy
 ## 17. Pages: investigation and control surfaces
 
 > Authored by the investigation-and-control page agent. Covers `/cases`, `/cases/[caseId]`,
-> `/policies`, `/simulation`, `/observability` and `/settings` — the six routes of contract §14
+> `/policies`, `/simulation`, `/observability` and `/settings` - the six routes of contract §14
 > that answer "why did the platform decide what it decided, and does it still behave when things
 > go wrong?". Sections 1–15 are the scaffold agent's and section 16 is the operational-surfaces
 > agent's; neither was modified.
@@ -801,13 +801,13 @@ and edges. Aggregate types map to `--chart-1..8` in fixed order and are never cy
    round trip and therefore sits inside an explicit `<Suspense>` boundary in its `page.tsx`.
 2. **Page-local components live in `_components/`.** An App Router private folder, so it never
    becomes a route segment. Anything genuinely reusable was taken from `src/components/shared`
-   rather than rebuilt — see §17.8.
+   rather than rebuilt - see §17.8.
 3. **`loading.tsx` + `error.tsx` on every segment**, each shaped like the page it stands in for
    and each naming the most likely cause (simulator down, unpublished policy edits lost, corrupt
    `pdei-ui` blob).
 4. **Every human decision passes `ConfirmDialog`.** Case approve/reject/submit, chaos injection,
-   replay, run start/stop, scenario run and policy publication. Submission — the only action that
-   leaves the platform — additionally requires the case id to be typed.
+   replay, run start/stop, scenario run and policy publication. Submission - the only action that
+   leaves the platform - additionally requires the case id to be typed.
 5. **Nothing is asserted that cannot be shown.** Where the console re-derives platform logic to
    explain a decision (contract §9.3 rule checklist, contract §9.4 short-circuit reconstruction),
    the panel says so on screen and the stored server verdict is labelled authoritative.
@@ -815,7 +815,7 @@ and edges. Aggregate types map to `--chart-1..8` in fixed order and are never cy
    for display (case-card pulse, event ticker, session counters) and let
    `useInvalidateOnWsEvent` do the re-fetching.
 
-### 17.2 `/cases` — the case queue
+### 17.2 `/cases` - the case queue
 
 Status swimlanes in workflow order (`CASE_STATUS_LANES`), one column per `CaseStatus`, each lane
 captioned with what that Temporal state actually means. Cards carry merchant, amount at risk,
@@ -828,7 +828,7 @@ is parked on `humanDecision`.
 | Money, reason code, deadline | `GET /disputes?merchantId&size=200` | `queryKeys.disputes.list(query)` |
 | Readiness per transaction | `GET /transactions?merchantId&size=200` | `queryKeys.transactions.list(query)` |
 | Merchant label | `GET /merchants?size=100` | `queryKeys.merchants.list(query)` |
-| Live movement | `CASE_UPDATED` frames read from `liveStore` | — |
+| Live movement | `CASE_UPDATED` frames read from `liveStore` | - |
 
 Files: `page.tsx`, `loading.tsx`, `error.tsx`, `_components/CaseQueueBoard.tsx`,
 `_components/CaseCard.tsx`, `_components/caseQueue.ts` (pure join + lane sort + per-currency
@@ -847,7 +847,7 @@ Decisions worth knowing:
 - **Exposure is never summed across currencies.** `laneExposure()` returns a map keyed by
   currency; the tile shows the first and says how many others exist.
 
-### 17.3 `/cases/[caseId]` — the Case X-Ray
+### 17.3 `/cases/[caseId]` - the Case X-Ray
 
 One payload (`GET /cases/{caseId}/xray`) backs all seven tabs, so they cannot disagree about the
 same case. Three side calls fill what the X-Ray does not carry.
@@ -864,7 +864,7 @@ same case. Three side calls fill what the X-Ray does not carry.
 Tabs are addressable: `?tab=overview|timeline|evidence|graph|ai|gate|package`, written with
 `router.replace(..., { scroll: false })`.
 
-Files: `page.tsx`, `loading.tsx`, `error.tsx`, `_components/` — `CaseXRayView` (queries, tabs,
+Files: `page.tsx`, `loading.tsx`, `error.tsx`, `_components/` - `CaseXRayView` (queries, tabs,
 header), `OverviewTab`, `TimelineTab`, `EvidenceTab`, `GraphTab`, `AiReasoningTab`,
 `SafetyGateTab`, `PackageTab`, `CaseActions`, `WorkflowStepper`, `ConfidenceMeter`, plus three
 pure modules: `workflow.ts`, `aiBypass.ts`, `safetyRules.ts`.
@@ -876,7 +876,7 @@ the contract §7 arithmetic (base − penalties = score) spelled out, open gaps,
 **`WorkflowStepper` + `workflow.ts`.** The twelve steps of `DisputeCaseWorkflow` verbatim from
 contract §10, each with its kind (activity / signal / timer) and what it does.
 `STATUS_TO_ORDINAL` maps `CaseStatus` onto the step the case is sitting on; step 6 `investigate`
-renders as **skipped** whenever admission control short-circuited, which is the point — most
+renders as **skipped** whenever admission control short-circuited, which is the point - most
 cases never reach the model. `FAILED` deliberately renders as *unknown* positions rather than
 inventing progress, and points at the Temporal UI.
 
@@ -886,7 +886,7 @@ case-specific lens on top: Everything / Commerce / Evidence / Dispute & case / C
 it does not.
 
 **Evidence.** Every attached artifact judged against the requirement set the readiness snapshot
-used — the requirement column comes *first*, because the question is not "what do we have" but
+used - the requirement column comes *first*, because the question is not "what do we have" but
 "does what we have satisfy what it was supposed to satisfy". `linkFor()` resolves an artifact to
 `satisfies` / `matches-unsatisfied` / `prohibited` / `not-required`, preferring the snapshot's own
 `satisfyingEvidenceIds` over a type match. Unsatisfied requirements get their own panel;
@@ -898,8 +898,8 @@ mentioned and an artifact the platform actually filed are different claims.
 
 **AI reasoning.** The honest rendering. Classification with what it means, the calibrated
 `ConfidenceMeter`, the reasoning summary and draft narrative, the admission-control breakdown
-(the four contract §9.4 terms with their weights), provider/model/token/latency metadata, and —
-the part that matters — **every citation as a claim bound to its evidence id**. A citation whose
+(the four contract §9.4 terms with their weights), provider/model/token/latency metadata, and -
+the part that matters - **every citation as a claim bound to its evidence id**. A citation whose
 id is not attached to this case, or that the stored verdict lists in `unsupportedClaims`, is
 flagged critical and named as such. Dangling `supportingEvidence` ids get their own alert. When
 `xray.investigation` is null the tab says so in the largest type on the page and shows the
@@ -920,7 +920,7 @@ through `GET /evidence/{id}/download`.
 with the expected status, `onError` rolls back, `onSuccess` replaces the guess with the workflow's
 real answer from `CaseCommandResult`, and `onSettled` invalidates `cases.detail`, `cases.xray`,
 `cases.packageManifest`, `cases.all`, `disputes.all`, `investigations.all`, `metrics.all`,
-`audit.all` and `merchants.summary` — the same set a `CASE_UPDATED` frame would, so the screen is
+`audit.all` and `merchants.summary` - the same set a `CASE_UPDATED` frame would, so the screen is
 right even if no frame arrives. Approve/Reject enable only at `AWAITING_APPROVAL`; Submit only at
 `PREPARED` with a manifest present, and requires the case id typed.
 
@@ -938,7 +938,7 @@ Files: `page.tsx`, `loading.tsx`, `error.tsx`, `_components/PolicyConsole.tsx`,
 
 - **Matrix:** rows are the merchant's policies (one per reason code plus the baseline), columns
   are all thirteen `EvidenceType`s, cells are `MANDATORY / RECOMMENDED / OPTIONAL / PROHIBITED /
-  —`. Cells are **native `<select>`s** on purpose: at 13 × n controls a native select is the only
+  -`. Cells are **native `<select>`s** on purpose: at 13 × n controls a native select is the only
   one that stays keyboard-navigable, screen-reader correct and cheap. The letter carries the
   value; the colour repeats it.
 - **Drafts, never edits.** `policyDraft.ts` is pure: `toDraft`, `cellValue`, `setCell`,
@@ -948,7 +948,7 @@ Files: `page.tsx`, `loading.tsx`, `error.tsx`, `_components/PolicyConsole.tsx`,
 - **Thresholds:** `autoPrepareMinConfidence` and `minReadinessScoreForAutoPrepare` as sliders,
   `maxContradictions` / `responseWindowDays` / `expiringSoonDays` as integers,
   `humanReviewAboveAmountMinor` entered in **major** units and stored in minor units through
-  `parseMoneyInput()` — no float ever touches it. Each field names the contract rule it feeds.
+  `parseMoneyInput()` - no float ever touches it. Each field names the contract rule it feeds.
 - **Publishing** is sequential, one `PUT` per dirty policy, behind a `ConfirmDialog` that lists
   the field-level diff per policy. Versions published this session are appended to the history.
 
@@ -959,14 +959,14 @@ Files: `page.tsx`, `loading.tsx`, `error.tsx`, `_components/PolicyConsole.tsx`,
 | Launch / list / progress / stop | `POST /sim/v1/runs`, `GET /runs`, `GET /runs/{id}`, `POST /runs/{id}/stop` | `queryKeys.simulation.runs()` / `.run(id)` |
 | Scenarios | `GET /sim/v1/scenarios`, `POST /scenarios/{key}/run` | `queryKeys.simulation.scenarios()` |
 | Chaos | `POST /sim/v1/chaos`, `GET /sim/v1/chaos` | `queryKeys.simulation.chaos()` |
-| Replay | `POST /sim/v1/replay` | — |
+| Replay | `POST /sim/v1/replay` | - |
 | Chaos targets | `GET /transactions?merchantId`, `GET /transactions/{id}/evidence` | existing transaction keys |
 
 Files: `page.tsx`, `loading.tsx`, `error.tsx`, `_components/SimulationConsole.tsx`,
 `RunLauncher.tsx`, `RunProgressPanel.tsx`, `ScenarioLibrary.tsx`, `ChaosPanel.tsx`,
 `InjectionHistory.tsx`, `ReplayPanel.tsx`, `EventTicker.tsx`, `chaosCatalog.ts`.
 
-- **`chaosCatalog.ts`** has one `ChaosSpec` per `ChaosType` in contract §6 — all thirteen — with
+- **`chaosCatalog.ts`** has one `ChaosSpec` per `ChaosType` in contract §6 - all thirteen - with
   what it does, **what surviving it proves**, which target selector it needs (`transactionId`,
   `evidenceId`, `service`, `topic`) and whether it takes `delayMs` / `count`. It also holds the
   service list, the eight Kafka topic names (mirroring `common.kafka.Topics`) and the failure
@@ -980,7 +980,7 @@ Files: `page.tsx`, `loading.tsx`, `error.tsx`, `_components/SimulationConsole.ts
 - **Scenario cards state the expected outcome before the run.** That ordering is the value: a
   demo that predicts and then shows is evidence.
 - **The ripple is visible.** `EventTicker` wraps the shared `LiveEventTicker` with the two numbers
-  that make a chaos run legible — frames per type, and **duplicates dropped**. Under
+  that make a chaos run legible - frames per type, and **duplicates dropped**. Under
   `DUPLICATE_EVENT` or a replay, that second counter climbing while nothing else moves *is* the
   idempotency demonstration. The panel flashes on every accepted injection, run start or replay.
 - **Run launcher** takes the dispute rate as a percentage and multiplies by `0.01` to reach the
@@ -994,7 +994,7 @@ Files: `page.tsx`, `loading.tsx`, `error.tsx`, `_components/SimulationConsole.ts
 | Funnel | `GET /metrics/funnel?merchantId&from` | `queryKeys.metrics.funnel(query)` |
 | Platform health | `GET /health/ready` (30 s refetch) | `queryKeys.health.ready()` |
 | Audit integrity | `GET /audit/verify-chain?merchantId` | `queryKeys.audit.chain(id)` |
-| Session counters | `liveStore` | — |
+| Session counters | `liveStore` | - |
 
 Files: `page.tsx`, `loading.tsx`, `error.tsx`, `_components/ObservabilityView.tsx`,
 `FunnelChart.tsx`, `ServiceHealthGrid.tsx`, `services.ts`.
@@ -1012,7 +1012,7 @@ Files: `page.tsx`, `loading.tsx`, `error.tsx`, `_components/ObservabilityView.ts
   (`postgres`, `redis`, `kafka`, `objectStore`, rendered as their own row of cards), and the
   socket state. `/health/ready` is keyed by infrastructure component and not by service name, so
   every other contract §2 service is listed with its port and a link to its actuator and marked
-  **not probed** — a cross-origin actuator is unreachable from the page, and drawing it green on
+  **not probed** - a cross-origin actuator is unreachable from the page, and drawing it green on
   no evidence would be a lie.
 - **Consoles:** Grafana `localhost:3001` and Temporal UI `localhost:8233` as the two primary
   cards (contract §14 asks for exactly these), with Prometheus, Kafka UI and the MinIO console as
@@ -1023,10 +1023,10 @@ Files: `page.tsx`, `loading.tsx`, `error.tsx`, `_components/ObservabilityView.ts
 
 Two kinds of thing, deliberately not mixed:
 
-- **This browser's preferences** — merchant scope, theme, table density, UTC/local timestamps,
-  page size, reset filters — all editable, all in `uiStore`, all persisted under `pdei-ui`.
-- **This deployment's configuration** — `NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_WS_URL`,
-  `NEXT_PUBLIC_SIM_BASE_URL`, `NEXT_PUBLIC_USE_MOCKS` — reported as facts with the variable that
+- **This browser's preferences** - merchant scope, theme, table density, UTC/local timestamps,
+  page size, reset filters - all editable, all in `uiStore`, all persisted under `pdei-ui`.
+- **This deployment's configuration** - `NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_WS_URL`,
+  `NEXT_PUBLIC_SIM_BASE_URL`, `NEXT_PUBLIC_USE_MOCKS` - reported as facts with the variable that
   controls them and a copy button, never as a control that silently does nothing. Mock mode shows
   its current state and the two commands that change it, because the flag is inlined at build
   time and a fake toggle would be worse than none.
@@ -1074,7 +1074,7 @@ would move first.
    the lanes rather than quietly showing the wrong number.
 3. **`CaseXRay` carries no `AdmissionDecision`.** When `investigation` is null the console has no
    record of why the model was skipped, so `aiBypass.ts` reconstructs it from readiness,
-   contradictions, evidence count and the deadline — and the panel is labelled *reconstructed*.
+   contradictions, evidence count and the deadline - and the panel is labelled *reconstructed*.
    Adding `admission: AdmissionDecision | null` to `CaseXRay` would delete that whole module.
 4. **The §9.3 checklist is a re-evaluation.** `safetyRules.ts` re-runs the seven rules client-side
    to show which value tripped which rule; rules 3–6 need the applicable policy and report *Not
@@ -1105,7 +1105,7 @@ would move first.
     sibling service is marked *not probed*. Per-service entries in `ReadinessProbeService` would
     make the service half of the grid meaningful.
 12. **The actor on a human decision is hard-coded** to `console-operator` (`CaseActions`), because
-    there is no auth (§15 gap 8). When a session exists, take the actor from it there — it is one
+    there is no auth (§15 gap 8). When a session exists, take the actor from it there - it is one
     constant.
 13. **Optimistic status is a guess.** `OPTIMISTIC_STATUS` assumes approve → `PREPARED`, reject →
     `AWAITING_EVIDENCE`, submit → `SUBMITTED`. The server's `CaseCommandResult.status` replaces it
@@ -1114,7 +1114,7 @@ would move first.
     `error.tsx` says so. Persisting drafts would need a store, and a persisted draft of a
     financial policy is a liability, so this is deliberate.
 15. **The funnel has no time series.** `GET /metrics/funnel` returns one window, so the page shows
-    a snapshot and its ratios. Trend lines need a windowed endpoint or a Prometheus query proxy —
+    a snapshot and its ratios. Trend lines need a windowed endpoint or a Prometheus query proxy -
     which is what the Grafana link is for.
 16. **No tests.** Same as §15 gap 5. The highest-value first tests here are `stepStateFor` across
     all nine statuses, `evaluateGateChecklist` for each of the seven rules, `deriveBypass` for the

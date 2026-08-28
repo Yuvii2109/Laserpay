@@ -17,13 +17,13 @@ import java.util.Map;
  *
  * <ol>
  *   <li><strong>No watermark</strong> (the row is new, or is a stub created to satisfy a foreign
- *       key) — <em>apply</em>.</li>
- *   <li><strong>{@code event.eventId == lastEventId}</strong> — the same event again after a
+ *       key) - <em>apply</em>.</li>
+ *   <li><strong>{@code event.eventId == lastEventId}</strong> - the same event again after a
  *       redelivery or a replay. <em>Ignore</em>, idempotently.</li>
- *   <li><strong>{@code event.occurredAt < lastEventOccurredAt}</strong> — the event describes a
+ *   <li><strong>{@code event.occurredAt < lastEventOccurredAt}</strong> - the event describes a
  *       fact older than what this row already reflects. <em>Ignore</em>: newer state must never be
  *       overwritten by an older fact.</li>
- *   <li><strong>Otherwise</strong> — <em>apply</em>. Equal {@code occurredAt} with a different
+ *   <li><strong>Otherwise</strong> - <em>apply</em>. Equal {@code occurredAt} with a different
  *       {@code eventId} counts as applicable: two distinct facts can share an instant, and refusing
  *       both would lose one.</li>
  * </ol>

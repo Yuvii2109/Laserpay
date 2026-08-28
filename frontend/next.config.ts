@@ -1,7 +1,7 @@
 import type { NextConfig } from 'next';
 
 /**
- * PDEI web (`pdei-web`) — see docs/PLATFORM-CONTRACT.md §2 and §14.
+ * PDEI web (`pdei-web`) - see docs/PLATFORM-CONTRACT.md §2 and §14.
  *
  * `output: 'standalone'` produces the self-contained server bundle the Dockerfile copies.
  * Nothing here reads secrets: the only browser-visible configuration is the

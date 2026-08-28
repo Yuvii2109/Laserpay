@@ -44,7 +44,7 @@ const RANGE_OPTIONS = (['24h', '7d', '30d', '90d', 'all'] as TimeRangePreset[]).
 }));
 
 /**
- * `/transactions` — every transaction with its readiness band (contract 14).
+ * `/transactions` - every transaction with its readiness band (contract 14).
  *
  * The three filters map straight onto `GET /transactions?merchantId&band&from&to&q&page&size`,
  * and paging is server-side because the list route is paged. Sorting is client-side over the
@@ -135,7 +135,7 @@ export function TransactionsView({ initialBand }: TransactionsViewProps) {
           row.customerId ? (
             <span className="mono-id text-xs">{row.customerId}</span>
           ) : (
-            <span className="text-muted-foreground">—</span>
+            <span className="text-muted-foreground">-</span>
           ),
       },
       {
@@ -214,7 +214,7 @@ export function TransactionsView({ initialBand }: TransactionsViewProps) {
               {row.disputeId}
             </Link>
           ) : (
-            <span className="text-muted-foreground">—</span>
+            <span className="text-muted-foreground">-</span>
           ),
       },
     ],
@@ -313,7 +313,7 @@ export function TransactionsView({ initialBand }: TransactionsViewProps) {
         caption={
           <span className="inline-flex items-center gap-1.5">
             <Receipt className="size-3" aria-hidden />
-            Column sorting re-orders the current page only — GET /transactions has no sort
+            Column sorting re-orders the current page only - GET /transactions has no sort
             parameter yet, so cross-page ordering stays server-defined (newest first).
           </span>
         }

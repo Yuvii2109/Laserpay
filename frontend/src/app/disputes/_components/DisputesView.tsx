@@ -47,11 +47,11 @@ const REASON_OPTIONS = DISPUTE_REASON_CODES.map((reasonCode) => ({
 }));
 
 /**
- * `/disputes` — the dispute list (contract 14).
+ * `/disputes` - the dispute list (contract 14).
  *
  * Ordered by deadline rather than by recency: the response window is the only clock that
  * matters here, and a dispute with 12 hours left outranks one opened this morning with three
- * weeks to run. Terminal disputes keep their row but lose their countdown — there is nothing
+ * weeks to run. Terminal disputes keep their row but lose their countdown - there is nothing
  * left to respond to.
  */
 export function DisputesView({ initialStatus, initialReasonCode }: DisputesViewProps) {

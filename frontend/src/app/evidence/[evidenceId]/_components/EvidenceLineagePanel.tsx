@@ -22,7 +22,7 @@ export interface EvidenceLineagePanelProps {
 }
 
 /**
- * `GET /evidence/{id}/lineage` — where this artifact came from and what it is tied to.
+ * `GET /evidence/{id}/lineage` - where this artifact came from and what it is tied to.
  *
  * Two things, kept apart on purpose: the **ancestry** (the version chain walked back to the
  * root artifact) and the **relationships** (SUPERSEDES, DERIVED_FROM, CONTRADICTS and the rest
@@ -61,7 +61,7 @@ export function EvidenceLineagePanel({
         </h3>
         {chain.length <= 1 ? (
           <p className="text-sm text-muted-foreground">
-            This artifact is the root of its own chain — nothing was superseded to produce it.
+            This artifact is the root of its own chain - nothing was superseded to produce it.
           </p>
         ) : (
           <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-2">

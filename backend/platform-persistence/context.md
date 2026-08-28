@@ -1,4 +1,4 @@
-# platform-persistence — module context
+# platform-persistence - module context
 
 > Reload-context file for `backend/platform-persistence`. Authoritative sources it implements:
 > `docs/PLATFORM-CONTRACT.md` §5 (PostgreSQL schema, money rule, time rule, id conventions) and
@@ -9,8 +9,8 @@
 
 ## 1. Purpose
 
-`platform-persistence` owns the **`pdei` PostgreSQL schema** — the operational source of truth for
-PDEI — and the JPA/Spring Data layer that maps it. It is a **library module** (never repackaged
+`platform-persistence` owns the **`pdei` PostgreSQL schema** - the operational source of truth for
+PDEI - and the JPA/Spring Data layer that maps it. It is a **library module** (never repackaged
 into an executable jar). Every Spring service module adds the dependency and immediately gets:
 
 - the Flyway migrations `V1__baseline.sql` … `V11__evidence_lineage_quality.sql` (schema `pdei`),
@@ -22,7 +22,7 @@ Design rules this module enforces mechanically, not by convention:
 
 | Rule | How it is enforced here |
 |---|---|
-| Money is `(long amountMinor, String currency)` | Every monetary column is `amount_minor BIGINT` + `currency CHAR(3)`, mapped by `MoneyEmbeddable`. There is **no** `NUMERIC`, `REAL`, `DOUBLE PRECISION` or `BigDecimal` anywhere in the schema or the entities — geo coordinates are integer micro-degrees for exactly this reason. |
+| Money is `(long amountMinor, String currency)` | Every monetary column is `amount_minor BIGINT` + `currency CHAR(3)`, mapped by `MoneyEmbeddable`. There is **no** `NUMERIC`, `REAL`, `DOUBLE PRECISION` or `BigDecimal` anywhere in the schema or the entities - geo coordinates are integer micro-degrees for exactly this reason. |
 | Timestamps are `Instant` / `TIMESTAMPTZ`, UTC | Every time column is `TIMESTAMPTZ`; every entity field is `java.time.Instant`. `LocalDateTime` does not appear. |
 | Consumers are idempotent | `processed_events (event_id, consumer_group)` + `ProcessedEventRepository.markProcessed(...)` implemented as `INSERT … ON CONFLICT DO NOTHING`. |
 | Provenance and history are never overwritten | `evidence_versions`, `policy_versions`, `audit_events` and `ai_admission_log` are append-only; the first three carry `@Immutable` **and** database triggers that reject `UPDATE`/`DELETE`. |
@@ -37,7 +37,7 @@ Design rules this module enforces mechanically, not by convention:
 
 1. Schema definition and evolution (Flyway; this module is the only place migrations live).
 2. Object/relational mapping of every table, including JSONB columns and the money embeddable.
-3. Query surface: derived queries, JPQL, and the two native primitives that need real SQL —
+3. Query surface: derived queries, JPQL, and the two native primitives that need real SQL -
    `INSERT … ON CONFLICT DO NOTHING` (idempotency) and `websearch_to_tsquery` (evidence FTS).
 4. Autoconfiguration so services need zero persistence boilerplate.
 
@@ -50,7 +50,7 @@ Design rules this module enforces mechanically, not by convention:
 
 ---
 
-## 3. Schema (`pdei`) — table by table
+## 3. Schema (`pdei`) - table by table
 
 Conventions that apply to every table below:
 
@@ -134,13 +134,13 @@ PRECISION with a `0.0 <= x <= 1.0` check; `provenance_verified` BOOLEAN NOT NULL
 
 This migration exists because `evidence-core`'s `JdbcEvidenceRepository` selected all four by name
 and every read and write of `pdei.evidence` therefore failed at runtime with `column "id" does not
-exist` — the platform held no evidence at all. They are not conveniences:
+exist` - the platform held no evidence at all. They are not conveniences:
 
 | Column | What breaks without it |
 |---|---|
-| `parent_evidence_id` | `EvidenceLineageService`'s version-chain walk and `EvidenceGraphService`'s SUPERSEDES edges — correctness property 4. It is the **backward** pointer; `superseded_by` is the forward one, and they are complements, not duplicates. |
+| `parent_evidence_id` | `EvidenceLineageService`'s version-chain walk and `EvidenceGraphService`'s SUPERSEDES edges - correctness property 4. It is the **backward** pointer; `superseded_by` is the forward one, and they are complements, not duplicates. |
 | `provenance_verified` | `GapType.UNVERIFIABLE_PROVENANCE` and its −20 readiness penalty (contract §7). Distinct from `integrity_ok`: integrity is "the bytes still hash", provenance is "we can prove where this came from". |
-| `quality_score` | `GapType.LOW_QUALITY`. `POST /api/v1/evidence` has always validated it as 0.0–1.0. DOUBLE PRECISION, not minor units — the no-floating-point rule governs *money*, and a quality score is never summed into an amount. |
+| `quality_score` | `GapType.LOW_QUALITY`. `POST /api/v1/evidence` has always validated it as 0.0–1.0. DOUBLE PRECISION, not minor units - the no-floating-point rule governs *money*, and a quality score is never summed into an amount. |
 | `status_reason` | `updateStatus` is called for SUPERSEDED, EXPIRED, EXPIRING **and** INVALIDATED, so `invalidated_reason` alone could record one transition in four. It is still written, alongside `invalidated_at`, when the status actually becomes INVALIDATED. |
 
 `provenance_verified` defaults to FALSE rather than TRUE on purpose: unverified is the honest state
@@ -154,12 +154,12 @@ for evidence whose provenance was never checked, and the penalty that triggers i
 | `trg_evidence_search_vector` | `BEFORE INSERT OR UPDATE OF title, summary, filename, extracted_text, type, related_entity_id` on `evidence`; fills `search_vector` with weights A=title, B=summary+type, C=filename+related entity, D=extracted text. GIN index `ix_evidence_search_vector`. |
 | `trg_communications_search_vector` | Same idea for `communications` (A=subject, B=sender/recipient, D=body), GIN index `ix_communications_search_vector`. |
 | `pdei.fn_reject_mutation()` | Trigger function that raises SQLSTATE 23001 on any `UPDATE`/`DELETE`. Installed on `evidence_versions` (`trg_evidence_versions_immutable`) and `audit_events` (`trg_audit_events_immutable`). `TRUNCATE` bypasses row triggers, which is how tests reset fixtures. |
-| `ux_audit_events_genesis` / `ux_audit_events_link` | Partial unique indexes: at most one chain genesis per merchant (`previous_hash IS NULL`) and at most one successor per link. Concurrent appenders therefore serialise on the chain instead of forking it — a unique-violation on insert means "someone else extended the chain, re-read the head and retry". |
+| `ux_audit_events_genesis` / `ux_audit_events_link` | Partial unique indexes: at most one chain genesis per merchant (`previous_hash IS NULL`) and at most one successor per link. Concurrent appenders therefore serialise on the chain instead of forking it - a unique-violation on insert means "someone else extended the chain, re-read the head and retry". |
 | `audit_events.sequence_no` | `BIGINT GENERATED BY DEFAULT AS IDENTITY`, assigned by the database, mapped read-only with Hibernate `@Generated(event = INSERT)`. Chain verification orders by it. |
-| `ux_disputes_psp_ref` | Partial unique index on `(merchant_id, psp_dispute_ref)` — replayed PSP webhooks cannot create duplicate disputes. |
-| `ux_dispute_cases_workflow` | Partial unique index on `workflow_id` — one Temporal workflow, one case row. |
+| `ux_disputes_psp_ref` | Partial unique index on `(merchant_id, psp_dispute_ref)` - replayed PSP webhooks cannot create duplicate disputes. |
+| `ux_dispute_cases_workflow` | Partial unique index on `workflow_id` - one Temporal workflow, one case row. |
 | Money CHECKs | `ck_evidence_money` and `ck_ai_admission_money` assert `(amount_minor IS NULL) = (currency IS NULL)`: a half-populated `Money` cannot exist. |
-| Filtered gap indexes | `ix_readiness_gaps_merchant_sev` / `_type` are `WHERE NOT resolved` — the at-risk feed only ever reads open gaps. |
+| Filtered gap indexes | `ix_readiness_gaps_merchant_sev` / `_type` are `WHERE NOT resolved` - the at-risk feed only ever reads open gaps. |
 | `ix_transactions_merchant_band`, `ix_readiness_snapshots_band`, `ix_dispute_cases_merchant_band` | The `(merchant_id, band)` indexes required by the contract for control-tower filtering. |
 
 ---
@@ -230,7 +230,7 @@ backend/platform-persistence/
 |---|---|---|
 | `ProcessedEventRepository` | `markProcessed(eventId, consumerGroup) -> boolean` | The canonical idempotency primitive. `default` method delegating to the `@Modifying` native `INSERT … ON CONFLICT DO NOTHING`; returns `true` only for the first sighting. Also `wasProcessed`, `findConsumerGroupsFor`, `deleteProcessedBefore` (retention pruning). |
 | `EvidenceRepository` | `findByShaAndTransactionId(sha256, txId)` | Name is fixed by the shared-library contract but does not match the `sha256` property, so it is declared with an explicit `@Query` instead of being derived. |
-| `EvidenceRepository` | `search(tsQuery, merchantId, Pageable)` | Native FTS with `websearch_to_tsquery('english', …)` + `ts_rank`. Both parameters are nullable (`CAST(:x AS text) IS NULL OR …`). **Pass an unsorted `Pageable`** — Spring Data cannot apply dynamic sort to native queries. |
+| `EvidenceRepository` | `search(tsQuery, merchantId, Pageable)` | Native FTS with `websearch_to_tsquery('english', …)` + `ts_rank`. Both parameters are nullable (`CAST(:x AS text) IS NULL OR …`). **Pass an unsorted `Pageable`** - Spring Data cannot apply dynamic sort to native queries. |
 | `EvidenceRelationshipRepository` | `findByTransactionId`, `countContradictionsForTransaction` | Native joins through `evidence`, because edges do not carry `transaction_id`. |
 | `ReadinessSnapshotRepository` | `markPreviousAsHistorical(txId)` | Flips `is_current` before a new snapshot is appended. |
 | `ReadinessGapRepository` | `resolveOpenGaps(txId, at)` | Bulk-closes gaps when new evidence arrives. |
@@ -255,14 +255,14 @@ backend/platform-persistence/
 ## 6. Outbound contracts (what this module produces)
 
 - **The `pdei` schema itself.** Every other module reads and writes it exclusively through the
-  entities/repositories here. Schema changes are additive migrations `V11__*.sql` onward — never edit
+  entities/repositories here. Schema changes are additive migrations `V11__*.sql` onward - never edit
   an applied migration; Flyway checksums are validated on startup.
 - **Entity + repository API** listed in `docs/SHARED-LIBRARY-API.md` §2, consumed by `evidence-core`
   and by all nine service modules.
 - **Autoconfiguration** `com.laserpay.pdei.persistence.config.PersistenceAutoConfiguration`, exported
   via `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`. It:
   - `@EntityScan` + `@EnableJpaRepositories` on `com.laserpay.pdei` (the whole base package, so a
-    service's own entities/repositories still get picked up — declaring `@EnableJpaRepositories` here
+    service's own entities/repositories still get picked up - declaring `@EnableJpaRepositories` here
     makes Spring Boot's own repository autoconfiguration back off);
   - contributes a `FlywayConfigurationCustomizer` that defaults `schemas`/`defaultSchema` to `pdei`
     and forces `createSchemas(true)`, only where the application has not configured them.
@@ -291,7 +291,7 @@ Environment variables (contract §15): `PDEI_POSTGRES_URL`, `PDEI_POSTGRES_USER`
 **Migration ownership in a multi-service deployment:** all nine services ship the same migrations.
 Flyway takes a lock on `pdei.flyway_schema_history`, so concurrent startups are safe; if you prefer a
 single migrator, set `spring.flyway.enabled=false` everywhere except one service (or run
-`scripts/` migration tooling) — the entities do not care who applied the migrations.
+`scripts/` migration tooling) - the entities do not care who applied the migrations.
 
 ## 8. Dependencies on other modules
 
@@ -319,7 +319,7 @@ The integration tests need a running Docker daemon; without one they are **skipp
 3. retention pruning re-opens the dedupe window;
 4. money round-trips as `(amount_minor, currency)` with the physical columns verified through JDBC;
 5. evidence FTS ranking, phrase queries, negation and the null-query fallback;
-6. version history is append-only — the database rejects `UPDATE`/`DELETE` on `evidence_versions`.
+6. version history is append-only - the database rejects `UPDATE`/`DELETE` on `evidence_versions`.
 
 Applying migrations manually against a running Postgres:
 
@@ -357,12 +357,12 @@ psql "postgresql://pdei:pdei@localhost:5432/pdei" -f src/main/resources/db/migra
    `PolicyVersionEntity.idFor(...)` and `OrderLineEntity.idFor(...)` exist for the derived-id tables;
    the `@PrePersist` fallbacks in those two version entities should not be relied on.
 4. **No entity associations.** Foreign keys are stored as plain `String` ids, not `@ManyToOne`
-   graphs — deliberate for an event-driven system (no lazy-loading traps, no cascade surprises), but
+   graphs - deliberate for an event-driven system (no lazy-loading traps, no cascade surprises), but
    it means joins are explicit in queries and there is no `evidence.getTransaction()`.
 5. **`audit_events` chain writes are serialised per merchant** by the partial unique indexes. A
    high-volume merchant is therefore a write hotspot; `audit-service` must retry on unique violation
    (re-read `findChainHead`, recompute `previousHash`). Sharding the chain (per merchant + entity type)
-   is the escape hatch if that ever becomes a real bottleneck — measure first.
+   is the escape hatch if that ever becomes a real bottleneck - measure first.
 6. **FTS is English-only** (`to_tsvector('english', …)`). Multi-language merchants would need a
    per-row regconfig column; deliberately deferred (reference §24: no OpenSearch until a workload
    justifies it).

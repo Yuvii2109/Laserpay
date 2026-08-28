@@ -22,7 +22,7 @@ export interface EvidenceVersionHistoryProps {
 }
 
 /**
- * `GET /evidence/{id}/versions` — the append-only version ledger.
+ * `GET /evidence/{id}/versions` - the append-only version ledger.
  *
  * Every row is a distinct object in MinIO under its own `v{n}/` prefix (contract 11), with its
  * own digest. Superseding an artifact writes a NEW row; it never rewrites an old one, which is
@@ -58,7 +58,7 @@ export function EvidenceVersionHistory({
       <p className="flex items-start gap-2 text-xs text-muted-foreground">
         <Lock className="mt-0.5 size-3.5 shrink-0" aria-hidden />
         {ordered.length} immutable version{ordered.length === 1 ? '' : 's'}. Superseding an
-        artifact appends a row and stores new bytes under a new key — nothing here is ever
+        artifact appends a row and stores new bytes under a new key - nothing here is ever
         overwritten or deleted, so every earlier digest stays checkable.
       </p>
 

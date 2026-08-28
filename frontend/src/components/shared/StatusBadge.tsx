@@ -120,7 +120,7 @@ export interface StatusBadgeProps {
 }
 
 export function StatusBadge({ kind, value, className, iconOnly = false }: StatusBadgeProps) {
-  if (!value) return <span className={cn('text-muted-foreground', className)}>—</span>;
+  if (!value) return <span className={cn('text-muted-foreground', className)}>-</span>;
 
   const tone = toneFor(kind, value);
   const Icon = SPECIFIC_ICON[`${kind}:${value}`] ?? TONE_ICON[tone];

@@ -21,7 +21,7 @@ export interface EvidenceIntegrityPanelProps {
  * `POST /evidence/{id}/verify` re-reads the object out of MinIO, re-hashes the bytes and
  * compares them with the digest recorded at capture time (contract 11 stores it as
  * `x-amz-meta-sha256`). It is the only operation on this page that costs anything, so it is
- * explicit rather than automatic — and it is a read: a failed check marks the artifact
+ * explicit rather than automatic - and it is a read: a failed check marks the artifact
  * upstream, this console never edits it.
  */
 export function EvidenceIntegrityPanel({ evidence }: EvidenceIntegrityPanelProps) {
@@ -36,7 +36,7 @@ export function EvidenceIntegrityPanel({ evidence }: EvidenceIntegrityPanelProps
         queryKey: queryKeys.evidence.detail(evidence.evidenceId),
       });
       if (result.intact) toast.success('Integrity verified: stored bytes match the recorded digest');
-      else toast.error('Integrity check failed — the stored object does not match its digest');
+      else toast.error('Integrity check failed - the stored object does not match its digest');
     },
     onError: (cause) => {
       toast.error(cause instanceof Error ? cause.message : 'Verification failed');
@@ -93,7 +93,7 @@ export function EvidenceIntegrityPanel({ evidence }: EvidenceIntegrityPanelProps
       {report ? <IntegrityResult report={report} /> : (
         <p className="text-xs text-muted-foreground">
           Not verified in this session. Verifying streams the stored object, re-hashes it and
-          compares — it does not modify anything.
+          compares - it does not modify anything.
         </p>
       )}
     </Card>
@@ -122,7 +122,7 @@ function IntegrityResult({ report }: { report: IntegrityReport }) {
     return (
       <Alert variant="critical">
         <ShieldX className="size-4" style={{ color: 'var(--status-critical)' }} />
-        <AlertTitle>Digest mismatch — these bytes are not the bytes we recorded</AlertTitle>
+        <AlertTitle>Digest mismatch - these bytes are not the bytes we recorded</AlertTitle>
         <AlertDescription className="space-y-2">
           <div className="space-y-1">
             <p className="text-xs uppercase tracking-wide">Expected</p>

@@ -9,7 +9,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-/** Shipments — SHIPPING_RECORD evidence source; multiple shipments per order are normal. */
+/** Shipments - SHIPPING_RECORD evidence source; multiple shipments per order are normal. */
 @Repository
 public interface ShipmentRepository extends JpaRepository<ShipmentEntity, String> {
 

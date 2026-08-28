@@ -22,7 +22,7 @@ export interface FacetRailProps {
  * A single-select facet as a row of toggles.
  *
  * Facets, not filters: the whole vocabulary is visible at once, which is what makes an explorer
- * explorable. Counts are deliberately absent — the gateway exposes no aggregation endpoint, and
+ * explorable. Counts are deliberately absent - the gateway exposes no aggregation endpoint, and
  * a count computed from the current page would be a number that looks authoritative and is not.
  *
  * `aria-pressed` carries the state, so the selection survives greyscale and forced-colors mode.

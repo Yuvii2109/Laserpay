@@ -1,4 +1,4 @@
-# case-orchestrator-service — module context
+# case-orchestrator-service - module context
 
 > Port **8085**. Java package root `com.laserpay.pdei.orchestrator`.
 > Implements **PLATFORM-CONTRACT.md section 10** (Temporal) precisely.
@@ -15,8 +15,8 @@ A dispute is not a request/response. It runs for days or weeks: evidence trickle
 to look at some of them, a package is assembled and submitted, and then the network takes its time
 answering. This module owns that **long-running workflow** and nothing else.
 
-It is a **sequencer, not a decision maker**. Every judgement — readiness scoring, gap detection,
-admission control, the safety gate, package assembly, dispute state transitions — belongs to
+It is a **sequencer, not a decision maker**. Every judgement - readiness scoring, gap detection,
+admission control, the safety gate, package assembly, dispute state transitions - belongs to
 `evidence-core`. This module decides *when* those things happen, in what order, what to wait for,
 what to do when a step fails, and how a human interrupts the sequence.
 
@@ -33,12 +33,12 @@ Three processes run in one JVM:
 
 **Owns**
 
-- the `DisputeCaseWorkflow` definition — twelve steps, four signals, two queries;
+- the `DisputeCaseWorkflow` definition - twelve steps, four signals, two queries;
 - the durable timers: the 7-day missing-evidence wait, the human-approval and escalation windows,
   the follow-up loop;
 - saga-style compensation when a step fails non-retryably;
 - continue-as-new so a case that lives for weeks does not accumulate an unbounded event history;
-- INSERTs and workflow-owned column updates on `pdei.dispute_cases` (`CaseWriter`) — the only
+- INSERTs and workflow-owned column updates on `pdei.dispute_cases` (`CaseWriter`) - the only
   writer of that table's `workflow_id`, `run_id`, `progress_percent`, `approval_*`,
   `failure_reason`;
 - publication of every `CASE` event to `pdei.case.events.v1`;
@@ -46,11 +46,11 @@ Three processes run in one JVM:
 
 **Does not own**
 
-- readiness, gaps, contradictions, policy, the safety gate, package assembly — `evidence-core`;
-- the `disputes` table lifecycle — `DisputeService` in `evidence-core` (this module *asks* for
+- readiness, gaps, contradictions, policy, the safety gate, package assembly - `evidence-core`;
+- the `disputes` table lifecycle - `DisputeService` in `evidence-core` (this module *asks* for
   transitions and accepts a refusal);
-- evidence creation or versioning — `state-builder-worker`, `document-processor-service`;
-- any AI reasoning — that lives only in the Python `ai-reasoning-service`, reached through
+- evidence creation or versioning - `state-builder-worker`, `document-processor-service`;
+- any AI reasoning - that lives only in the Python `ai-reasoning-service`, reached through
   `core.ai.AiReasoningClient`. **No AI code, prompt, provider name or SDK appears in this module.**
 
 ---
@@ -138,17 +138,17 @@ view. Mapping:
 
 | Signal | Payload | What it does | Duplicate handling |
 |---|---|---|---|
-| `evidenceArrived` | `EvidenceArrivedSignal` | Wakes the step 4 wait, which re-runs `gatherEvidence` + `detectGaps`. Ignored (harmlessly) at any other step. | A repeated `evidenceId` does **not** wake the wait — the id set is deduplicated in the signal handler. |
+| `evidenceArrived` | `EvidenceArrivedSignal` | Wakes the step 4 wait, which re-runs `gatherEvidence` + `detectGaps`. Ignored (harmlessly) at any other step. | A repeated `evidenceId` does **not** wake the wait - the id set is deduplicated in the signal handler. |
 | `humanDecision` | `HumanDecision` (`APPROVE` / `REJECT` / `SUBMIT` / `REQUEST_MORE_EVIDENCE`) | Releases step 8. | **First decision wins**; a second unconsumed decision is logged and dropped, so a double click cannot turn a REJECT into an APPROVE. |
 | `disputeUpdated` | `DisputeUpdatedSignal` | Tracks dispute status; a terminal status ends the step 11 follow-up loop and interrupts long waits. | Deduplicated on `eventId`; a non-terminal update arriving *after* a terminal one is ignored as stale. |
-| `cancelCase` | `CancelCaseSignal` | Graceful stop: the workflow finishes what it is on, runs `closeCase` with `CANCELLED`, returns normally. Compensation does **not** run — nothing went wrong. | Second cancel is a no-op. |
+| `cancelCase` | `CancelCaseSignal` | Graceful stop: the workflow finishes what it is on, runs `closeCase` with `CANCELLED`, returns normally. Compensation does **not** run - nothing went wrong. | Second cancel is a no-op. |
 
 ### Queries (both side-effect free, no database access)
 
 | Query | Returns | Used by |
 |---|---|---|
-| `getCaseState` | `CaseState` — full in-memory state: statuses, phase, readiness, gaps, admission, investigation, gate verdict, human decision, package, receipt, resolution | Case X-Ray, ops |
-| `getProgress` | `CaseProgress` — phase, step (n of 12), percent, completed steps, what it is waiting for | `GET /api/v1/stream/cases/{caseId}`, case-queue swimlanes |
+| `getCaseState` | `CaseState` - full in-memory state: statuses, phase, readiness, gaps, admission, investigation, gate verdict, human decision, package, receipt, resolution | Case X-Ray, ops |
+| `getProgress` | `CaseProgress` - phase, step (n of 12), percent, completed steps, what it is waiting for | `GET /api/v1/stream/cases/{caseId}`, case-queue swimlanes |
 
 ---
 
@@ -157,7 +157,7 @@ view. Mapping:
 All of them are **pinned into the workflow input** (`CaseTimers` inside `DisputeCaseInput`) when the
 case starts. Workflow code may not read Spring configuration: a property change between the original
 execution and a replay would make the two diverge and Temporal would reject the replay. So
-**retuning affects new cases only** — a running case keeps the timings it began with.
+**retuning affects new cases only** - a running case keeps the timings it began with.
 
 | Timer | Property | Default | Purpose |
 |---|---|---|---|
@@ -177,7 +177,7 @@ twelve-step case is demonstrable by hand.
 
 **Activity retry policy** (contract section 10, verbatim): initial 1s, backoff 2.0, max interval
 60s, max attempts 10. Non-retryable: `com.laserpay.pdei.common.error.PolicyViolationException` and
-`…ValidationException` — registered by fully-qualified class name in
+`…ValidationException` - registered by fully-qualified class name in
 `DisputeCaseWorkflowImpl.ACTIVITY_RETRY_OPTIONS`. Two stubs share that policy: a 2-minute
 start-to-close for reads/scoring/events, and a 15-minute one for package assembly and submission,
 which stream objects to and from MinIO.
@@ -192,14 +192,14 @@ which stream objects to and from MinIO.
 |---|---|
 | `CaseOrchestratorApplication.java` | Spring Boot entry point. `@EnableKafka`; everything else auto-configures. |
 
-### `orchestrator.workflow` — deterministic workflow code
+### `orchestrator.workflow` - deterministic workflow code
 
 | File | Role |
 |---|---|
 | `DisputeCaseWorkflow.java` | `@WorkflowInterface`. `run(DisputeCaseInput)`, four `@SignalMethod`s, two `@QueryMethod`s. Also carries the `NAMESPACE`, `TASK_QUEUE` and `WORKFLOW_TYPE` constants. |
 | `DisputeCaseWorkflowImpl.java` | The twelve steps, the assessment loop, the three waits, saga compensation, continue-as-new, signal handlers, query projections. ~980 lines and the heart of the module. |
 
-### `orchestrator.activity` — everything that touches the world
+### `orchestrator.activity` - everything that touches the world
 
 | File | Role |
 |---|---|
@@ -207,7 +207,7 @@ which stream objects to and from MinIO.
 | `CaseActivitiesImpl.java` | `@Component @ActivityImpl(taskQueues = …)`. Delegates to `evidence-core`; writes case rows; publishes CASE events; audits. |
 | `ActivityMemo.java` | Redis-backed memoisation for the four activities that are not naturally idempotent. Degrades to `recomputeAlways` without Redis. |
 
-### `orchestrator.model` — records on the workflow boundary
+### `orchestrator.model` - records on the workflow boundary
 
 Workflow input/output and state: `DisputeCaseInput`, `CaseTimers`, `CaseCarryOver`, `CasePhase`,
 `CaseResolution`, `CaseState`, `CaseProgress`, `CaseOutcome`, `CaseRef`.
@@ -221,7 +221,7 @@ Activity requests/results: `OpenCaseRequest`/`OpenCaseResult`, `EvidenceReport`,
 All immutable records; money is always `Money(long amountMinor, String currency)`; every timestamp
 is `Instant`.
 
-### `orchestrator.listener` — Kafka in
+### `orchestrator.listener` - Kafka in
 
 | File | Role |
 |---|---|
@@ -229,18 +229,18 @@ is `Instant`.
 | `CaseIdResolver.java` | `disputeId` → the one `caseId` it may ever have. Adopts an existing row; otherwise derives `CASE-` + 12 hex chars of `sha256(disputeId)`. |
 | `DeadLetterPublisher.java` | `DeadLetterEnvelope` → `pdei.dlq.v1` after the retry budget is spent. |
 
-### `orchestrator.signal` — Temporal client
+### `orchestrator.signal` - Temporal client
 
 | File | Role |
 |---|---|
 | `CaseSignalService.java` | The only Temporal client in the platform: start, four signals, two queries, terminate, describe. Every method tolerates a missing workflow. |
 | `CaseWorkflowDescription.java` | Flattened `DescribeWorkflowExecution` response. |
 
-### `orchestrator.api` — internal ops surface
+### `orchestrator.api` - internal ops surface
 
 | File | Role |
 |---|---|
-| `OrchestratorController.java` | `/orchestrator/v1` — signal, query, terminate, describe. |
+| `OrchestratorController.java` | `/orchestrator/v1` - signal, query, terminate, describe. |
 | `SignalRequest`, `DecisionRequest`, `SignalAck` | Request/response DTOs. |
 | `OrchestratorExceptionHandler.java` | `PdeiException` → `ErrorResponse` with its own `code` and HTTP status. |
 
@@ -277,7 +277,7 @@ is `Instant`.
 
 ---
 
-## 7. Idempotency — four independent layers
+## 7. Idempotency - four independent layers
 
 Contract rule 9 ("all consumers tolerate duplicates") and rule 10 ("assume late and out-of-order
 events") are enforced at four levels, deliberately overlapping:
@@ -289,14 +289,14 @@ events") are enforced at four levels, deliberately overlapping:
 2. **Deterministic workflow id + reuse policy.** `case-{caseId}` where `caseId = f(disputeId)`, plus
    `WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY`. A duplicate `DisputeCreated` while the
    case runs, or after it completed, is rejected by Temporal and swallowed by the listener. After a
-   *failed* run it is allowed — which is exactly the duplicate worth acting on, and gives free
+   *failed* run it is allowed - which is exactly the duplicate worth acting on, and gives free
    crash recovery from a topic replay.
 3. **Signal handlers.** Repeated evidence ids and repeated dispute `eventId`s are dropped inside the
    workflow; the human decision is first-wins.
 4. **Activity level.** Reads are naturally repeatable and writes are whole-value upserts. The four
-   activities that are not naturally idempotent — `runAdmissionControl` (spends a Redis budget
+   activities that are not naturally idempotent - `runAdmissionControl` (spends a Redis budget
    token), `investigate` (mints an id, may spend a model call), `validateAndGate` (appends to the
-   audit chain), `prepareRepresentmentPackage` (writes a new package version) — receive a
+   audit chain), `prepareRepresentmentPackage` (writes a new package version) - receive a
    deterministic token from the workflow (`{caseId}:r{round}:{label}`) and run through
    `ActivityMemo`.
 
@@ -313,8 +313,8 @@ Compensations are registered as the workflow acquires state:
 | After | Compensation |
 |---|---|
 | step 1 `openCase` | `closeCase` with `CaseResolution.FAILED`, `CaseStatus.FAILED` |
-| step 9 `prepareRepresentmentPackage` | `CaseEscalated` naming the bundle key and hash — a signed package cannot be un-assembled, so the honest compensation is to put it in front of a human |
-| step 10 `submitRepresentment` | `CaseEscalated` asking for manual reconciliation — a submission cannot be un-sent |
+| step 9 `prepareRepresentmentPackage` | `CaseEscalated` naming the bundle key and hash - a signed package cannot be un-assembled, so the honest compensation is to put it in front of a human |
+| step 10 `submitRepresentment` | `CaseEscalated` asking for manual reconciliation - a submission cannot be un-sent |
 
 On failure the saga compensates in reverse (`continueWithError = true`, so one failing compensation
 does not abort the rest), the case row is marked `FAILED` with a truncated failure reason, and the
@@ -330,10 +330,10 @@ with everything else.
 
 ## 9. Determinism rules the workflow obeys
 
-- no `Instant.now()` / `System.currentTimeMillis()` — time is `Workflow.currentTimeMillis()`;
+- no `Instant.now()` / `System.currentTimeMillis()` - time is `Workflow.currentTimeMillis()`;
 - no randomness at all (if any were needed it would be `Workflow.newRandom()`);
-- no database, HTTP, MinIO, Kafka or Spring bean access — every side effect is an activity;
-- no configuration reads — durations arrive pinned in `CaseTimers`;
+- no database, HTTP, MinIO, Kafka or Spring bean access - every side effect is an activity;
+- no configuration reads - durations arrive pinned in `CaseTimers`;
 - logging through `Workflow.getLogger`, which suppresses duplicate lines during replay;
 - the workflow carries only *flattened summaries* of activity results, never large payloads, which
   is what keeps continue-as-new cheap.
@@ -341,7 +341,7 @@ with everything else.
 **Continue-as-new** fires only from inside the two genuinely long waits (step 4 and step 11), when
 `isContinueAsNewSuggested()` or the configured history threshold trips. `CaseCarryOver` carries the
 elapsed budget of both waits, the follow-up tick counter, the assessment round, and the package and
-receipt — so a continued generation never restarts a clock or redoes work.
+receipt - so a continued generation never restarts a clock or redoes work.
 
 ---
 
@@ -378,7 +378,7 @@ POST /cases/{caseId}/terminate               {reason, actor}
 GET  /cases/{caseId}/describe                -> CaseWorkflowDescription
 ```
 
-Signal routes answer `200` with `SignalAck{delivered:false}` when no workflow is running — that is
+Signal routes answer `200` with `SignalAck{delivered:false}` when no workflow is running - that is
 a race a caller cannot avoid, not a server error.
 
 Actuator: `/actuator/health`, `/actuator/health/readiness`, `/actuator/prometheus`,
@@ -388,7 +388,7 @@ Actuator: `/actuator/health`, `/actuator/health/readiness`, `/actuator/prometheu
 
 | Table | Access |
 |---|---|
-| `pdei.dispute_cases` | **INSERT + UPDATE** (`CaseWriter`) — the only writer |
+| `pdei.dispute_cases` | **INSERT + UPDATE** (`CaseWriter`) - the only writer |
 | `pdei.disputes` | read via `DisputeService`; transitions requested through it |
 | `pdei.case_evidence` | replaced each gather via `CaseRepositoryPort.replaceCaseEvidence` |
 | `pdei.investigations` | written via `CaseRepositoryPort.saveInvestigation` |
@@ -412,21 +412,21 @@ Reads `pdei-packages` (bundle presence check), writes the submission receipt (se
 
 ## 11. Outbound contracts (what this module produces)
 
-### `pdei.case.events.v1` — `CanonicalEvent`, `aggregateType = CASE`, `aggregateId = caseId`
+### `pdei.case.events.v1` - `CanonicalEvent`, `aggregateType = CASE`, `aggregateId = caseId`
 
 | EventType | Emitted by | Payload highlights |
 |---|---|---|
 | `CaseOpened` | `openCase` activity | disputeId, transactionId, reasonCode, amountMinor+currency, workflowId, adopted |
 | `CaseEvidenceAttached` | workflow, after each gather | evidenceCount, usableEvidenceCount, readinessScore, readinessBand, assessmentRound |
 | `CaseInvestigated` | workflow, after step 6 | investigationId, classification, confidence, recommendedAction, aiUsed, provider |
-| `CaseEscalated` | workflow, on approval timeout and as compensation | reason, gateDecision, escalationWindow — or the compensation marker |
+| `CaseEscalated` | workflow, on approval timeout and as compensation | reason, gateDecision, escalationWindow - or the compensation marker |
 | `CasePrepared` | workflow, after step 9 | manifestId, packageVersion, bundleObjectKey, bundleSha256, itemCount, readinessScore |
 | `CaseSubmitted` | workflow, after step 10 **and on each follow-up tick** | submissionId, networkReference, submitter, simulated, packageVersion, bundleSha256 / `{phase:"FOLLOW_UP", tick:n}` |
 | `CaseClosed` | `closeCase` activity | resolution, caseStatus, disputeStatus, reason, compensating |
 
 Partition key is always `merchantId + ":" + aggregateId`. `eventId` is derived deterministically
 from the idempotency key. Phases with no matching CASE type in contract section 3.1
-(`AWAITING_EVIDENCE`, `AWAITING_APPROVAL`) persist status only and publish nothing — no enum value
+(`AWAITING_EVIDENCE`, `AWAITING_APPROVAL`) persist status only and publish nothing - no enum value
 was invented for them.
 
 Follow-up ticks reuse `CaseSubmitted` with a `phase: "FOLLOW_UP"` payload marker rather than
@@ -442,7 +442,7 @@ writes itself.
 
 `DeadLetterEnvelope` after five attempts with exponential backoff (1s → 30s cap).
 
-### MinIO — submission receipt
+### MinIO - submission receipt
 
 `prepareRepresentmentPackage` writes the bundle and `manifest.json` through
 `CaseAssemblyService` at the contract section 11 keys. `submitRepresentment` then verifies the
@@ -466,7 +466,7 @@ manifest. If the contract is ever tightened, this is the line to change.
 | `pdei_workflow_failures_total{workflow}` | `closeCase` on a FAILED close |
 | `pdei_case_assembly_seconds` | `CaseAssemblyService` (evidence-core) |
 | `pdei_ai_admission_total{decision}`, `pdei_policy_gate_total{decision}` | evidence-core, driven from here |
-| `pdei_case_submissions_total{submitter,outcome}` | `SimulatedNetworkSubmitter` — **module-local, not in contract section 13** |
+| `pdei_case_submissions_total{submitter,outcome}` | `SimulatedNetworkSubmitter` - **module-local, not in contract section 13** |
 
 ---
 
@@ -490,7 +490,7 @@ workflow experiences them at full length.
 id derivation, deterministic event ids, submission-reference stability across retries, refusal of an
 unverifiable package, timer fallbacks, and phase progress monotonicity.
 
-Query assertions are captured inside `registerDelayedCallback` and asserted **after** the run —
+Query assertions are captured inside `registerDelayedCallback` and asserted **after** the run -
 an assertion failing on a Temporal-managed thread would not fail the test.
 
 ---
@@ -513,7 +513,7 @@ Contract section 15 names, all with dev defaults in `application.yml`:
 
 Module-specific properties live under `pdei.orchestrator.*` (section 5) and
 `pdei.orchestrator.worker.*` (20 workflow-task slots, 60 activity slots, 200-execution sticky cache
-— activities outnumber workflow tasks in this workload because a case spends most of its life
+- activities outnumber workflow tasks in this workload because a case spends most of its life
 asleep).
 
 `spring.flyway.enabled=false` on purpose: `platform-persistence` owns migrations, and twelve
@@ -585,7 +585,7 @@ The Temporal UI at `localhost:8233` shows every execution; the workflow id is `c
 | Want to… | Do this |
 |---|---|
 | Submit to a real PSP | Implement `NetworkSubmitter` and register that bean; nothing else changes. Keep the idempotency contract on `(caseId, packageVersion, bundleSha256)`. |
-| Add a workflow step | Add the activity to `CaseActivities`, implement it, add a `CasePhase` constant with its step number, and call it from `DisputeCaseWorkflowImpl`. **Changing the order of existing steps breaks replay of in-flight cases** — use `Workflow.getVersion` for a compatible change. |
+| Add a workflow step | Add the activity to `CaseActivities`, implement it, add a `CasePhase` constant with its step number, and call it from `DisputeCaseWorkflowImpl`. **Changing the order of existing steps breaks replay of in-flight cases** - use `Workflow.getVersion` for a compatible change. |
 | Change a timer | `pdei.orchestrator.timers.*`. New cases only, by design. |
 | Add a signal | Add a `@SignalMethod`, a payload record, a `CaseSignalService` method and a controller route. Handle duplicates in the handler. |
 | Route decisions differently (e.g. auto-submit above a readiness score) | This is a **policy** decision: extend `PolicyEngine`/`SafetyGate` in `evidence-core` and let `GateOutcome.autoApproved()` reflect it. Do not put thresholds in workflow code. |
@@ -596,7 +596,7 @@ The Temporal UI at `localhost:8233` shows every execution; the workflow id is `c
 
 ## 17. Known gaps and TODOs
 
-1. **P0 — `dispute_cases` / `disputes` primary-key column divergence.**
+1. **P0 - `dispute_cases` / `disputes` primary-key column divergence.**
    `platform-persistence`'s Flyway migration `V5__disputes.sql` names the primary keys `case_id` and
    `dispute_id` and the manifest column `package_manifest`. `evidence-core`'s
    `spi/jdbc/JdbcCaseRepository` queries columns named `id` and `manifest_json` (and
@@ -606,7 +606,7 @@ The Temporal UI at `localhost:8233` shows every execution; the workflow id is `c
    normative**; `evidence-core`'s SQL should be corrected. This module's `CaseWriter` targets the
    Flyway names but resolves the actual column once from `information_schema.columns` and caches it,
    so the orchestrator works against whichever schema is deployed. That fallback is a bridge, not a
-   fix — remove it once the divergence is resolved in one place.
+   fix - remove it once the divergence is resolved in one place.
 2. **Real PSP / card-network submission is out of scope.** `SimulatedNetworkSubmitter` is the only
    `NetworkSubmitter`. It never contacts a network, and every receipt it produces carries
    `simulated = true` all the way to the UI and the audit trail.
@@ -629,7 +629,7 @@ The Temporal UI at `localhost:8233` shows every execution; the workflow id is `c
    metrics binder that does not exist yet.
 8. **Follow-up ticks reuse `CaseSubmitted`.** There is no `CaseFollowUp` in the contract's CASE
    enum and none was invented. If the UI needs to distinguish them beyond the `phase` payload
-   marker, the enum in `platform-common` is the place to change — not this module.
+   marker, the enum in `platform-common` is the place to change - not this module.
 9. **No integration test against a real Temporal server** (or Testcontainers). The workflow logic is
    covered in-process; the Spring wiring, the Kafka listener and `CaseWriter`'s SQL are not yet
    covered by an automated test.

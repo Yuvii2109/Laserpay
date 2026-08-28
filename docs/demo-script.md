@@ -42,7 +42,7 @@ curl -X POST localhost:8088/sim/v1/runs -H 'Content-Type: application/json' -d '
 }'
 ```
 
-**Show:** Kafka UI — `pdei.raw.events.v1` filling; then `pdei.canonical.events.v1` behind it.
+**Show:** Kafka UI - `pdei.raw.events.v1` filling; then `pdei.canonical.events.v1` behind it.
 Then the Control Tower: readiness distribution materialising, the live event ticker moving.
 
 **The point:** events flow in, evidence accumulates, readiness is computed continuously. The
@@ -54,7 +54,7 @@ seed makes this identical on every run.
 
 Pick a `READY` transaction. Open `/transactions/{id}` → **Readiness** tab.
 
-**Show:** the score breakdown — each requirement, its strength, whether it is satisfied, and
+**Show:** the score breakdown - each requirement, its strength, whether it is satisfied, and
 which penalties applied. Then the **Timeline** tab: `occurredAt` versus `observedAt` on each
 row, so lateness is visible rather than smoothed away.
 
@@ -69,10 +69,10 @@ Go to `/control-tower` → at-risk feed, or `/gaps`. Pick a transaction missing
 `DELIVERY_PROOF`.
 
 **Say:** *"No dispute exists here. The platform is telling the merchant that if one arrived
-today, they would lose — and there is still time to fix it. That interval is the entire
+today, they would lose - and there is still time to fix it. That interval is the entire
 product."*
 
-**Show:** an `EXPIRING_SOON` item too — evidence with a retention deadline approaching.
+**Show:** an `EXPIRING_SOON` item too - evidence with a retention deadline approaching.
 
 ---
 
@@ -85,20 +85,20 @@ curl -X POST localhost:8088/sim/v1/chaos -H 'Content-Type: application/json' \
   -d '{"type":"INJECT_DISPUTE","target":{"transactionId":"TX-…"}}'
 ```
 
-**Show:** Temporal UI — a `DisputeCaseWorkflow` starts with id `case-…`. Then
+**Show:** Temporal UI - a `DisputeCaseWorkflow` starts with id `case-…`. Then
 `/cases/{caseId}` → the workflow stepper advancing through gather → gaps → admission.
 
 **The critical beat:** on the **AI Reasoning** tab it says the model was **not invoked**, with
 the bypass reason: all mandatory requirements satisfied, zero contradictions.
 
-**Say:** *"This case cost zero tokens. It was resolved deterministically. That's the design —
+**Say:** *"This case cost zero tokens. It was resolved deterministically. That's the design -
 AI scales with ambiguity, not with volume."*
 
 ---
 
 ## 5. Inject a dispute on an ambiguous transaction (2.5 min)
 
-Scenario **`contradictory-delivery-dates`** — the carrier says delivered on the 3rd, the
+Scenario **`contradictory-delivery-dates`** - the carrier says delivered on the 3rd, the
 customer emailed on the 5th saying nothing arrived.
 
 **Show, in order:**
@@ -106,7 +106,7 @@ customer emailed on the 5th saying nothing arrived.
 1. `/cases/{caseId}` → **Evidence**: both artifacts present, both valid, both hashed.
 2. → **Overview**: the contradiction is flagged, readiness penalised.
 3. → **AI Reasoning**: this time the model *was* invoked. Show the classification, the
-   confidence meter, and — most importantly — **every claim rendered next to the evidence ID
+   confidence meter, and - most importantly - **every claim rendered next to the evidence ID
    it cites**.
 4. → **Safety Gate**: each of the seven validation rules, which passed, which failed.
 
@@ -118,11 +118,11 @@ customer emailed on the 5th saying nothing arrived.
 
 Scenario **`missing-delivery-proof`** with a model confident enough to want to represent.
 
-**Show:** the Safety Gate tab denying the recommendation — rule 7: `DEFENDABLE` is impossible
+**Show:** the Safety Gate tab denying the recommendation - rule 7: `DEFENDABLE` is impossible
 while a MANDATORY requirement is unsatisfied. The case routes to `AWAITING_HUMAN_REVIEW`.
 
 **Say:** *"The model was confident and the model was overruled by deterministic policy. There
-is no confidence value that unlocks this — the gate isn't a threshold, it's a proof
+is no confidence value that unlocks this - the gate isn't a threshold, it's a proof
 obligation."*
 
 Then demonstrate the human decision: **Approve** / **Reject** on the case page → Temporal UI
@@ -143,7 +143,7 @@ Run these live from `/simulation`. Each maps to a property from `architecture.md
 | `KILL_WORKER` (orchestrator) | Temporal UI: workflow survives; on restart it resumes mid-case | workflow durability |
 | `REPLAY_EVENTS` | truncate projections, replay from offset 0, scores land identically | replayability |
 
-**Say on the kill:** *"I just killed the process running that case. Watch the workflow — it
+**Say on the kill:** *"I just killed the process running that case. Watch the workflow - it
 didn't lose its place. That's not retry logic I wrote; that's the workflow being durable."*
 
 **Say on the replay:** *"State is a fold over the log. I can throw the database away and
@@ -163,14 +163,14 @@ events processed        →  dispute candidates  →  ambiguous  →  AI invoked
 admission rate, latency, unsupported-claim count, budget burn.
 
 **Say:** *"Every number here was measured by the running system. None of it is asserted."*
-(Reference doc §37 — do not claim production performance; label synthetic workloads as such.)
+(Reference doc §37 - do not claim production performance; label synthetic workloads as such.)
 
 ---
 
 ## 9. Close (30s)
 
 **Say:** *"The transaction is short-lived. The evidence that defends it is long-lived state
-that has to be maintained continuously. Everything you saw follows from that one idea —
+that has to be maintained continuously. Everything you saw follows from that one idea -
 deterministic systems establish financial truth, and AI only reasons about what's genuinely
 ambiguous."*
 
@@ -180,10 +180,10 @@ ambiguous."*
 
 | If this breaks | Do this |
 |---|---|
-| Gemini quota exhausted | `PDEI_AI_PROVIDER=mock` — deterministic, and the UI labels it |
-| A worker will not start | The chaos console's `KILL_WORKER`/restart is the same failure — narrate it as intentional and restart on camera |
+| Gemini quota exhausted | `PDEI_AI_PROVIDER=mock` - deterministic, and the UI labels it |
+| A worker will not start | The chaos console's `KILL_WORKER`/restart is the same failure - narrate it as intentional and restart on camera |
 | Simulator run too slow | Pre-run seed 4281 before the demo; the scenario library is instant |
-| Frontend cannot reach the API | `NEXT_PUBLIC_USE_MOCKS=true` renders every screen from fixtures — state clearly that it is mock data |
+| Frontend cannot reach the API | `NEXT_PUBLIC_USE_MOCKS=true` renders every screen from fixtures - state clearly that it is mock data |
 
 ## Reproducibility
 

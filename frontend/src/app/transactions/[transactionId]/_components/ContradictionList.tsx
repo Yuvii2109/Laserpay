@@ -13,7 +13,7 @@ export interface ContradictionListProps {
  * Cross-evidence field conflicts found by `ContradictionDetector`.
  *
  * They are shown as a two-sided comparison rather than a sentence, because the decision an
- * operator has to make is "which of these two artifacts is wrong" — and contract 9.3 rule 5
+ * operator has to make is "which of these two artifacts is wrong" - and contract 9.3 rule 5
  * means a single unresolved contradiction can block automatic preparation outright.
  */
 export function ContradictionList({ contradictions }: ContradictionListProps) {
@@ -91,7 +91,7 @@ function ContradictionSide({
       ) : (
         <span className="mt-0.5 block text-sm text-muted-foreground">Unattributed</span>
       )}
-      <p className="mt-1.5 break-words text-sm text-foreground">{value ?? '—'}</p>
+      <p className="mt-1.5 break-words text-sm text-foreground">{value ?? '-'}</p>
     </div>
   );
 }

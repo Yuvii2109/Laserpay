@@ -34,7 +34,7 @@ import { EXTERNAL_CONSOLES, HEADLINE_METRICS } from './services';
 const RANGES: readonly TimeRangePreset[] = ['24h', '7d', '30d', '90d', 'all'];
 
 function formatPercent(value: number, digits = 0): string {
-  if (!Number.isFinite(value)) return '—';
+  if (!Number.isFinite(value)) return '-';
   return `${(value * 100).toFixed(digits)}%`;
 }
 

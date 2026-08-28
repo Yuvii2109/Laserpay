@@ -119,7 +119,7 @@ export function ExpiringEvidencePanel({
                   style={{ color: toneColorVar(past ? 'critical' : 'warning') }}
                 >
                   {daysLeft === null
-                    ? '—'
+                    ? '-'
                     : past
                       ? `${Math.abs(daysLeft)}d overdue`
                       : daysLeft === 0

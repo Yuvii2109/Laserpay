@@ -21,7 +21,7 @@ import org.hibernate.type.SqlTypes;
  * Durable record of one investigation ({@code INV-} ids): the AI proposal (or the deterministic
  * short-circuit) plus the verdict the safety gate reached about it.
  *
- * <p>Nothing written here changes financial state — rule 2. The row exists so a human can see
+ * <p>Nothing written here changes financial state - rule 2. The row exists so a human can see
  * exactly what the model claimed, which evidence it cited, what was rejected and why.
  *
  * <p>{@code confidenceBps} mirrors {@code InvestigationResult.confidence} (0.973 -> 9730).

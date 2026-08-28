@@ -24,7 +24,7 @@ import org.hibernate.type.SqlTypes;
  * Current state of one evidence artifact ({@code EV-} ids).
  *
  * <p>The bytes live in MinIO at {@code objectKey}; this row owns the metadata, the integrity
- * hash and the provenance. Every mutation appends a row to {@code evidence_versions} — history
+ * hash and the provenance. Every mutation appends a row to {@code evidence_versions} - history
  * is never overwritten (reference section 12).
  *
  * <p>The {@code search_vector} column added by V10 is deliberately NOT mapped: it is maintained

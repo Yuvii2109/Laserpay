@@ -6,8 +6,8 @@
    PDEI design tokens.
 
    Two layers:
-     1. shadcn/ui surface tokens — HSL triplets, consumed as hsl(var(--x)).
-     2. Data-visualisation tokens — raw hex, consumed as var(--x) directly.
+     1. shadcn/ui surface tokens - HSL triplets, consumed as hsl(var(--x)).
+     2. Data-visualisation tokens - raw hex, consumed as var(--x) directly.
 
    The categorical chart slots and the status ramp come from a palette validated
    for CVD separation, lightness band, chroma floor and surface contrast in BOTH
@@ -190,7 +190,7 @@
 }
 
 @layer components {
-  /* A hairline card surface — the default container for every panel and chart. */
+  /* A hairline card surface - the default container for every panel and chart. */
   .surface-card {
     @apply rounded-lg border border-border bg-card text-card-foreground;
   }

@@ -14,7 +14,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 /**
- * A single line of an order. Id convention {@code {orderId}-L{lineNumber}} — the contract
+ * A single line of an order. Id convention {@code {orderId}-L{lineNumber}} - the contract
  * defines no dedicated prefix for order lines, so the parent id is reused deterministically.
  *
  * <p>{@code digitalGood} matters for readiness: a digital line cannot produce DELIVERY_PROOF,

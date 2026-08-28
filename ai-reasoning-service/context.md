@@ -1,4 +1,4 @@
-# `ai-reasoning-service` — module context
+# `ai-reasoning-service` - module context
 
 > Living document. This is how a future session reloads context on this module.
 > Normative sources, in order of authority: `docs/PLATFORM-CONTRACT.md`,
@@ -62,7 +62,7 @@ ai-reasoning-service/
 ├── pdei_ai/
 │   ├── __init__.py           __version__, SERVICE_NAME
 │   ├── main.py               create_app(), lifespan wiring, CORS, /metrics, run()
-│   ├── config.py             Settings.from_env() — one immutable env snapshot
+│   ├── config.py             Settings.from_env() - one immutable env snapshot
 │   ├── schemas_export.py     generates schemas/ai/*.json; --check mode for CI
 │   ├── models/
 │   │   ├── common.py         Money, Instant, PdeiModel, id patterns
@@ -73,7 +73,7 @@ ai-reasoning-service/
 │   │   └── narrative.py      NarrativeRequest / NarrativeResult
 │   ├── reasoners/
 │   │   ├── base.py           EvidenceReasoner Protocol, errors, ReasonerHealth
-│   │   ├── gemini.py         GeminiReasoner — the ONLY file importing an AI SDK
+│   │   ├── gemini.py         GeminiReasoner - the ONLY file importing an AI SDK
 │   │   ├── mock.py           deterministic seeded reasoner (default in dev)
 │   │   ├── null.py           always abstains
 │   │   └── registry.py       provider selection + fallback chain
@@ -111,23 +111,23 @@ schemas/ai/admission-decision.schema.json
 
 ## 4. Inbound contracts
 
-### 4.1 HTTP routes served (contract §8.6 — this list is exhaustive)
+### 4.1 HTTP routes served (contract §8.6 - this list is exhaustive)
 
 | Method | Path | Body | Response |
 |---|---|---|---|
-| GET | `/health` | — | liveness; never touches a dependency |
-| GET | `/ready` | — | readiness; 503 only when no reasoner is usable |
+| GET | `/health` | - | liveness; never touches a dependency |
+| GET | `/ready` | - | readiness; 503 only when no reasoner is usable |
 | POST | `/v1/investigate` | `InvestigationContext` | `InvestigationResult` |
 | POST | `/v1/investigate/stream` | `InvestigationContext` | SSE step stream |
 | POST | `/v1/admission/score` | `AdmissionRequest` *or* `InvestigationContext` | `AdmissionDecision` |
 | POST | `/v1/narrative` | `NarrativeRequest` *or* `InvestigationContext` | `NarrativeResult` |
-| GET | `/v1/tools` | — | tool manifest |
-| GET | `/v1/providers` | — | active reasoner, chain, health, budget |
-| GET | `/metrics` | — | Prometheus text |
+| GET | `/v1/tools` | - | tool manifest |
+| GET | `/v1/providers` | - | active reasoner, chain, health, budget |
+| GET | `/metrics` | - | Prometheus text |
 
 Plus `GET /` (endpoint index) and `/docs` + `/openapi.json`, both
 `include_in_schema=False` / documentation only. **Adding any other route is a
-contract divergence** — `test_openapi_exposes_exactly_the_contract_surface`
+contract divergence** - `test_openapi_exposes_exactly_the_contract_surface`
 fails if the set changes.
 
 Two endpoints accept either body shape because the Java `HttpAiReasoningClient`
@@ -152,7 +152,7 @@ route then emits `error`, `result` with a deterministic placeholder, `done`).
 | `X-PDEI-Service-Token` | Required on `/v1/*` when `PDEI_AI_REQUIRE_SERVICE_TOKEN=true`. Off by default so local demos need no setup. |
 | `X-PDEI-Provider` | Optional per-request provider override (`gemini`/`mock`/`null`), so an operator can A/B a case without a redeploy. |
 
-### 4.4 Upstream consumed — the read-only tool surface
+### 4.4 Upstream consumed - the read-only tool surface
 
 `GET {PDEI_API_BASE_URL}/api/v1/ai-tools/*`, with `X-PDEI-Service-Token`. Ten
 routes, exactly as contract §8.6 lists them:
@@ -189,15 +189,15 @@ one under `gemini`.
 Field-identical to `com.laserpay.pdei.core.model.InvestigationResult`. Two
 fields are **always set by this service, never by the model**:
 
-* `investigationId` — echoed from the request context. An id a model produces is
+* `investigationId` - echoed from the request context. An id a model produces is
   an id it can produce wrongly.
-* `modelMetadata` — `provider`, `model`, token counts, `latencyMs`, `attempt`.
+* `modelMetadata` - `provider`, `model`, token counts, `latencyMs`, `attempt`.
   A provider able to describe its own provenance could describe it falsely.
 
 `provider` values seen in the wild: `gemini`, `mock`, `null`, `deterministic`
 (the last for the no-provider-available placeholder).
 
-`missingEvidence` holds evidence **type** names (`DELIVERY_PROOF`), never ids —
+`missingEvidence` holds evidence **type** names (`DELIVERY_PROOF`), never ids -
 evidence that does not exist has no id. Validated as `EvidenceType`.
 
 ### 5.2 Guarantees the Java side can rely on
@@ -208,7 +208,7 @@ evidence that does not exist has no id. Validated as `EvidenceType`.
    `reasoningSummary`, `narrative` and the SSE `self_check` detail (counts are
    reported; the offending ids go only to the structured log).
 3. `confidence` is in `[0,1]`, and is capped at `0.60` whenever any claim was
-   dropped — below any plausible `autoPrepareMinConfidence`.
+   dropped - below any plausible `autoPrepareMinConfidence`.
 4. A `DEFENDABLE` classification whose supporting evidence was entirely
    unsupported is downgraded to `INSUFFICIENT_EVIDENCE` + `ESCALATE_TO_HUMAN`.
 5. `/v1/investigate` answers `200` even when every provider fails, with a
@@ -217,7 +217,7 @@ evidence that does not exist has no id. Validated as `EvidenceType`.
    `5xx` retries, and retrying a provider outage burns the retry budget of a
    case that has a deadline.
 
-None of these replace contract §9.3 validation on the Java side — they reduce
+None of these replace contract §9.3 validation on the Java side - they reduce
 how often it has to reject a whole result.
 
 ### 5.3 Metrics (contract §13 names are normative)
@@ -259,7 +259,7 @@ pdei:ai:bucket                HASH{tokens,at}     token bucket, Lua-atomic
 
 ```python
 class EvidenceReasoner(Protocol):
-    name: str  # gemini | mock | null  — appears in metrics and ModelMetadata
+    name: str  # gemini | mock | null  - appears in metrics and ModelMetadata
     model: str
 
     async def investigate(self, context: InvestigationContext) -> InvestigationResult: ...
@@ -272,9 +272,9 @@ mutate the context, must not raise for ordinary model failure (raise
 `ReasonerError` / `InvalidModelOutput` / `ReasonerUnavailable`), and `health()`
 must never raise.
 
-### 6.1 `MockReasoner` — default, deterministic
+### 6.1 `MockReasoner` - default, deterministic
 
-The seed is `int(sha256(investigationId)[:16], 16)` — SHA-256 rather than
+The seed is `int(sha256(investigationId)[:16], 16)` - SHA-256 rather than
 `hash()`, whose per-process salt would break reproducibility across restarts.
 **The entire output is a pure function of the context**, including
 `modelMetadata.latencyMs` and the token estimates, which are *simulated* exactly
@@ -287,11 +287,11 @@ deterministic fallbacks tell the same story; seeded randomness only moves
 confidence *within* the band the tree already chose, never across a
 classification boundary.
 
-### 6.2 `GeminiReasoner` — the only file importing an AI SDK
+### 6.2 `GeminiReasoner` - the only file importing an AI SDK
 
 * **Schema-constrained output.** `response_mime_type="application/json"` plus a
   response schema *derived from the Pydantic model* by `build_response_schema()`
-  — `$ref`s inlined, `anyOf` collapsed to `nullable`, unsupported keywords
+  - `$ref`s inlined, `anyOf` collapsed to `nullable`, unsupported keywords
   stripped. Because the schema is generated, it cannot drift from the parser.
 * **Tool phase is separate.** Gemini will not accept function declarations and a
   forced response schema in the same call, so tools run first (bounded, no
@@ -305,7 +305,7 @@ classification boundary.
 * **Token accounting** from `usage_metadata.prompt_token_count` /
   `candidates_token_count`, defensively read.
 
-### 6.3 `NullReasoner` — abstention as a configuration
+### 6.3 `NullReasoner` - abstention as a configuration
 
 Returns `AMBIGUOUS` / `confidence 0.0` / `ESCALATE_TO_HUMAN`, no citations. It
 reports **healthy**, because falling through to another provider would defeat
@@ -320,7 +320,7 @@ then each chain entry, then `mock` as the terminal fallback.
 
 * `gemini` needs `GEMINI_API_KEY` **and** the `google-genai` package; missing
   either means it cannot be constructed and the chain moves on.
-* `mock` is always constructible — the chain therefore always terminates.
+* `mock` is always constructible - the chain therefore always terminates.
 * **`null` is never a fallback target.** Abstention is chosen deliberately, never
   drifted into. Selecting `null` explicitly short-circuits the whole chain.
 
@@ -338,13 +338,13 @@ of the contract, not a tuning knob: **change the text, bump the version.**
 
 Every prompt states three rules:
 
-1. **Evidence ids** — only ids present in the supplied context (or returned by a
+1. **Evidence ids** - only ids present in the supplied context (or returned by a
    tool for the same transaction) may be cited. Never construct, guess or
    extrapolate one.
-2. **No uncited claims** — every factual assertion appears in `citations` paired
+2. **No uncited claims** - every factual assertion appears in `citations` paired
    with its evidence id. Assessments of the context itself need no citation but
    must not smuggle in an invented fact.
-3. **No authority over financial state** — cannot move money, submit a
+3. **No authority over financial state** - cannot move money, submit a
    representment, alter evidence, or change any status. `recommendedAction` is a
    recommendation to a deterministic engine that decides independently.
 
@@ -355,7 +355,7 @@ probability, not a feeling.
 and ends with an explicit **`## CITABLE EVIDENCE IDS`** block, so the one rule
 that matters is impossible to miss.
 
-The prompt version is logged, not appended to `ModelMetadata.model` — that
+The prompt version is logged, not appended to `ModelMetadata.model` - that
 record has a fixed field set shared with Java and TypeScript. See §11.
 
 ---
@@ -365,12 +365,12 @@ record has a fixed field set shared with Java and TypeScript. See §11.
 Three refusals happen in `ToolExecutor.execute`, **in code, before any network
 call**:
 
-1. **Unknown tool name** — the registry is a closed set of ten. Never forwarded,
+1. **Unknown tool name** - the registry is a closed set of ten. Never forwarded,
    never fuzzy-matched.
-2. **Non-GET method** — refused at dispatch, even though `ToolSpec.__post_init__`
+2. **Non-GET method** - refused at dispatch, even though `ToolSpec.__post_init__`
    already rejects a non-GET spec at construction. Two independent checks,
    because this is the rule that keeps the model unable to write.
-3. **Malformed or unknown arguments** — identifiers only
+3. **Malformed or unknown arguments** - identifiers only
    (`^[A-Za-z0-9._:-]{1,128}$`, which also defeats path traversal and query
    injection), required arguments present, nothing extra.
 
@@ -379,7 +379,7 @@ path-prefix check in `AiToolsClient.get` (`/api/v1/ai-tools/`), and
 `follow_redirects=False` so a `3xx` cannot walk a call out of the prefix.
 
 A refusal is returned to the model as a normal tool result carrying an error,
-not raised — the model must be able to learn a tool does not exist and carry on;
+not raised - the model must be able to learn a tool does not exist and carry on;
 crashing would turn a model mistake into a platform outage.
 
 `AiToolsClient` exposes exactly one verb, `get`. There is no `post`, no `put`,
@@ -428,7 +428,7 @@ this service. All of them are in `.env.example`.
 `Settings` is a frozen dataclass read once via `Settings.from_env()`. An invalid
 `PDEI_AI_PROVIDER` falls back to `mock` with a logged warning rather than
 failing startup. `Settings.redacted()` is what appears in logs and on
-`/v1/providers` — the API key is reported only as `geminiApiKeyPresent`.
+`/v1/providers` - the API key is reported only as `geminiApiKeyPresent`.
 
 ---
 
@@ -439,7 +439,7 @@ failing startup. `Settings.redacted()` is what appears in logs and on
 | `api-gateway-service` | **Required for tools only.** Serves `/api/v1/ai-tools/*`. Unavailable ⇒ the model answers from context alone; `/ready` reports `tools: DEGRADED` but stays `UP`. |
 | `evidence-core` | Builds the `InvestigationContext` and consumes the result via `AiReasoningClient` / `HttpAiReasoningClient`. Owns validation (§9.3) and admission (§9.4). Type parity with `core.model.*` is mandatory. |
 | `case-orchestrator-service` | Calls `/v1/investigate` from the Temporal `investigate` activity (step 6 of `DisputeCaseWorkflow`). |
-| `platform-common` | No code dependency — the Python models mirror `common.money.Money`, `common.event.*` and `common.domain.*` by hand. `schemas/ai/*.json` is the referee. |
+| `platform-common` | No code dependency - the Python models mirror `common.money.Money`, `common.event.*` and `common.domain.*` by hand. `schemas/ai/*.json` is the referee. |
 | Redis | Optional. Budget and rate limit only. |
 | `frontend` | Reads `/v1/providers` and consumes the SSE stream on the Case X-Ray page. |
 
@@ -468,7 +468,7 @@ Consequences that look odd in Python and are deliberate:
   new upstream field must never `422` an investigation. The richer optional
   fields (`provenanceVerified`, `qualityScore`, `source`, …) are declared so they
   survive rather than being silently dropped.
-* **Money refuses floats at parse time** rather than rounding — a `float`,
+* **Money refuses floats at parse time** rather than rounding - a `float`,
   `Decimal` or non-integer string in `amountMinor` is a `ValidationError`.
 * **Naive datetimes are refused.** "Probably UTC" is how timezone bugs reach an
   audit trail. Instants serialise as `2026-08-26T10:15:30.123Z`, which
@@ -512,11 +512,11 @@ admit if priority >= 55 AND daily budget allows AND token bucket allows
 
 * `financialImpact` = `amountMinor / 10_000_000`, clamped to 1.0.
 * `deadlineUrgency` = 1.0 at ≤48 h, 0.0 at ≥720 h, linear between; **0.5 when the
-  deadline is unknown** — neither urgent nor safe to ignore.
+  deadline is unknown** - neither urgent nor safe to ignore.
 * `ambiguityScore` = `(contradictions*2 + gaps) / 8`, clamped. Contradictions
   count double: a self-contradicting case is harder than an incomplete one.
 * Rounding is **half up**, via `Decimal`. Python's `round(54.5) == 54` and Java's
-  is 55 — at the 55 threshold that difference decides whether a case costs money.
+  is 55 - at the 55 threshold that difference decides whether a case costs money.
 
 Deterministic short-circuits, evaluated first, in this order (matching Java):
 
@@ -525,7 +525,7 @@ Deterministic short-circuits, evaluated first, in this order (matching Java):
 3. all mandatory satisfied and zero contradictions → `PREPARE_REPRESENTMENT`
 
 When the token bucket refuses after the daily counter incremented, the daily
-allowance is **refunded** — otherwise a rate-limited burst eats the day's budget
+allowance is **refunded** - otherwise a rate-limited burst eats the day's budget
 without a single model call being made.
 
 ---
@@ -571,7 +571,7 @@ PDEI_AI_PROVIDER=null                                   # abstain; every case go
 curl -H 'X-PDEI-Provider: null' ... /v1/investigate     # per-request override
 ```
 
-Confirm what is actually running with `GET /v1/providers` — never assume.
+Confirm what is actually running with `GET /v1/providers` - never assume.
 
 ### Tests, lint, types
 
@@ -616,7 +616,7 @@ source.
 * **A new provider**: implement the three `EvidenceReasoner` methods, add a
   branch to `ReasonerRegistry._build`, add the name to `KNOWN_PROVIDERS`.
   Nothing above the protocol changes. Keep AI SDK imports inside that one file.
-* **A new tool**: add a `ToolSpec` to `TOOL_SPECS` — the manifest, the Gemini
+* **A new tool**: add a `ToolSpec` to `TOOL_SPECS` - the manifest, the Gemini
   function declarations and the executor all derive from it. The assertion
   `len(TOOLS) == 10` must be updated *and* contract §8.6 amended first; the
   contract is the source of truth, not the code.
@@ -639,21 +639,21 @@ Deliberate deterministic fallbacks (working, documented, not stubs):
    baseline was written, so the SDK call shape (`client.aio.models.generate_content`,
    `types.GenerateContentConfig`, `usage_metadata`) is coded defensively from the
    documented API and guarded with `getattr`/fallbacks, but is **unverified**.
-   Everything around it — schema derivation, JSON parsing, repair prompting,
-   token accounting, backoff — is unit tested offline. First live run should be
+   Everything around it - schema derivation, JSON parsing, repair prompting,
+   token accounting, backoff - is unit tested offline. First live run should be
    treated as an integration test.
 2. **Tool-phase function responses are appended as JSON text turns**, not as
    proper `types.Content` parts with `function_response`. Works, but is a
    simplification; revisit when the live SDK path is exercised.
-3. **Mock token counts and latency are simulated**, not measured — deliberately,
+3. **Mock token counts and latency are simulated**, not measured - deliberately,
    to keep the mock byte-deterministic (see §6.1). They are labelled
    `provider=mock` so they cannot be mistaken for real usage.
 4. **The budget gate fails open by default** when Redis is unreachable. That is a
    policy choice (`PDEI_AI_BUDGET_FAIL_OPEN`), and the Java `AdmissionController`
-   still applies its own gate — but a long Redis outage means uncapped spend.
+   still applies its own gate - but a long Redis outage means uncapped spend.
    Watch `pdei_ai_budget_decisions_total{outcome="fail_open"}`.
 5. **The service token is a shared secret, not authentication.** It gates model
-   budget and curated context, not money — nothing behind it can change financial
+   budget and curated context, not money - nothing behind it can change financial
    state. It is off by default so local demos need no setup.
 6. **The prompt version is logged, not carried in `ModelMetadata`.** Adding a
    `promptVersion` field would diverge from contract §9.2's fixed field set.
@@ -669,7 +669,7 @@ Deliberate deterministic fallbacks (working, documented, not stubs):
    rule is "no technology without a workload that needs it".
 9. **`/v1/investigate/stream` streams *steps*, not model tokens.** Token-level
    streaming would require a second Gemini code path and would make the
-   self-check impossible to apply before the text reaches the client — the
+   self-check impossible to apply before the text reaches the client - the
    filter has to see the whole answer.
 10. **No `uv.lock` is committed.** It should be generated (`uv lock`) and
     committed on first real dependency install so builds are reproducible; the

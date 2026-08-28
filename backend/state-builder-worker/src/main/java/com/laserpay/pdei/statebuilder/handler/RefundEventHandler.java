@@ -34,7 +34,7 @@ import java.util.Set;
  * {@code transactions.refunded_amount_minor} from the refunds table via
  * {@code sumProcessedAmountMinor} and re-derives the transaction status
  * ({@code PARTIALLY_REFUNDED} or {@code REFUNDED}). Recomputing rather than incrementing is what
- * makes a duplicate {@code RefundProcessed} harmless — an accumulator would double the refunded
+ * makes a duplicate {@code RefundProcessed} harmless - an accumulator would double the refunded
  * total and there would be no way to notice afterwards.
  *
  * <p>The event catalog flags "cumulative refunded amount exceeding {@code PaymentCaptured}" as a

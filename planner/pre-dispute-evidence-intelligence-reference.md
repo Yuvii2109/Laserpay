@@ -52,7 +52,7 @@ For eligible transactions, the platform:
 
 ---
 
-# 2. What This Is — And What It Is Not
+# 2. What This Is - And What It Is Not
 
 ## This is
 

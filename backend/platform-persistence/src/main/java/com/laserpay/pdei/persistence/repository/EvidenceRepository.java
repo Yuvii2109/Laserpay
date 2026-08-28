@@ -29,7 +29,7 @@ public interface EvidenceRepository extends JpaRepository<EvidenceEntity, String
     List<EvidenceEntity> findByMerchantIdAndTypeAndStatus(String merchantId, EvidenceType type, EvidenceStatus status);
 
     /**
-     * Content-hash lookup within a transaction — the deduplication check performed before
+     * Content-hash lookup within a transaction - the deduplication check performed before
      * creating evidence from an event that may be a duplicate.
      *
      * <p>The method name is fixed by the shared-library contract, so the query is declared
@@ -48,7 +48,7 @@ public interface EvidenceRepository extends JpaRepository<EvidenceEntity, String
      *
      * <p>{@code websearch_to_tsquery} is used deliberately: it accepts raw human input
      * ({@code delivery proof "March 2026" -refund}) and never throws on malformed syntax, unlike
-     * {@code to_tsquery}. Both parameters are optional — passing {@code null} for {@code tsQuery}
+     * {@code to_tsquery}. Both parameters are optional - passing {@code null} for {@code tsQuery}
      * degrades to "latest evidence for this merchant".
      *
      * <p>Pass an UNSORTED {@link Pageable} ({@code PageRequest.of(page, size)}): Spring Data
@@ -76,7 +76,7 @@ public interface EvidenceRepository extends JpaRepository<EvidenceEntity, String
                                 @Param("merchantId") String merchantId,
                                 Pageable pageable);
 
-    /** Search narrowed to one transaction — used by the transaction detail view. */
+    /** Search narrowed to one transaction - used by the transaction detail view. */
     @Query(value = """
             SELECT e.* FROM pdei.evidence e
             WHERE e.transaction_id = :transactionId

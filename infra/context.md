@@ -1,4 +1,4 @@
-# `infra/` — PDEI Local Environment
+# `infra/` - PDEI Local Environment
 
 > Module context for the whole local stack. Normative references, in precedence order:
 > `docs/PLATFORM-CONTRACT.md` → `docs/SHARED-LIBRARY-API.md` →
@@ -11,19 +11,19 @@
 
 `infra/` is the entire runtime environment of PDEI expressed as files. Its job is that a
 developer with nothing but Docker installed can go from a fresh clone to a running,
-observable, seeded platform in three commands — at **zero infrastructure cost** (reference
+observable, seeded platform in three commands - at **zero infrastructure cost** (reference
 doc §30), on Windows, macOS or Linux, with no cloud account and no paid service.
 
 It owns three things and deliberately owns nothing else:
 
-1. **Topology** — which containers exist, how they find each other, what order they start in.
-2. **Infrastructure configuration** — Kafka topics, the Postgres bootstrap, MinIO buckets,
+1. **Topology** - which containers exist, how they find each other, what order they start in.
+2. **Infrastructure configuration** - Kafka topics, the Postgres bootstrap, MinIO buckets,
    the Temporal namespace, and the whole observability pipeline.
 3. **Image definitions** for the code in this repository.
 
 It does **not** own application configuration. A Spring service reads its own
 `application.yaml`; this directory only supplies the environment variables of contract §15.
-It does not own the database schema either — see §6.
+It does not own the database schema either - see §6.
 
 ## 2. Responsibilities
 
@@ -89,59 +89,59 @@ infra/
 
 ---
 
-## 4. Containers — the complete inventory
+## 4. Containers - the complete inventory
 
-### 4.1 Profile `core` — infrastructure (10 containers)
+### 4.1 Profile `core` - infrastructure (10 containers)
 
 | Container | Image | Host → container | Volume | Purpose |
 |---|---|---|---|---|
 | `pdei-postgres` | `postgres:16-alpine` | 5432 → 5432 | `pdei-postgres-data` | Operational truth. Also hosts Temporal's two databases. |
 | `pdei-redis` | `redis:7-alpine` | 6379 → 6379 | `pdei-redis-data` | Dedupe keys, readiness cache, locks, AI token bucket (contract §12). AOF on. |
 | `pdei-kafka` | `apache/kafka:3.8.1` | 29092 → 29092 | `pdei-kafka-data` | KRaft single node, broker + controller in one process. |
-| `pdei-kafka-init` | `apache/kafka:3.8.1` | — | — | One-shot. Creates the eight topics, then exits 0. |
-| `pdei-kafka-ui` | `provectuslabs/kafka-ui:v0.7.2` | 8090 → 8080 | — | Topic browser used live in demo beats 1 and 7. |
+| `pdei-kafka-init` | `apache/kafka:3.8.1` | - | - | One-shot. Creates the eight topics, then exits 0. |
+| `pdei-kafka-ui` | `provectuslabs/kafka-ui:v0.7.2` | 8090 → 8080 | - | Topic browser used live in demo beats 1 and 7. |
 | `pdei-minio` | `minio/minio:latest` | 9000 → 9000, 9001 → 9001 | `pdei-minio-data` | Evidence blobs and representment packages. |
-| `pdei-minio-init` | `minio/mc:latest` | — | — | One-shot. Creates `pdei-evidence` + `pdei-packages`, enables versioning. |
+| `pdei-minio-init` | `minio/mc:latest` | - | - | One-shot. Creates `pdei-evidence` + `pdei-packages`, enables versioning. |
 | `pdei-temporal` | `temporalio/auto-setup:1.25.1` | 7233 → 7233 | (uses postgres) | Workflow engine; auto-creates schema and the `pdei` namespace. |
-| `pdei-temporal-admin-tools` | `temporalio/admin-tools:1.25.1-tctl-1.18.1-cli-1.1.1` | — | — | Long-lived shell for `temporal` CLI; re-asserts the namespace. |
-| `pdei-temporal-ui` | `temporalio/ui:2.31.2` | 8233 → 8080 | — | Workflow durability proof in demo beat 7. |
+| `pdei-temporal-admin-tools` | `temporalio/admin-tools:1.25.1-tctl-1.18.1-cli-1.1.1` | - | - | Long-lived shell for `temporal` CLI; re-asserts the namespace. |
+| `pdei-temporal-ui` | `temporalio/ui:2.31.2` | 8233 → 8080 | - | Workflow durability proof in demo beat 7. |
 
-### 4.2 Profile `app` — the platform (11 containers)
+### 4.2 Profile `app` - the platform (11 containers)
 
 All nine JVM services are built from **one** Dockerfile with `--build-arg MODULE=<name>`.
 
 | Container | Host port | `OTEL_SERVICE_NAME` | Extra dependencies |
 |---|---|---|---|
 | `pdei-api-gateway-service` | 8080 | `api-gateway-service` | minio, minio-init |
-| `pdei-ingestion-service` | 8081 | `ingestion-service` | — |
-| `pdei-normalization-worker` | 8082 | `normalization-worker` | — |
-| `pdei-state-builder-worker` | 8083 | `state-builder-worker` | — |
-| `pdei-readiness-worker` | 8084 | `readiness-worker` | — |
+| `pdei-ingestion-service` | 8081 | `ingestion-service` | - |
+| `pdei-normalization-worker` | 8082 | `normalization-worker` | - |
+| `pdei-state-builder-worker` | 8083 | `state-builder-worker` | - |
+| `pdei-readiness-worker` | 8084 | `readiness-worker` | - |
 | `pdei-case-orchestrator-service` | 8085 | `case-orchestrator-service` | temporal, minio |
 | `pdei-document-processor-service` | 8086 | `document-processor-service` | minio, minio-init |
-| `pdei-audit-service` | 8087 | `audit-service` | — |
-| `pdei-simulator-service` | 8088 | `simulator-service` | — |
-| `pdei-ai-reasoning-service` | 8000 | `ai-reasoning-service` | redis only — **never** Postgres |
-| `pdei-frontend` | 3000 | — | api-gateway-service (started, not healthy) |
+| `pdei-audit-service` | 8087 | `audit-service` | - |
+| `pdei-simulator-service` | 8088 | `simulator-service` | - |
+| `pdei-ai-reasoning-service` | 8000 | `ai-reasoning-service` | redis only - **never** Postgres |
+| `pdei-frontend` | 3000 | - | api-gateway-service (started, not healthy) |
 
 > The AI service depends on Redis and nothing else. That is not an oversight: contract §17
 > rule 2 says the LLM never mutates financial state, and the cheapest way to guarantee it is
 > to never give the process a database connection. It reads what it needs through the
 > read-only `/api/v1/ai-tools/*` endpoints with `X-PDEI-Service-Token`.
 
-### 4.3 Profile `obs` — observability (9 containers)
+### 4.3 Profile `obs` - observability (9 containers)
 
 | Container | Image | Host → container | Volume |
 |---|---|---|---|
-| `pdei-otel-collector` | `otel/opentelemetry-collector-contrib:0.111.0` | 4317, 4318, 8889, 13133 | — |
+| `pdei-otel-collector` | `otel/opentelemetry-collector-contrib:0.111.0` | 4317, 4318, 8889, 13133 | - |
 | `pdei-prometheus` | `prom/prometheus:v2.54.1` | 9090 → 9090 | `pdei-prometheus-data` |
 | `pdei-grafana` | `grafana/grafana:11.2.0` | 3001 → 3000 | `pdei-grafana-data` |
 | `pdei-loki` | `grafana/loki:3.1.1` | 3100 → 3100 | `pdei-loki-data` |
-| `pdei-promtail` | `grafana/promtail:3.1.1` | — | `pdei-promtail-data` |
+| `pdei-promtail` | `grafana/promtail:3.1.1` | - | `pdei-promtail-data` |
 | `pdei-tempo` | `grafana/tempo:2.6.0` | 3200 → 3200 | `pdei-tempo-data` |
-| `pdei-kafka-exporter` | `danielqsj/kafka-exporter:v1.7.0` | 9308 → 9308 | — |
-| `pdei-postgres-exporter` | `prometheuscommunity/postgres-exporter:v0.15.0` | 9187 → 9187 | — |
-| `pdei-redis-exporter` | `oliver006/redis_exporter:v1.62.0` | 9121 → 9121 | — |
+| `pdei-kafka-exporter` | `danielqsj/kafka-exporter:v1.7.0` | 9308 → 9308 | - |
+| `pdei-postgres-exporter` | `prometheuscommunity/postgres-exporter:v0.15.0` | 9187 → 9187 | - |
+| `pdei-redis-exporter` | `oliver006/redis_exporter:v1.62.0` | 9121 → 9121 | - |
 
 ---
 
@@ -155,7 +155,7 @@ All nine JVM services are built from **one** Dockerfile with `--build-arg MODULE
 
 **Profiles must be named explicitly, and `app` always needs `core` alongside it.** This file
 previously said Compose ≥ 2.24 auto-enables the profile of anything reachable via
-`depends_on`, so `--profile app` alone would work. It does not — verified against Compose
+`depends_on`, so `--profile app` alone would work. It does not - verified against Compose
 v5.1.4, where every shorthand fails at project validation, before a container is created:
 
 ```
@@ -205,7 +205,7 @@ loki ─► otel-collector ◄─ tempo          prometheus ─► grafana
 Two of those edges matter more than the rest:
 
 * **`kafka-init` must complete before any service starts.** `KAFKA_AUTO_CREATE_TOPICS_ENABLE`
-  is `false` on purpose — a typo'd topic name should fail loudly, not silently create a
+  is `false` on purpose - a typo'd topic name should fail loudly, not silently create a
   9th topic with one partition. `service_completed_successfully` is what enforces it.
 * **`minio-init` must complete before the gateway or the document processor start**, because
   both will attempt bucket operations on their first request and bucket versioning must
@@ -231,15 +231,15 @@ Nine named volumes, all pinned with explicit `name:` keys so they are addressabl
 
 | Volume | Container path | Holds | Safe to delete? |
 |---|---|---|---|
-| `pdei-postgres-data` | `/var/lib/postgresql/data` | the `pdei` database **and Temporal's two databases** | Yes — Flyway rebuilds; Temporal auto-setup rebuilds |
-| `pdei-redis-data` | `/data` | AOF of dedupe keys, caches, budgets | Yes — everything in Redis is derived, never authoritative |
+| `pdei-postgres-data` | `/var/lib/postgresql/data` | the `pdei` database **and Temporal's two databases** | Yes - Flyway rebuilds; Temporal auto-setup rebuilds |
+| `pdei-redis-data` | `/data` | AOF of dedupe keys, caches, budgets | Yes - everything in Redis is derived, never authoritative |
 | `pdei-kafka-data` | `/var/lib/kafka/data` | KRaft metadata + all eight topic logs | Yes, but you lose replayability of past runs |
-| `pdei-minio-data` | `/data` | evidence blobs, package zips, **all object versions** | Yes — but evidence rows in Postgres will then point at missing objects |
+| `pdei-minio-data` | `/data` | evidence blobs, package zips, **all object versions** | Yes - but evidence rows in Postgres will then point at missing objects |
 | `pdei-prometheus-data` | `/prometheus` | TSDB, 15 d retention | Yes |
-| `pdei-grafana-data` | `/var/lib/grafana` | Grafana's own SQLite (users, UI-side dashboard edits) | Yes — provisioned dashboards and datasources come back from files |
+| `pdei-grafana-data` | `/var/lib/grafana` | Grafana's own SQLite (users, UI-side dashboard edits) | Yes - provisioned dashboards and datasources come back from files |
 | `pdei-loki-data` | `/loki` | log chunks + TSDB index, 7 d retention | Yes |
 | `pdei-tempo-data` | `/var/tempo` | trace blocks, 48 h retention | Yes |
-| `pdei-promtail-data` | `/var/lib/promtail` | read positions | Yes — deleting it re-reads container logs from the start |
+| `pdei-promtail-data` | `/var/lib/promtail` | read positions | Yes - deleting it re-reads container logs from the start |
 
 `scripts/reset.sh` removes all nine plus the `pdei-net` network.
 
@@ -257,13 +257,13 @@ Nine named volumes, all pinned with explicit `name:` keys so they are addressabl
 | PostgreSQL | `pdei` | `pdei` | `PDEI_POSTGRES_USER` / `PDEI_POSTGRES_PASSWORD` |
 | PostgreSQL runtime role | `pdei_app` | `pdei_app` | `postgres/init/01-init.sql` |
 | PostgreSQL read-only role | `pdei_readonly` | `pdei_readonly` | `postgres/init/01-init.sql` |
-| Redis | — | none | — |
-| Kafka | — | none (PLAINTEXT) | — |
+| Redis | - | none | - |
+| Kafka | - | none (PLAINTEXT) | - |
 | MinIO | `pdei-minio` | `pdei-minio-secret` | `PDEI_MINIO_ACCESS_KEY` / `PDEI_MINIO_SECRET_KEY` |
 | Grafana | `admin` | `admin` | `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD` |
-| Temporal | — | none, namespace `pdei` | `PDEI_TEMPORAL_NAMESPACE` |
-| Service-to-service token | — | `dev-service-token` | `PDEI_SERVICE_TOKEN` |
-| Gemini | — | empty by default | `GEMINI_API_KEY` |
+| Temporal | - | none, namespace `pdei` | `PDEI_TEMPORAL_NAMESPACE` |
+| Service-to-service token | - | `dev-service-token` | `PDEI_SERVICE_TOKEN` |
+| Gemini | - | empty by default | `GEMINI_API_KEY` |
 
 Anonymous **viewer** access is enabled on Grafana so a demo does not open with a login form.
 Nothing here is a secret; nothing here is used anywhere but a laptop. `infra/.env` is
@@ -289,7 +289,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT              OTEL_SERVICE_NAME (per service = module
 GEMINI_API_KEY / GEMINI_MODEL            NEXT_PUBLIC_API_BASE_URL / NEXT_PUBLIC_WS_URL
 ```
 
-`OTEL_SERVICE_NAME` is set **per service**, never globally — a single global value would
+`OTEL_SERVICE_NAME` is set **per service**, never globally - a single global value would
 attribute every span in the system to one service and make the distributed trace useless.
 
 ### 9.2 Internal versus host addresses
@@ -319,7 +319,7 @@ Container ports never move; only the host side is remappable.
 
 ## 10. Kafka topics
 
-Created by `kafka/create-topics.sh`, which is idempotent — existing topics get their config
+Created by `kafka/create-topics.sh`, which is idempotent - existing topics get their config
 re-applied rather than recreated, so editing retention there and re-running is the supported
 way to change it.
 
@@ -336,7 +336,7 @@ way to change it.
 
 **Why only one compacted topic.** Compaction keeps the newest record per key and discards the
 rest. The key here is `merchantId:aggregateId` (contract §4), so compacting an event-sourced
-topic would silently delete the history that replay and audit depend on — the demo's
+topic would silently delete the history that replay and audit depend on - the demo's
 "throw the database away and rebuild it" beat would stop working. `pdei.readiness.events.v1`
 is the exception because a readiness event is a *snapshot* of a transaction's score, not an
 increment: the newest record per key genuinely is sufficient to rebuild current readiness,
@@ -376,12 +376,12 @@ docker compose --profile core run --rm kafka-init
 ```
 
 Two metric paths exist on purpose. Direct scraping of `/actuator/prometheus` is the primary
-one — it keeps working when the `obs` profile's collector is down. The OTLP path carries
+one - it keeps working when the `obs` profile's collector is down. The OTLP path carries
 anything a service pushes rather than exposes, plus Tempo's generated span metrics.
 
 **Label discipline in Loki.** `merchantId`, `level` and `eventType` are stream labels
 (bounded cardinality). `traceId`, `spanId`, `correlationId` and `eventId` are *structured
-metadata*, not labels — one value per request would explode the index. Query them with a
+metadata*, not labels - one value per request would explode the index. Query them with a
 line filter or follow the Tempo link, which is wired up in `datasources.yml`.
 
 Datasource UIDs are pinned (`pdei-prometheus`, `pdei-loki`, `pdei-tempo`) because the
@@ -410,7 +410,7 @@ the `_bucket` series implied by the histograms.
 | To | What |
 |---|---|
 | every service | The environment of contract §15, on network `pdei-net`, with hostnames equal to compose service names. |
-| every service | Eight pre-created Kafka topics — services must not create their own. |
+| every service | Eight pre-created Kafka topics - services must not create their own. |
 | `platform-persistence` | A `pdei` database with schema `pdei`, roles `pdei_app`/`pdei_readonly`, and `pg_trgm` / `pgcrypto` / `btree_gin` installed, ready for Flyway. |
 | `evidence-core` (`MinioObjectStore`) | Buckets `pdei-evidence` and `pdei-packages` with versioning ON. |
 | `case-orchestrator-service` | A Temporal cluster with namespace `pdei` registered, 72 h retention. |
@@ -427,7 +427,7 @@ repository. The `app` profile needs source trees to exist:
 * `frontend/package.json` must exist for the frontend image to build.
 
 Until a module lands, build that service's image and it fails; everything else still runs.
-CI is structured the same way — the `detect` job skips jobs whose tree is absent.
+CI is structured the same way - the `detect` job skips jobs whose tree is absent.
 
 ---
 
@@ -474,19 +474,19 @@ cp infra/docker-compose.override.yml.example infra/docker-compose.override.yml
 |---|---|
 | Add a service | Add a compose entry copying an existing Spring block (anchors `*spring-service`, `*pdei-env`, `*infra-deps`), add its scrape target to `prometheus.yml`, add a row to `smoke-test.sh`/`.ps1`. |
 | Give a module a bespoke image | Add `backend/<module>/Dockerfile` and point that service's `dockerfile:` key at it. The shared one stays for the other eight. |
-| Add a Kafka topic | Add an `ensure_topic` line in `create-topics.sh` — **and** to contract §4 and `Topics.java` first, in that order. |
+| Add a Kafka topic | Add an `ensure_topic` line in `create-topics.sh` - **and** to contract §4 and `Topics.java` first, in that order. |
 | Change retention | Edit the config list in `create-topics.sh` and re-run `kafka-init`; it alters existing topics in place. |
 | Add a dashboard | Drop the JSON in `grafana/dashboards/`; the file provider picks it up within 30 s. Use datasource uid `pdei-prometheus`. |
 | Add an alert | Append to `prometheus/rules/pdei-alerts.yml`; Prometheus hot-reloads with `curl -XPOST localhost:9090/-/reload`. |
 | Add a datasource | Add to `datasources.yml` with a new pinned uid. Never reuse an existing uid. |
-| Send traces elsewhere | Add an exporter in `otel-collector-config.yaml` and reference it in the `traces` pipeline. Services stay unchanged — that is the point of the collector. |
+| Send traces elsewhere | Add an exporter in `otel-collector-config.yaml` and reference it in the `traces` pipeline. Services stay unchanged - that is the point of the collector. |
 | Run against real Gemini | Set `PDEI_AI_PROVIDER=gemini` and `GEMINI_API_KEY` in `infra/.env`, then `docker compose up -d ai-reasoning-service`. |
 | Bind a different host port | Set the matching `PDEI_*_HOST_PORT` in `infra/.env`. Never edit the container side. |
 | Add an exporter | New service in the `obs` profile plus a scrape job. Keep it in `obs` so `core` stays lean. |
 
 ---
 
-## 17. Troubleshooting — the failures that actually happen
+## 17. Troubleshooting - the failures that actually happen
 
 ### "port is already allocated"
 
@@ -501,7 +501,7 @@ lsof -i :5432
 ```
 
 Fix without touching the compose file: set the matching `PDEI_*_HOST_PORT` in `infra/.env`.
-Application ports (8080–8088, 8000, 3000) are fixed by contract §2 and are not remappable —
+Application ports (8080–8088, 8000, 3000) are fixed by contract §2 and are not remappable -
 stop the other process instead.
 
 ### Kafka will not start / `InconsistentClusterIdException`
@@ -547,7 +547,7 @@ production database this casually.
 ### Temporal never becomes healthy
 
 `auto-setup` creates the `temporal` and `temporal_visibility` databases on first boot and
-needs Postgres to be genuinely ready — not merely accepting TCP. It retries, so give it
+needs Postgres to be genuinely ready - not merely accepting TCP. It retries, so give it
 40–60 s. If it is still failing:
 
 ```bash
@@ -568,7 +568,7 @@ docker compose exec temporal-admin-tools \
 
 ### A host-run service cannot reach Kafka
 
-You almost certainly used `kafka:9092`. From the host it is **`localhost:29092`** — see §9.2.
+You almost certainly used `kafka:9092`. From the host it is **`localhost:29092`** - see §9.2.
 The bootstrap connection succeeds and then every produce fails, which is what makes this one
 confusing.
 
@@ -581,15 +581,15 @@ it in `.env`, rebuild:
 docker compose --profile app build frontend && docker compose --profile app up -d frontend
 ```
 
-For a demo with no backend, set `NEXT_PUBLIC_USE_MOCKS=true` — and say out loud that it is
+For a demo with no backend, set `NEXT_PUBLIC_USE_MOCKS=true` - and say out loud that it is
 fixture data.
 
 ### Grafana shows "No data" on every panel
 
 In order of likelihood: (1) the `app` profile is not running, so there is nothing to scrape;
-(2) nothing has been seeded — run `./scripts/seed-demo.sh`; (3) check
+(2) nothing has been seeded - run `./scripts/seed-demo.sh`; (3) check
 http://localhost:9090/targets for red rows; (4) a service is not exposing
-`/actuator/prometheus` — contract §2 requires `health,info,prometheus,metrics,loggers`.
+`/actuator/prometheus` - contract §2 requires `health,info,prometheus,metrics,loggers`.
 
 ### Grafana dashboards vanished after an edit
 
@@ -654,19 +654,19 @@ Twelve minutes, deterministic, back to a known world.
    own. Revisit once the frontend exists.
 5. **No OpenTelemetry Java agent.** Services are expected to instrument themselves with
    Micrometer Tracing + the OTLP exporter. Attaching `opentelemetry-javaagent.jar` in the
-   Dockerfile would give auto-instrumentation for free — deliberately deferred to avoid a
+   Dockerfile would give auto-instrumentation for free - deliberately deferred to avoid a
    build-time download and a second source of truth for span naming.
 6. **Two dashboard metrics are not in contract §13.** The readiness panels read
    `pdei_readiness_gaps_open{merchant,type,severity}`. §13 lists the required minimum, not an
    exhaustive set, but if `readiness-worker` does not expose that gauge those panels stay
    empty (everything else on the dashboard uses contract-listed names). Either add the gauge
-   in the worker or add the metric to §13 — the dashboards should not be the only place it is
+   in the worker or add the metric to §13 - the dashboards should not be the only place it is
    written down.
 7. **Temporal task-queue backlog panel depends on Temporal's own metric names.**
    `service_latency_bucket` comes from the Temporal server's Prometheus listener on `:8000`;
    if that listener is not enabled in a future image version, that one panel goes blank.
 8. **No Alertmanager.** The seven rules in `prometheus/rules/pdei-alerts.yml` fire into
-   Prometheus and Grafana only. Nothing pages anyone, by design — this is a laptop.
+   Prometheus and Grafana only. Nothing pages anyone, by design - this is a laptop.
 9. **Single-broker Kafka, replication factor 1.** Correct for local; every topic would need
    `--replication-factor 3` and `min.insync.replicas=2` anywhere real.
 10. **`minio/minio:latest` and `minio/mc:latest` are unpinned.** MinIO's release tags are

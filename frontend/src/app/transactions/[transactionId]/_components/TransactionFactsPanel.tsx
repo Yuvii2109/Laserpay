@@ -12,7 +12,7 @@ export interface TransactionFactsPanelProps {
 /**
  * The entity graph behind a transaction, as plain facts.
  *
- * These are the rows `state-builder-worker` projected out of the canonical event stream —
+ * These are the rows `state-builder-worker` projected out of the canonical event stream -
  * payments, orders, shipments, deliveries, refunds, communications. They are what evidence is
  * checked *against*, so they sit one disclosure away from the header rather than inside a tab.
  */
@@ -30,7 +30,7 @@ export function TransactionFactsPanel({ facts }: TransactionFactsPanelProps) {
             {humanizeEnum(payment.status)} · <MoneyDisplay money={payment.amount} /> ·{' '}
             {payment.processorReference ?? 'no processor ref'}
             {payment.avsResult || payment.cvvResult ? (
-              <> · AVS {payment.avsResult ?? '—'} / CVV {payment.cvvResult ?? '—'}</>
+              <> · AVS {payment.avsResult ?? '-'} / CVV {payment.cvvResult ?? '-'}</>
             ) : null}
             {payment.capturedAt ? (
               <>

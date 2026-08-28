@@ -93,7 +93,7 @@ function splitMinor(amountMinor: number, exponent: number) {
  * `{ amountMinor: 1299900, currency: 'KWD' }` -> `KWD 1,299.900` (exponent 3)
  */
 export function formatMoney(money: Money | null | undefined, options: MoneyFormatOptions = {}): string {
-  if (!money) return '—';
+  if (!money) return '-';
   const { locale = DEFAULT_LOCALE, display = 'symbol', compact = false, signed = false } = options;
   const currency = (money.currency ?? '').toUpperCase();
   const exponent = currencyExponent(currency);
@@ -196,13 +196,13 @@ export function parseMoneyInput(input: string, currency: string): Money | null {
 
 /** Basis points -> percent string, e.g. 7100 -> `71.0%`. Used for merchant win rates. */
 export function formatBps(bps: number | null | undefined, fractionDigits = 1): string {
-  if (bps === null || bps === undefined) return '—';
+  if (bps === null || bps === undefined) return '-';
   // eslint-disable-next-line no-restricted-syntax -- basis points, not money: 7100 bps = 71.0%
   return `${(bps / 100).toFixed(fractionDigits)}%`;
 }
 
 /** Ratio in [0,1] -> percent string, e.g. 0.71 -> `71%`. */
 export function formatRatio(ratio: number | null | undefined, fractionDigits = 0): string {
-  if (ratio === null || ratio === undefined || !Number.isFinite(ratio)) return '—';
+  if (ratio === null || ratio === undefined || !Number.isFinite(ratio)) return '-';
   return `${(ratio * 100).toFixed(fractionDigits)}%`;
 }

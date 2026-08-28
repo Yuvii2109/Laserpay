@@ -11,7 +11,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 /**
- * Customer communication ({@code COM-} ids) — becomes CUSTOMER_COMMUNICATION evidence.
+ * Customer communication ({@code COM-} ids) - becomes CUSTOMER_COMMUNICATION evidence.
  *
  * <p>The raw artifact (.eml, chat transcript) lives in MinIO under {@code objectKey}; the body
  * kept here is the searchable projection. V10 adds a maintained {@code search_vector} column,

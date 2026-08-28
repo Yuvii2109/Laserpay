@@ -128,7 +128,7 @@ export function SimulationConsole({ initialRunId }: { initialRunId: string | nul
             {row.failureProfile}
           </Badge>
         ) : (
-          <span className="text-2xs text-muted-foreground">—</span>
+          <span className="text-2xs text-muted-foreground">-</span>
         ),
       sortValue: (row) => row.failureProfile ?? '',
     },

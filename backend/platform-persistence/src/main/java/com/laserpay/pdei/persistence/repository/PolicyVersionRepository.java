@@ -19,7 +19,7 @@ public interface PolicyVersionRepository extends JpaRepository<PolicyVersionEnti
 
     Optional<PolicyVersionEntity> findTopByPolicyIdOrderByVersionNumberDesc(String policyId);
 
-    /** The version that was in force at a past instant — replays an old decision faithfully. */
+    /** The version that was in force at a past instant - replays an old decision faithfully. */
     @Query("""
             SELECT v FROM PolicyVersionEntity v
             WHERE v.policyId = :policyId

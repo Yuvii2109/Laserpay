@@ -8,7 +8,7 @@
 import { formatDistanceToNowStrict, formatDistanceStrict, differenceInMilliseconds } from 'date-fns';
 import type { Iso8601 } from '@/lib/types/common';
 
-export const EM_DASH = '—';
+export const EM_DASH = '-';
 
 function toDate(value: Iso8601 | Date | null | undefined): Date | null {
   if (!value) return null;

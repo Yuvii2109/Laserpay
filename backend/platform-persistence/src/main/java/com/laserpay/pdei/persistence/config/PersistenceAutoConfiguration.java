@@ -28,7 +28,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
  * <p>Ordering: it must be processed before Hibernate and Spring Data JPA autoconfiguration, so
  * the entity packages are known when the {@code EntityManagerFactory} is built.
  *
- * <p>Scanning is anchored at {@link PdeiSchema#BASE_PACKAGE} on purpose — see the constant's
+ * <p>Scanning is anchored at {@link PdeiSchema#BASE_PACKAGE} on purpose - see the constant's
  * javadoc: declaring {@code @EnableJpaRepositories} here disables Spring Boot's own repository
  * scan, so this one has to cover service-local repositories too.
  *

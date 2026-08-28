@@ -1,4 +1,4 @@
-# `backend/audit-service` — Immutable Audit Trail
+# `backend/audit-service` - Immutable Audit Trail
 
 > Module context. Normative sources, in precedence order:
 > `docs/PLATFORM-CONTRACT.md` → `docs/SHARED-LIBRARY-API.md` → `planner/pre-dispute-evidence-intelligence-reference.md`.
@@ -29,7 +29,7 @@ ultimately turns on: **has this history been altered?**
 Three guarantees define it:
 
 1. **Append-only.** No update path, no delete path, at any layer. `V8__audit.sql` additionally
-   installs `trg_audit_events_immutable`, which rejects UPDATE and DELETE at the database — so a
+   installs `trg_audit_events_immutable`, which rejects UPDATE and DELETE at the database - so a
    stray `psql` session cannot rewrite history either.
 2. **Chained.** Each row stores the hash of its predecessor and its own hash covers that link, so
    altering any historical row invalidates every hash after it. **One chain per merchant**: a
@@ -42,14 +42,14 @@ Nothing here is probabilistic and nothing here calls a model (non-negotiable rul
 
 ## 2. Responsibilities
 
-1. Consume `pdei.audit.events.v1` — explicit audit reports, with producer-supplied
+1. Consume `pdei.audit.events.v1` - explicit audit reports, with producer-supplied
    `before`/`after` state.
-2. Consume every domain topic — canonical, evidence, readiness, dispute, case — and derive an audit
+2. Consume every domain topic - canonical, evidence, readiness, dispute, case - and derive an audit
    entry from each fact, so the trail is complete rather than merely diligent.
 3. Append hash-chained rows to `pdei.audit_events`, idempotently, one chain per merchant.
 4. Verify chains on demand and report the first divergence precisely.
 5. Serve the read API of PLATFORM-CONTRACT §8.4, including a streamed NDJSON export.
-6. Evaluate retention on a schedule — and, by default, delete nothing.
+6. Evaluate retention on a schedule - and, by default, delete nothing.
 
 ## 3. File map
 
@@ -121,12 +121,12 @@ content. A trail with only one of them answers a different question than the one
 
 Idempotency is defended twice:
 
-1. `IdempotencyGuard` — Redis `SETNX pdei:idem:{eventId}` (TTL 7d) in front of
+1. `IdempotencyGuard` - Redis `SETNX pdei:idem:{eventId}` (TTL 7d) in front of
    `ProcessedEventRepository.markProcessed(eventId, "pdei-audit-service")`;
-2. `AuditChainAppender` — `store.exists(auditId)` plus `ON CONFLICT (audit_id) DO NOTHING`.
+2. `AuditChainAppender` - `store.exists(auditId)` plus `ON CONFLICT (audit_id) DO NOTHING`.
 
 The second layer is not redundant. A derived audit id is a pure function of the event id, so it is
-stable across a full topic replay months later — long after `processed_events` may have been pruned.
+stable across a full topic replay months later - long after `processed_events` may have been pruned.
 
 ### 4.2 Tables read/written
 
@@ -154,12 +154,12 @@ GET /audit/v1/chain/verify  ?merchantId&maxChains
 GET /audit/v1/export        ?entityType&entityId&merchantId&actor&action&from&to&limit
 ```
 
-- `/events` — newest first, paged, `total` included. Default page size 50, max 500.
-- `/chain/verify` — one chain, or every chain when `merchantId` is omitted. **Always returns 200**,
+- `/events` - newest first, paged, `total` included. Default page size 50, max 500.
+- `/chain/verify` - one chain, or every chain when `merchantId` is omitted. **Always returns 200**,
   even for a broken chain: a broken chain is a successful answer to the question that was asked, and
   a 500 would make monitoring report an outage of the audit service instead of the far more serious
   fact it just found.
-- `/export` — `application/x-ndjson`, one entry per line, streamed with `StreamingResponseBody` over
+- `/export` - `application/x-ndjson`, one entry per line, streamed with `StreamingResponseBody` over
   keyset batches. Peak memory is one batch whether the client asked for ten entries or a million.
   NDJSON rather than a JSON array so a client can process line by line, stop early, and still have
   whole valid records if the transfer is cut.
@@ -213,7 +213,7 @@ throughput, because a merchant's chain is inherently serial. Scale with replicas
 
 **Re-sealing changes a hash a producer published.** That is intended. The stored chain is
 authoritative; a producer's hash is a self-integrity seal on its own report, not a claim about this
-chain's shape. The `auditId` — the identity of the fact — never changes.
+chain's shape. The `auditId` - the identity of the fact - never changes.
 
 ### 6.1 Two representations of "genesis"
 
@@ -230,8 +230,8 @@ Two independent checks per entry, walked in `sequence_no` order and stopped at t
 
 | Check | Failure means |
 |---|---|
-| `previousHash` equals the hash of the preceding entry | `BROKEN_LINK` — a row was deleted, inserted, or the chain forked |
-| recomputed content hash equals the stored `hash` | `TAMPERED_CONTENT` — a stored row was edited |
+| `previousHash` equals the hash of the preceding entry | `BROKEN_LINK` - a row was deleted, inserted, or the chain forked |
+| recomputed content hash equals the stored `hash` | `TAMPERED_CONTENT` - a stored row was edited |
 
 Both are needed: content alone misses a deletion (every surviving row still hashes correctly), link
 alone misses an edit.
@@ -248,7 +248,7 @@ alone misses an edit.
 | `PDEI_REDIS_URL` | `redis://redis:6379` | idempotency, chain lock |
 | `PDEI_AUDIT_RETENTION_CRON` | `0 45 3 * * *` | retention evaluation schedule |
 | `PDEI_FLYWAY_ENABLED` | `true` | set false when another service migrates |
-| `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME` | — | tracing |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME` | - | tracing |
 
 ### 7.2 `pdei.audit.*` (this module)
 
@@ -282,8 +282,8 @@ alone misses an edit.
 Depends on **no service module**. Every inbound path is Kafka; every outbound path is HTTP responses
 plus the DLQ.
 
-`AuditServiceConfig` registers `JdbcAuditEventStore` as the `AuditEventStore`, which — because that
-interface extends `AuditRepositoryPort` — also takes over that role and makes
+`AuditServiceConfig` registers `JdbcAuditEventStore` as the `AuditEventStore`, which - because that
+interface extends `AuditRepositoryPort` - also takes over that role and makes
 `CorePersistenceAutoConfiguration` back off. That is the intended arrangement: the service that owns
 the table owns the code that writes it.
 
@@ -313,7 +313,7 @@ curl -s 'localhost:8087/audit/v1/chain/verify?merchantId=MER-0001' | jq .
 curl -s 'localhost:8087/audit/v1/export?merchantId=MER-0001&limit=100' | head -3
 ```
 
-Prove the chain works end to end — this is the demo worth showing:
+Prove the chain works end to end - this is the demo worth showing:
 
 ```bash
 # 1. verify: intact
@@ -324,17 +324,17 @@ curl -s 'localhost:8087/audit/v1/chain/verify?merchantId=MER-0001' | jq .intact
 
 ## 10. Extension points
 
-- **New audit source** — publish an `AuditEvent` to `pdei.audit.events.v1` using
+- **New audit source** - publish an `AuditEvent` to `pdei.audit.events.v1` using
   `evidence-core`'s `AuditRecorder`, or simply publish a canonical event and let
   `CanonicalAuditMapper` derive the entry.
-- **Richer derived entries** — `CanonicalAuditMapper.afterState` decides what an auditor sees for a
+- **Richer derived entries** - `CanonicalAuditMapper.afterState` decides what an auditor sees for a
   derived record. Adding a field there changes future hashes only; existing entries keep verifying.
-- **Alternative storage** — implement `AuditEventStore`. `ChainVerifier`, `AuditChainAppender`,
+- **Alternative storage** - implement `AuditEventStore`. `ChainVerifier`, `AuditChainAppender`,
   `AuditController` and `RetentionPolicy` depend only on the interface, which is how the whole chain
   is unit-tested without a database.
-- **Signed checkpoints / archival** — see the design sketched on `RetentionPolicy`; the NDJSON export
+- **Signed checkpoints / archival** - see the design sketched on `RetentionPolicy`; the NDJSON export
   already emits exactly the artifact a checkpoint would archive.
-- **A scheduled verification sweep** — `ChainVerifier.verifyAll` exists and is what such a job would
+- **A scheduled verification sweep** - `ChainVerifier.verifyAll` exists and is what such a job would
   call; nothing schedules it yet (see gaps).
 
 ## 11. Known gaps and TODOs
@@ -347,7 +347,7 @@ curl -s 'localhost:8087/audit/v1/chain/verify?merchantId=MER-0001' | jq .intact
 2. **`AuditRecorder.GENESIS` is the literal string `"GENESIS"`**, while `AuditEvent` and
    `Hashes.GENESIS_HASH` use sixty-four zeros. Entries sealed by `AuditRecorder` therefore hash over
    a different genesis marker than entries sealed here. This service re-seals such entries on
-   arrival, so the stored chain is consistent — but the two constants should be reconciled in
+   arrival, so the stored chain is consistent - but the two constants should be reconciled in
    `evidence-core`, and until they are, a producer's genesis-linked hash will never be preserved.
 3. **No scheduled chain verification.** Verification happens only when someone calls the endpoint.
    A nightly job calling `ChainVerifier.verifyAll` and alerting on
@@ -358,7 +358,7 @@ curl -s 'localhost:8087/audit/v1/chain/verify?merchantId=MER-0001' | jq .intact
    checkpoint-and-archive design documented on that class, which is a schema change.
 5. **No integration test against Postgres or Kafka.** The chain logic is covered thoroughly against
    an in-memory store that enforces V8's unique link index, but `JdbcAuditEventStore`'s SQL is
-   currently verified by reading, not by running — it is the one thing that would catch gap 1
+   currently verified by reading, not by running - it is the one thing that would catch gap 1
    automatically. A Testcontainers test in the style of `platform-persistence`'s
    `AbstractPostgresIntegrationTest` is the next step.
 6. **The export has no authentication.** Neither does any other service in this stack yet; the

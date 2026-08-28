@@ -179,7 +179,7 @@ export function ReadinessBreakdown({ snapshot, className }: ReadinessBreakdownPr
               </div>
               <div className="flex justify-between gap-3">
                 <dt>Policy version</dt>
-                <dd className="mono-id text-foreground">{snapshot.policyVersionId ?? '—'}</dd>
+                <dd className="mono-id text-foreground">{snapshot.policyVersionId ?? '-'}</dd>
               </div>
               <div className="flex justify-between gap-3">
                 <dt>Snapshot</dt>
@@ -258,7 +258,7 @@ export function ReadinessBreakdown({ snapshot, className }: ReadinessBreakdownPr
                 <AlertDescription>
                   This view attributed {itemisedTotal} penalty points to individual gaps, but the
                   engine recorded {Math.round(snapshot.penaltyPoints)}. The engine is
-                  authoritative — the difference means a penalty was applied for something not
+                  authoritative - the difference means a penalty was applied for something not
                   present in this snapshot&apos;s gap list.
                 </AlertDescription>
               </Alert>
@@ -322,7 +322,7 @@ export function ReadinessBreakdown({ snapshot, className }: ReadinessBreakdownPr
                   </td>
                   <td className="px-5 py-2">
                     {requirement.satisfyingEvidenceIds.length === 0 ? (
-                      <span className="text-xs text-muted-foreground">—</span>
+                      <span className="text-xs text-muted-foreground">-</span>
                     ) : (
                       <span className="flex flex-wrap gap-x-2 gap-y-1">
                         {requirement.satisfyingEvidenceIds.map((evidenceId) => (

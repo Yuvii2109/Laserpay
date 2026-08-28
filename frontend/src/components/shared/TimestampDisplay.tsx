@@ -35,7 +35,7 @@ export function TimestampDisplay({
 
   useEffect(() => setMounted(true), []);
 
-  if (!value) return <span className={cn('text-muted-foreground', className)}>—</span>;
+  if (!value) return <span className={cn('text-muted-foreground', className)}>-</span>;
 
   const absolute = formatInstant(value, timeZoneMode);
   const showRelative = mounted && mode !== 'absolute';

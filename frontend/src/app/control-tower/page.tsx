@@ -34,7 +34,7 @@ import { OpenDisputeQueue } from './_components/OpenDisputeQueue';
 import { ExpiringEvidencePanel } from './_components/ExpiringEvidencePanel';
 
 /**
- * `/control-tower` — the Merchant Control Tower (contract 14).
+ * `/control-tower` - the Merchant Control Tower (contract 14).
  *
  * One question above the fold: *is this merchant's evidence ready, and what is blocking it?*
  * Every figure comes from `GET /merchants/{id}/summary`, which is counts only - the gateway
@@ -42,7 +42,7 @@ import { ExpiringEvidencePanel } from './_components/ExpiringEvidencePanel';
  * (contract 5 money rule).
  * Everything on the page is merchant-scoped through `uiStore.selectedMerchantId` and every
  * panel is fed by a TanStack Query key that `useInvalidateOnWsEvent` already invalidates when
- * a control-tower frame arrives — so the page is live without any panel subscribing to the
+ * a control-tower frame arrives - so the page is live without any panel subscribing to the
  * socket itself. The only component that reads the socket directly is the ticker, and it reads
  * the tail for display, never for state.
  */
@@ -144,7 +144,7 @@ export default function ControlTowerPage() {
           <StatTile
             label="At-risk transactions"
             icon={AlertOctagon}
-            value={summary?.atRiskTransactions ?? '—'}
+            value={summary?.atRiskTransactions ?? '-'}
             hint={
               summary
                 ? `In the AT_RISK or NOT_READY band, of ${summary.transactions} scored`
@@ -157,7 +157,7 @@ export default function ControlTowerPage() {
           <StatTile
             label="Open disputes"
             icon={ShieldAlert}
-            value={summary?.openDisputes ?? '—'}
+            value={summary?.openDisputes ?? '-'}
             hint={
               summary
                 ? `${summary.blockingGaps} blocking gap${summary.blockingGaps === 1 ? '' : 's'} (HIGH or CRITICAL) unresolved`
@@ -169,7 +169,7 @@ export default function ControlTowerPage() {
           <StatTile
             label="Cases awaiting review"
             icon={ListChecks}
-            value={summary?.casesRequiringReview ?? '—'}
+            value={summary?.casesRequiringReview ?? '-'}
             hint={
               summary
                 ? `Of ${totalCases} case${totalCases === 1 ? '' : 's'} on this merchant. Parked on the humanDecision signal (contract 10, 8).`
@@ -182,7 +182,7 @@ export default function ControlTowerPage() {
           <StatTile
             label="Evidence expiring"
             icon={FileClock}
-            value={summary?.expiringEvidence ?? '—'}
+            value={summary?.expiringEvidence ?? '-'}
             hint={
               summary
                 ? `Of ${totalEvidence} artifact${totalEvidence === 1 ? '' : 's'}. Inside the policy expiring-soon horizon; contract 7 penalises the last 7 days.`

@@ -15,7 +15,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Unresolved gaps are the at-risk feed ({@code GET /gaps?merchantId&type&severity}) — the
+ * Unresolved gaps are the at-risk feed ({@code GET /gaps?merchantId&type&severity}) - the
  * pre-dispute surface of the whole product.
  */
 @Repository

@@ -24,7 +24,7 @@ export interface EvidenceCardProps {
 
 /** Byte sizes are counts, not money: plain decimal units, no currency machinery. */
 export function formatBytes(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes < 0) return '—';
+  if (!Number.isFinite(bytes) || bytes < 0) return '-';
   if (bytes < 1024) return `${bytes} B`;
   const units = ['KB', 'MB', 'GB'];
   let value = bytes / 1024;

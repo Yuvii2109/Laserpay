@@ -1,4 +1,4 @@
-# `backend/readiness-worker` — Evidence Readiness Worker
+# `backend/readiness-worker` - Evidence Readiness Worker
 
 > Module context. Normative sources, in precedence order:
 > `docs/PLATFORM-CONTRACT.md` → `docs/SHARED-LIBRARY-API.md` → `planner/pre-dispute-evidence-intelligence-reference.md`.
@@ -23,7 +23,7 @@ This service is the thing that keeps it current.
 
 It answers, at any instant, for any transaction: what evidence is present, what is missing, what has
 expired, what is contradictory, and what would prevent an automated representment (reference §13).
-It does so **deterministically** — the same inputs always produce the same score — by delegating the
+It does so **deterministically** - the same inputs always produce the same score - by delegating the
 arithmetic to `evidence-core`'s `ReadinessEngine` (PLATFORM-CONTRACT §7) and owning only the
 *process* around it: when to recompute, how to avoid recomputing twenty times for one burst, where
 to persist, what to publish.
@@ -39,7 +39,7 @@ Two rules shape everything here:
 ## 2. Responsibilities
 
 1. **Consume** `pdei.evidence.events.v1` and `pdei.canonical.events.v1`, idempotently.
-2. **Debounce** recomputation per transaction — in-process (`RecomputeDebouncer`) and across
+2. **Debounce** recomputation per transaction - in-process (`RecomputeDebouncer`) and across
    replicas (`pdei:lock:readiness:{transactionId}`), so an event burst causes one computation.
 3. **Compute** through `ReadinessEngine.compute(transactionId, reasonCode?)`.
 4. **Persist** a `readiness_snapshots` row plus its `readiness_gaps` rows, in one transaction,
@@ -121,7 +121,7 @@ Idempotency: Redis `SETNX pdei:idem:{eventId}` (TTL 7d) in front of
 a Redis hit is re-checked against Postgres so a crash between the two cannot silently drop an event.
 
 Acknowledgement is `MANUAL_IMMEDIATE`, after the claim. Failures are retried three times, then
-dead-lettered to `pdei.dlq.v1` and acknowledged — a poison record must not stall a partition, because
+dead-lettered to `pdei.dlq.v1` and acknowledged - a poison record must not stall a partition, because
 partitions are keyed `merchantId + ":" + aggregateId` and would freeze one merchant entirely.
 
 ### 4.2 Tables read
@@ -222,7 +222,7 @@ at all* when a cache is down would be far worse than degrading to duplicated wor
 | `PDEI_REDIS_URL` | `redis://redis:6379` | idempotency, cache, lock |
 | `PDEI_READINESS_SWEEP_CRON` | `0 15 2 * * *` | expiry sweep schedule |
 | `PDEI_FLYWAY_ENABLED` | `true` | set false when another service migrates |
-| `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME` | — | tracing |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME` | - | tracing |
 
 ### 7.2 `pdei.readiness.*` (this module)
 
@@ -292,19 +292,19 @@ curl -s localhost:8084/actuator/prometheus | grep pdei_readiness
 
 ## 10. Extension points
 
-- **New recomputation trigger** — add a member to `RecomputeTrigger` **and** to
+- **New recomputation trigger** - add a member to `RecomputeTrigger` **and** to
   `ck_readiness_snapshots_trigger` in `V6__readiness.sql`. The enum's `precedence()` decides which
   trigger survives a merged burst. `EventRelevanceTest` asserts the two stay in step.
-- **Manual recompute endpoint** — `POST /transactions/{id}/readiness/recompute` lives on
+- **Manual recompute endpoint** - `POST /transactions/{id}/readiness/recompute` lives on
   api-gateway-service (§8.1). It can either write to Kafka or, if a direct path is ever wanted, call
   `ReadinessRecomputeService.recompute` with `RecomputeTrigger.MANUAL_RECOMPUTE`.
-- **Policy version changes** — `RecomputeTrigger.POLICY_VERSION_CHANGE` exists and outranks evidence
+- **Policy version changes** - `RecomputeTrigger.POLICY_VERSION_CHANGE` exists and outranks evidence
   events, but nothing raises it yet (see gaps).
-- **Different expiry rules** — implement `EvidenceExpiryStore`; `ExpirySweepJob` depends only on the
+- **Different expiry rules** - implement `EvidenceExpiryStore`; `ExpirySweepJob` depends only on the
   interface.
-- **Serving the at-risk feed from this worker** — `AtRiskScanner.feed()` / `feedFor(merchantId)` are
+- **Serving the at-risk feed from this worker** - `AtRiskScanner.feed()` / `feedFor(merchantId)` are
   already the shape `GET /api/v1/gaps` needs.
-- **Alternative scoring** — do not fork the formula. `ReadinessEngine.score(ReadinessInput)` is a pure
+- **Alternative scoring** - do not fork the formula. `ReadinessEngine.score(ReadinessInput)` is a pure
   static function and is the single definition of PLATFORM-CONTRACT §7.
 
 ## 11. Known gaps and TODOs
@@ -339,7 +339,7 @@ curl -s localhost:8084/actuator/prometheus | grep pdei_readiness
 7. **No integration test against Postgres or Kafka.** The unit tests cover the two behaviours that
    carry real risk (debounce collapsing, expiry transitions), but `ReadinessStore` SQL is currently
    verified by reading, not by running. A Testcontainers test in the style of
-   `platform-persistence`'s `AbstractPostgresIntegrationTest` is the obvious next step — it is also
+   `platform-persistence`'s `AbstractPostgresIntegrationTest` is the obvious next step - it is also
    the only thing that would have caught gap 1.
 8. **Kafka consumer lag** (`pdei_kafka_consumer_lag{group,topic}`) is not published by this module;
    it is expected from the broker-side exporter or a Micrometer Kafka binder that has not been wired.

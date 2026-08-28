@@ -18,7 +18,7 @@ import type { ChaosInjection } from '@/lib/types/simulation';
 /** Summarises `ChaosRequest.target` into one line without hiding what it contained. */
 function targetSummary(target: Record<string, unknown>): string {
   const entries = Object.entries(target ?? {});
-  if (entries.length === 0) return '—';
+  if (entries.length === 0) return '-';
   return entries.map(([key, value]) => `${key}=${String(value)}`).join(' · ');
 }
 
@@ -69,7 +69,7 @@ export function InjectionHistory() {
       hideBelowSm: true,
       cell: (row) => (
         <span className="tabular text-xs">
-          {row.delayMs === null ? '—' : formatLatency(row.delayMs)}
+          {row.delayMs === null ? '-' : formatLatency(row.delayMs)}
         </span>
       ),
       sortValue: (row) => row.delayMs ?? 0,
@@ -79,7 +79,7 @@ export function InjectionHistory() {
       header: 'Count',
       align: 'right',
       hideBelowSm: true,
-      cell: (row) => <span className="tabular text-xs">{row.eventCount ?? '—'}</span>,
+      cell: (row) => <span className="tabular text-xs">{row.eventCount ?? '-'}</span>,
       sortValue: (row) => row.eventCount ?? 0,
     },
     {
@@ -97,7 +97,7 @@ export function InjectionHistory() {
       id: 'actor',
       header: 'Actor',
       hideBelowSm: true,
-      cell: (row) => <span className="text-2xs text-muted-foreground">{row.actor ?? '—'}</span>,
+      cell: (row) => <span className="text-2xs text-muted-foreground">{row.actor ?? '-'}</span>,
     },
     {
       id: 'details',

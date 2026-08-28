@@ -7,7 +7,7 @@ import { config } from '@/lib/config';
 
 export const metadata: Metadata = {
   title: {
-    default: `${config.appName} — ${config.appLongName}`,
+    default: `${config.appName} - ${config.appLongName}`,
     template: `%s · ${config.appName}`,
   },
   description:

@@ -11,7 +11,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 /**
- * Delivery attempt / outcome ({@code DLV-} ids) — the source of DELIVERY_PROOF evidence and
+ * Delivery attempt / outcome ({@code DLV-} ids) - the source of DELIVERY_PROOF evidence and
  * the single most decisive artifact for GOODS_NOT_RECEIVED disputes.
  *
  * <p>Coordinates are integer micro-degrees ({@code 12.9716 -> 12971600}): the schema contains

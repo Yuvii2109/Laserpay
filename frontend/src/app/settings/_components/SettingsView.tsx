@@ -179,7 +179,7 @@ export function SettingsView() {
                 <span className="mono-id text-xs">{merchant.defaultCurrency}</span>
               </Field>
               <Field label="Contact">
-                {merchant.contactEmail ?? <span className="text-muted-foreground">—</span>}
+                {merchant.contactEmail ?? <span className="text-muted-foreground">-</span>}
               </Field>
               <Field label="Baseline win rate">
                 <span className="tabular">{formatBps(merchant.baselineWinRateBps)}</span>
@@ -230,7 +230,7 @@ export function SettingsView() {
           />
           <EndpointRow
             label="SSE base (not wired)"
-            envVar="—"
+            envVar="-"
             value={streamUrl('/events')}
             note="Contract 8.1 also defines SSE tails; only the WebSocket is implemented today."
           />
@@ -300,7 +300,7 @@ export function SettingsView() {
             }}
             role="status"
           >
-            {config.useMocks ? 'ON — serving deterministic fixtures' : 'OFF — talking to the platform'}
+            {config.useMocks ? 'ON - serving deterministic fixtures' : 'OFF - talking to the platform'}
           </span>
           <span className="mono-id text-2xs text-muted-foreground">
             NEXT_PUBLIC_USE_MOCKS={String(config.useMocks)}

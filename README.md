@@ -1,11 +1,11 @@
-# PDEI — Pre-Dispute Evidence Intelligence
+# PDEI - Pre-Dispute Evidence Intelligence
 
 > **Don't wait for a dispute to start building the defence.**
 
 A payment completes in seconds. The chargeback that attacks it may arrive ninety days later.
-In that interval the evidence needed to defend the payment — the invoice, the carrier's
+In that interval the evidence needed to defend the payment - the invoice, the carrier's
 delivery scan, the customer's email, the refund policy that was in force *on the day of
-sale* — sits in six unrelated systems, each with its own retention window, each free to
+sale* - sits in six unrelated systems, each with its own retention window, each free to
 change or lose data without telling anyone.
 
 Traditional dispute tooling starts working when the dispute arrives. By then the evidence
@@ -21,7 +21,7 @@ dispute exists. When a dispute does arrive, the case is already mostly assembled
 
 > **Deterministic systems establish financial truth. AI reasons only about ambiguity.**
 
-The scoring engine is a closed-form function — same inputs, same integer, every time. A
+The scoring engine is a closed-form function - same inputs, same integer, every time. A
 language model is invoked only when the deterministic path cannot resolve a case, its output
 is schema-constrained, and every claim it makes is validated against evidence that actually
 exists in Postgres before it is allowed to influence anything. The model proposes; policy
@@ -56,7 +56,7 @@ expensive probabilistic one:
 ```
 
 AI cost scales with **ambiguity**, not with event volume. That is what makes a free Gemini
-quota sufficient for a system nominally processing millions of events — and the
+quota sufficient for a system nominally processing millions of events - and the
 `PDEI / AI Usage & Safety` Grafana dashboard is where that claim is measured rather than
 asserted.
 
@@ -163,17 +163,17 @@ Prometheus (metrics), Loki (logs), rendered by Grafana.
 
 | Tool | Version | Needed for |
 |---|---|---|
-| **Docker Desktop / Engine** | 24+ with Compose **v2** | the whole stack — this alone is enough to run everything |
+| **Docker Desktop / Engine** | 24+ with Compose **v2** | the whole stack - this alone is enough to run everything |
 | JDK | 21 (Temurin) | building a Spring service on the host |
 | Maven | 3.9+ | the `backend/` reactor |
 | Node | 20+ | the `frontend/` |
 | Python | 3.11+ with [`uv`](https://docs.astral.sh/uv/) | `ai-reasoning-service/` |
-| Git Bash / WSL2 | — | the `.sh` scripts on Windows (`.ps1` equivalents ship for up/down/reset/smoke-test) |
+| Git Bash / WSL2 | - | the `.sh` scripts on Windows (`.ps1` equivalents ship for up/down/reset/smoke-test) |
 
 Resource envelope: roughly **8 GB RAM** and **15 GB disk** for the full stack. Running
 `--profile core --profile app` without observability brings that down considerably.
 
-A Gemini API key is **optional**. The default provider is `mock` — deterministic, seeded, and
+A Gemini API key is **optional**. The default provider is `mock` - deterministic, seeded, and
 labelled as such everywhere in the UI. Nothing about the demo requires network access to an
 LLM.
 
@@ -247,19 +247,19 @@ below disagrees with that table, that table is right.
 
 | Component | Host port | Credentials | Console |
 |---|---|---|---|
-| PostgreSQL 16 | **5432** | `pdei` / `pdei`, db `pdei` | — |
-| Redis 7 | **6379** | none | — |
-| Kafka (KRaft, single broker) | **29092** (host) / `kafka:9092` (internal) | none | — |
+| PostgreSQL 16 | **5432** | `pdei` / `pdei`, db `pdei` | - |
+| Redis 7 | **6379** | none | - |
+| Kafka (KRaft, single broker) | **29092** (host) / `kafka:9092` (internal) | none | - |
 | Kafka UI | **8090** | none | http://localhost:8090 |
-| MinIO API | **9000** | `pdei-minio` / `pdei-minio-secret` | — |
+| MinIO API | **9000** | `pdei-minio` / `pdei-minio-secret` | - |
 | MinIO Console | **9001** | same | http://localhost:9001 |
-| Temporal | **7233** | namespace `pdei` | — |
+| Temporal | **7233** | namespace `pdei` | - |
 | Temporal UI | **8233** | none | http://localhost:8233 |
 | Prometheus | **9090** | none | http://localhost:9090 |
 | Grafana | **3001** | `admin` / `admin` | http://localhost:3001 |
 | Loki | **3100** | none | via Grafana |
 | Tempo | **3200** | none | via Grafana |
-| OTel Collector | **4317** gRPC / **4318** HTTP | none | — |
+| OTel Collector | **4317** gRPC / **4318** HTTP | none | - |
 
 > Every credential on this page is **dev-only** and hard-coded on purpose. Nothing here is a
 > secret, and nothing here is used outside a laptop.
@@ -291,7 +291,7 @@ reproducible from seed **4281**.
 | 6 | The gate refuses the model | rule 7 denies `DEFENDABLE` while a MANDATORY requirement is unsatisfied → human review | policy disposes; no confidence value unlocks this |
 | 7 | Chaos | duplicates ×50 (score does not move) · out-of-order · delayed · corrupt hash · kill worker · replay | idempotency, ordering tolerance, integrity, durability, replayability |
 | 8 | The funnel | `/observability` and the AI usage dashboard | the AI-reduction claim, measured |
-| 9 | Close | — | short-lived transaction, long-lived evidence |
+| 9 | Close | - | short-lived transaction, long-lived evidence |
 
 `./scripts/seed-demo.sh` automates beats 1, 5–6 (via the curated scenarios) and part of 7.
 
@@ -299,10 +299,10 @@ Fallbacks, if something breaks on stage:
 
 | If this breaks | Do this |
 |---|---|
-| Gemini quota exhausted | `PDEI_AI_PROVIDER=mock` — deterministic, and the UI labels it |
+| Gemini quota exhausted | `PDEI_AI_PROVIDER=mock` - deterministic, and the UI labels it |
 | A worker will not start | that *is* `KILL_WORKER`; narrate it as intentional and restart on camera |
 | Simulator run too slow | pre-run seed 4281 before the demo; the scenario library is instant |
-| Frontend cannot reach the API | `NEXT_PUBLIC_USE_MOCKS=true` renders from fixtures — say so out loud |
+| Frontend cannot reach the API | `NEXT_PUBLIC_USE_MOCKS=true` renders from fixtures - say so out loud |
 
 ---
 
@@ -321,13 +321,13 @@ Laserpay/
 │   ├── platform-persistence/   JPA entities, repositories, Flyway migrations
 │   ├── evidence-core/          the deterministic domain engine
 │   └── …nine service modules
-├── ai-reasoning-service/       Python FastAPI (uv) — the only AI code in the repo
+├── ai-reasoning-service/       Python FastAPI (uv) - the only AI code in the repo
 ├── frontend/                   Next.js + TypeScript
 ├── scripts/                    dev helper scripts (.sh + .ps1)
 └── .github/workflows/          CI
 ```
 
-Every module directory carries its own `context.md` — purpose, responsibilities, file map,
+Every module directory carries its own `context.md` - purpose, responsibilities, file map,
 inbound/outbound contracts, config, dependencies, extension points, known gaps. Start there
 when you pick a module up.
 
@@ -339,13 +339,13 @@ when you pick a module up.
 |---|---|
 | [`docs/PLATFORM-CONTRACT.md`](docs/PLATFORM-CONTRACT.md) | **NORMATIVE.** Ports, topics, routes, enums, DB schema, env vars. If code disagrees with it, the code is wrong. |
 | [`docs/SHARED-LIBRARY-API.md`](docs/SHARED-LIBRARY-API.md) | **NORMATIVE.** The exact shared class and method names every module consumes. |
-| [`docs/architecture.md`](docs/architecture.md) | *Why* the system is shaped this way — the three planes, the two-speed funnel |
+| [`docs/architecture.md`](docs/architecture.md) | *Why* the system is shaped this way - the three planes, the two-speed funnel |
 | [`docs/adr/`](docs/adr/) | The ten decisions that shaped it, with the rejected alternatives |
 | [`docs/event-catalog.md`](docs/event-catalog.md) | Every event type, its payload, and who consumes it |
 | [`docs/demo-script.md`](docs/demo-script.md) | The twelve-minute walkthrough, beat by beat |
 | [`docs/testing-strategy.md`](docs/testing-strategy.md) | What is unit-tested, what needs Testcontainers, what is property-based |
-| [`docs/benchmark-plan.md`](docs/benchmark-plan.md) | How performance is measured — and why nothing is claimed without it |
-| [`docs/glossary.md`](docs/glossary.md) | Readiness, gap, provenance, representment, admission — the vocabulary |
+| [`docs/benchmark-plan.md`](docs/benchmark-plan.md) | How performance is measured - and why nothing is claimed without it |
+| [`docs/glossary.md`](docs/glossary.md) | Readiness, gap, provenance, representment, admission - the vocabulary |
 | [`infra/context.md`](infra/context.md) | Every container, port, volume, credential, startup order, and the local failure modes |
 | [`planner/…reference.md`](planner/) | The original product reference the whole repo derives from |
 
@@ -355,7 +355,7 @@ when you pick a module up.
 
 1. The LLM is never the source of truth.
 2. The LLM never mutates financial state.
-3. Never invent evidence — unsupported claims are rejected.
+3. Never invent evidence - unsupported claims are rejected.
 4. **No floating-point money, ever.** Every amount is `(long amountMinor, String currency)`.
 5. No technology without a workload that needs it.
 6. Simple correct implementation before distributed complexity.
@@ -373,8 +373,8 @@ when you pick a module up.
 
 ## Troubleshooting
 
-Common local failures — port already in use, Kafka refusing to start after a cluster-id
-change, Flyway wedged mid-migration, Temporal namespace missing, promtail seeing no logs —
+Common local failures - port already in use, Kafka refusing to start after a cluster-id
+change, Flyway wedged mid-migration, Temporal namespace missing, promtail seeing no logs -
 are all documented with fixes in **[`infra/context.md`](infra/context.md)**.
 
 The fastest general-purpose answer:

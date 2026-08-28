@@ -201,7 +201,7 @@ export function ServiceHealthGrid({
                   {dependency.required
                     ? 'required'
                     : isDegraded
-                      ? 'down — degraded, not fatal'
+                      ? 'down - degraded, not fatal'
                       : 'optional'}
                 </span>
               </div>

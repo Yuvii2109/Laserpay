@@ -24,7 +24,7 @@ export interface CopyableIdProps {
 export function CopyableId({ id, shorten = false, link = true, className, label }: CopyableIdProps) {
   const [copied, setCopied] = useState(false);
 
-  if (!id) return <span className={cn('text-muted-foreground', className)}>—</span>;
+  if (!id) return <span className={cn('text-muted-foreground', className)}>-</span>;
 
   const href = link ? hrefForId(id) : null;
   const text = shorten ? shortenId(id) : id;

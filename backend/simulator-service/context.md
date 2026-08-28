@@ -1,4 +1,4 @@
-# simulator-service — module context
+# simulator-service - module context
 
 > Port **8088** · package `com.laserpay.pdei.simulator` · Spring Boot (web)
 > Reload this file first when returning to this module. It is the complete picture of the
@@ -20,8 +20,8 @@ what makes a benchmark repeatable rather than anecdotal (reference §39.11).
 **The chaos engine.** A distributed system's resilience claims are unfalsifiable until something
 breaks it on purpose. This service injects every `ChaosType` in platform contract §6, records each
 injection to `chaos_injections`, and announces it as a `CHAOS_INJECTED` notification the console
-renders. Rules 9, 10 and 11 — tolerate duplicates, assume late and out-of-order events,
-reproducible workloads — stop being assertions and become things you can watch happen.
+renders. Rules 9, 10 and 11 - tolerate duplicates, assume late and out-of-order events,
+reproducible workloads - stop being assertions and become things you can watch happen.
 
 It is the only service that deliberately breaks the others. Everything destructive is therefore
 bounded or off by default.
@@ -57,7 +57,7 @@ simulator-service/
     ├── main/java/com/laserpay/pdei/simulator/
     │   ├── SimulatorApplication.java           @SpringBootApplication entry point
     │   ├── config/
-    │   │   ├── SimulatorProperties.java        `pdei.simulator.*` — emit/runs/artifacts/chaos/replay/cors
+    │   │   ├── SimulatorProperties.java        `pdei.simulator.*` - emit/runs/artifacts/chaos/replay/cors
     │   │   ├── SimulatorConfiguration.java     Clocks, WorldGenerator, bounded run executor
     │   │   └── CorsConfig.java                 browser grant for /sim/** from the Next.js console
     │   ├── world/
@@ -90,7 +90,7 @@ simulator-service/
     │   ├── replay/
     │   │   ├── ReplayService.java              assign + seek + poll, throwaway group
     │   │   ├── ReplayRequest.java              {topic, fromOffset|fromTimestamp, merchantId?}
-    │   │   └── ReplayResult.java               offsets, counts, duration — the proof
+    │   │   └── ReplayResult.java               offsets, counts, duration - the proof
     │   ├── controller/
     │   │   ├── SimulationController.java       contract §8.5
     │   │   ├── CreateRunRequestDto.java        POST /runs body
@@ -124,7 +124,7 @@ Three rules, and breaking any one silently breaks reproducibility:
    `WorldGenerator`. Determinism holds for any fixed `startAt`, so a demo can move the world
    forward without giving it up.
 3. **Insertion-ordered maps everywhere.** Event bodies are `LinkedHashMap`s. `Map.of` has a
-   per-JVM salted iteration order and would make the serialised bytes differ between runs — this is
+   per-JVM salted iteration order and would make the serialised bytes differ between runs - this is
    why `WorldGenerator.orderedMap(...)` and `fields(...)` exist.
 
 `WorldGeneratorDeterminismTest` asserts this at the byte level: it serialises every envelope and
@@ -160,7 +160,7 @@ year out or five days *before* the world starts (`expiredEvidenceBps`).
 
 `sort by observedAt` → `applyOutOfOrder` (adjacent swaps) → `applyDuplicates` (verbatim
 re-emission, same `rawEventId` and `idempotencyKey`) → `applyDrops` (evidence and communication
-events only — dropping a `PaymentCaptured` would leave the ledger wrong, which is a different and
+events only - dropping a `PaymentCaptured` would leave the ledger wrong, which is a different and
 much less interesting failure than "the document nobody uploaded") → renumber.
 
 Ordering by **observation** time rather than occurrence time is what makes a late arrival
@@ -170,7 +170,7 @@ genuinely late in the stream rather than merely labelled as such.
 
 `ContradictionDetector` works on `TransactionFacts` and keys off `deliveredAt < dispatchedAt` and
 `deliveredAt < order.createdAt`. So the contradictory-delivery failure mode emits a second delivery
-record dated **six hours before dispatch** — an impossible ordering — rather than two proofs that
+record dated **six hours before dispatch** - an impossible ordering - rather than two proofs that
 merely disagree by a couple of days. Two artifacts with different dates would look wrong to a human
 and be invisible to the deterministic engine, which would make the scenario a lie.
 
@@ -205,34 +205,34 @@ a flat -15.
 
 **What each one is actually for**
 
-1. **clean-delivery-defendable** — the baseline. All MANDATORY satisfied, zero contradictions, so
+1. **clean-delivery-defendable** - the baseline. All MANDATORY satisfied, zero contradictions, so
    contract §9.4's deterministic short-circuit fires and **zero AI calls happen**.
-2. **missing-delivery-proof** — the most common real loss. The carrier says delivered; nobody
+2. **missing-delivery-proof** - the most common real loss. The carrier says delivered; nobody
    uploaded the signed proof. The gap is detected *before* a dispute exists, which is the product's
    entire pre-dispute premise.
-3. **contradictory-delivery-dates** — every artifact is present, so a naive completeness check
+3. **contradictory-delivery-dates** - every artifact is present, so a naive completeness check
    calls this ready. `deliveredAt < dispatchedAt` costs -15, and `maxContradictions = 0` means the
    safety gate will not auto-prepare.
-4. **expired-policy-evidence** — present-but-expired, the failure a file-count dashboard cannot
+4. **expired-policy-evidence** - present-but-expired, the failure a file-count dashboard cannot
    see: the requirement is unsatisfied *and* a -10 expiry penalty applies.
-5. **duplicate-charge-dispute** — every event is emitted twice with an identical idempotency key.
+5. **duplicate-charge-dispute** - every event is emitted twice with an identical idempotency key.
    Run it, run it again: event counts double, readiness does not move. Rule 9, visible.
    REFUND_RECEIPT is RECOMMENDED and absent, which is why the score sits below 100.
-6. **partial-refund-dispute** — a 30-70% refund is receipted and the customer disputes the
+6. **partial-refund-dispute** - a 30-70% refund is receipted and the customer disputes the
    remainder. All three MANDATORY artifacts for CREDIT_NOT_PROCESSED are present, so readiness
    resolves deterministically; the interesting part is downstream, where the narrative must
    reconcile refunded against disputed **minor units**.
-7. **multi-shipment-order** — deliberately shows a **limitation**. Requirements are checked per
+7. **multi-shipment-order** - deliberately shows a **limitation**. Requirements are checked per
    evidence *type*, so one delivery proof satisfies DELIVERY_PROOF even though a parcel is still in
    transit. Per-line-item coverage is a known gap and this is where to demonstrate it honestly.
-8. **late-evidence-arrival** — watch the *score*, not the end state. The proof is uploaded sixty
+8. **late-evidence-arrival** - watch the *score*, not the end state. The proof is uploaded sixty
    days after delivery, well after the dispute opens, so readiness starts in the MISSING-gap band
    and climbs to READY when the late artifact lands. Rule 10, end to end.
-9. **subscription-cancelled-dispute** — SUBSCRIPTION_CANCELLED needs TERMS_OF_SERVICE *and*
+9. **subscription-cancelled-dispute** - SUBSCRIPTION_CANCELLED needs TERMS_OF_SERVICE *and*
    CUSTOMER_COMMUNICATION as MANDATORY. Two expired mandatory documents cost both their weight and
    two -10 penalties; SIGNED_CONTRACT is never generated, so a MISSING gap appears on the
    RECOMMENDED side too.
-10. **high-value-urgent-deadline** — same readiness and same gap as #2; the difference is entirely
+10. **high-value-urgent-deadline** - same readiness and same gap as #2; the difference is entirely
     admission **priority** (`0.40 x financial impact + 0.25 x deadline urgency`, which is 1.0 inside
     48 hours). A 12,999.00 INR floor per transaction and a one-day deadline. **Override `startAt`
     on the run request** so the deadline is genuinely ahead of now, otherwise the past-deadline
@@ -242,7 +242,7 @@ a flat -15.
 
 ## 6. Inbound contracts
 
-### 6.1 REST (contract §8.5) — base `http://localhost:8088/sim/v1`
+### 6.1 REST (contract §8.5) - base `http://localhost:8088/sim/v1`
 
 ```
 POST /runs                   {seed, merchants, transactions, days, disputeRateBps, failureProfile,
@@ -259,7 +259,7 @@ GET  /actuator/health|prometheus|metrics|info|loggers
 ```
 
 **CORS.** The console at `/simulation` (contract §14) reaches this service *directly* on port
-8088 — it is beside the gateway, not behind it — so every one of those calls is cross-origin.
+8088 - it is beside the gateway, not behind it - so every one of those calls is cross-origin.
 `config.CorsConfig` therefore grants `/sim/**` to the configured frontend origins with
 `GET, POST, OPTIONS` and `allowedHeaders("*")` (the JSON posts send `Content-Type`,
 `Idempotency-Key` and `X-Correlation-Id`, each of which forces a preflight). Credentials are not
@@ -270,7 +270,7 @@ The mapping is scoped to `/sim/**`, so `/actuator/**` stays browser-unreachable.
 
 None as a listener. `ReplayService` builds a **throwaway** `KafkaConsumer` per replay
 (`pdei-simulator-service-replay-{uuid}`) using `assign` + `seek`, never `subscribe`, and never
-commits — reading history must not disturb any live consumer group's position.
+commits - reading history must not disturb any live consumer group's position.
 
 ### 6.3 Tables read / written
 
@@ -286,7 +286,7 @@ commits — reading history must not disturb any live consumer group's position.
 ```
 pdei:sim:run:{runId}              run progress JSON, TTL 24h
 pdei:stream:offsets:{group}       replay bookmark (a record, not a Kafka commit)
-pdei:sim:control:{service}        chaos control directive — the documented Docker fallback
+pdei:sim:control:{service}        chaos control directive - the documented Docker fallback
 ```
 
 `pdei:sim:control:{service}` is **not** in contract §12's list; it is a simulator-local key under
@@ -297,7 +297,7 @@ not mistaken for a contract key.
 
 ## 7. Outbound contracts
 
-### 7.1 `pdei.raw.events.v1` — `RawEventEnvelope`, source-shaped
+### 7.1 `pdei.raw.events.v1` - `RawEventEnvelope`, source-shaped
 
 Raw events carry the **source system's** vocabulary, not canonical `EventType` names; turning one
 into the other is normalization-worker's entire job, and a simulator that published canonical
@@ -323,16 +323,16 @@ and passed explicitly to `EventEmitter.toRecord`. It is the same scheme ingestio
 `pdei.raw.events.v1`, so the topic has one key scheme across both producers: every event about one
 aggregate stays on one partition and normalization-worker (concurrency 3) cannot normalise two of
 them out of order. Because the key is per-aggregate rather than per-fact, a duplicate still lands on
-the same partition as its original — chaos re-publishes pass the aggregate id to
+the same partition as its original - chaos re-publishes pass the aggregate id to
 `EventEmitter.publish(envelope, aggregateId)` for that reason.
 
-Headers: `pdei-event-type` (the canonical name, **a hint** — normalization-worker may derive it
+Headers: `pdei-event-type` (the canonical name, **a hint** - normalization-worker may derive it
 from `sourceEventType` and ignore this, which is what it will do for real webhooks),
 `pdei-merchant-id`, `pdei-correlation-id`, `pdei-schema-version`, plus module-local
 `pdei-sim-seed` and `pdei-sim-occurred-at`.
 
 Money in every body is `{"amountMinor": 1299900, "currency": "INR"}`. Never a decimal, anywhere,
-including in a "rate" — `FailureMix` and `disputeRateBps` are integer basis points for exactly this
+including in a "rate" - `FailureMix` and `disputeRateBps` are integer basis points for exactly this
 reason.
 
 ### 7.2 Evidence artifacts in MinIO
@@ -345,14 +345,14 @@ byte-reproducibility, and PDF extraction is already proven by document-processor
 tests against generated PDFs.
 
 Without this, "evidence" in a simulated world is a row pointing at nothing, and the two things PDEI
-claims to do — verify an artifact's hash and search its text — cannot be demonstrated at all.
+claims to do - verify an artifact's hash and search its text - cannot be demonstrated at all.
 
 ### 7.3 `pdei.evidence.events.v1`
 
 `EvidenceExpired` (via evidence-core's `EventPublisherPort`) when `EXPIRE_EVIDENCE` chaos fires, so
 readiness recomputes with the -10 mandatory-expiry penalty.
 
-### 7.4 `pdei.audit.events.v1` — the `CHAOS_INJECTED` notification
+### 7.4 `pdei.audit.events.v1` - the `CHAOS_INJECTED` notification
 
 The WebSocket frame the frontend renders is `{type, at, merchantId, data}` with
 `type = "CHAOS_INJECTED"` (contract §8.1), and **api-gateway-service** is the component that pushes
@@ -367,8 +367,8 @@ after      = the frame's `data` object
 ```
 
 api-gateway wraps that into the frame. Two things fall out of the choice: chaos becomes part of the
-permanent tamper-evident record rather than a transient UI event — "which failure was injected, and
-when" is exactly what an observer needs to trust a recovery demo — and no new topic, key namespace
+permanent tamper-evident record rather than a transient UI event - "which failure was injected, and
+when" is exactly what an observer needs to trust a recovery demo - and no new topic, key namespace
 or endpoint is invented for it. See the gaps section for what api-gateway still has to do.
 
 ### 7.5 Metrics
@@ -418,17 +418,17 @@ INJECT_DISPUTE                                   transactionId, merchantId?, rea
 
 **Why `CONFLICTING_EVIDENCE` and `INJECT_DISPUTE` go through raw events** rather than direct row
 inserts: the injected fact then arrives through the normal ingestion path, and every stage
-downstream — normalisation, state building, gap detection — has to handle it exactly as it would a
+downstream - normalisation, state building, gap detection - has to handle it exactly as it would a
 real conflicting source.
 
 **Container control and its documented fallback.** `KILL_WORKER`, `RESTART_CONSUMER` and
 `SLOW_CONSUMER` use the Docker Engine API over plain HTTP when
-`pdei.simulator.chaos.docker-enabled` is true — a real killed process, so Temporal genuinely has to
+`pdei.simulator.chaos.docker-enabled` is true - a real killed process, so Temporal genuinely has to
 recover and the consumer group genuinely has to rebalance. It is **off by default** because
 exposing the Docker socket is equivalent to handing out root on the host. When it is off or the
 call fails, `WorkerControl` falls back to `MODE_REDIS_CONTROL_DIRECTIVE`: the instruction is written
 to `pdei:sim:control:{service}` with a TTL, and the injection record says plainly which mechanism
-ran. Nothing is faked — a chaos history never claims a container was killed when it was not. The
+ran. Nothing is faked - a chaos history never claims a container was killed when it was not. The
 fallback's limitation is real and listed in the gaps below.
 
 ---
@@ -468,7 +468,7 @@ default as api-gateway-service).
 Profiles: `default` (compose hostnames) · `local` (localhost, 50 events/s, DEBUG) · `test` (no
 uploads, no Docker chaos, unlimited rate, JDBC ports off).
 
-`pdei.core.jdbc.enabled` is **true** here — that is what supplies the `AuditRecorder` behind the
+`pdei.core.jdbc.enabled` is **true** here - that is what supplies the `AuditRecorder` behind the
 `CHAOS_INJECTED` notification.
 
 **Kafka producer note.** The value serializer is `JsonSerializer`, not `StringSerializer`, because
@@ -488,8 +488,8 @@ wire contract and a Java class name in a header is noise plus coupling.
 | `platform-persistence` | `SimulationRunEntity`, `ChaosInjectionEntity`, `EvidenceEntity` and their repositories, plus the autoconfigured scan |
 | `platform-common` | `Ids`/`SeededIdGenerator`, `Money`, `RawEventEnvelope`, `CanonicalEvent`, `EventType`, `AggregateType`, `EventSource`, `Topics`, `ConsumerGroups`, `EventHeaders`, `Json`, `Hashes`, `Clocks`, `MetricNames`, all `domain.*` enums, `ErrorResponse` |
 
-Runtime: PostgreSQL, Kafka, Redis (optional — progress degrades to Postgres only), MinIO
-(optional — artifacts are skipped, events still flow), Docker Engine API (optional, opt-in).
+Runtime: PostgreSQL, Kafka, Redis (optional - progress degrades to Postgres only), MinIO
+(optional - artifacts are skipped, events still flow), Docker Engine API (optional, opt-in).
 
 **Downstream expectations.** normalization-worker must implement the `SourceVocabulary` mapping;
 api-gateway-service must forward the `CHAOS_INJECTED` audit event as a WebSocket frame.
@@ -545,18 +545,18 @@ curl -s localhost:8088/sim/v1/chaos | jq '.[] | {type, status, mode: .result.mod
 
 ## 12. Extension points
 
-- **A new failure mode in the generated world** — add a bps knob to `FailureMix` (plus its wither),
+- **A new failure mode in the generated world** - add a bps knob to `FailureMix` (plus its wither),
   read it in `WorldGenerator`, and pin it to `FULL_BPS` in a scenario.
-- **A new scenario** — add a `Scenario` to `ScenarioLibrary.build()` with a fresh seed. The test
+- **A new scenario** - add a `Scenario` to `ScenarioLibrary.build()` with a fresh seed. The test
   enforces distinct seeds, complete expectations, and band/score agreement.
-- **A new chaos type** — add the constant to `ChaosType` in `platform-common` (a contract change),
+- **A new chaos type** - add the constant to `ChaosType` in `platform-common` (a contract change),
   then a branch in `ChaosEngine.dispatch`; the switch is exhaustive, so the compiler finds the gap.
-- **Real container orchestration** — `WorkerControl` isolates the Docker API; a Kubernetes
+- **Real container orchestration** - `WorkerControl` isolates the Docker API; a Kubernetes
   implementation slots in behind the same `ControlOutcome`.
-- **Richer artifacts** — `SyntheticArtifact.render(...)` produces the bytes; a PDF renderer would
+- **Richer artifacts** - `SyntheticArtifact.render(...)` produces the bytes; a PDF renderer would
   slot in there (see gaps for why it is text today).
-- **Other currencies / locales** — `WorldSpec.currency` and `Catalogue`'s pools.
-- **Direct canonical emission** (bypassing normalisation, for isolating downstream benchmarks) —
+- **Other currencies / locales** - `WorldSpec.currency` and `Catalogue`'s pools.
+- **Direct canonical emission** (bypassing normalisation, for isolating downstream benchmarks) -
   would be a new emitter targeting `Topics.CANONICAL_EVENTS`; deliberately not built, because
   skipping normalisation hides the layer this service exists to exercise.
 
@@ -567,7 +567,7 @@ curl -s localhost:8088/sim/v1/chaos | jq '.[] | {type, status, mode: .result.mod
 1. **The `pdei:sim:control:{service}` fallback is a durable, auditable *request*, not an executed
    action.** No other PDEI service reads that key yet. With `docker-enabled: false` (the default),
    `KILL_WORKER` / `RESTART_CONSUMER` / `SLOW_CONSUMER` record the directive and report
-   `mode = REDIS_CONTROL_DIRECTIVE` — honestly, but nothing dies. **To make these real, either
+   `mode = REDIS_CONTROL_DIRECTIVE` - honestly, but nothing dies. **To make these real, either
    enable Docker control or add a control-key listener to the worker services.** This is the single
    biggest gap in the module.
 2. **`CHAOS_INJECTED` reaches the UI only if api-gateway-service forwards it.** The simulator emits
@@ -587,7 +587,7 @@ curl -s localhost:8088/sim/v1/chaos | jq '.[] | {type, status, mode: .result.mod
    contract §11 key layout requires a transaction segment and policy documents have no transaction.
    It is consistent and parseable, but it is a convention this module invented.
 6. **`chaos_injections.merchant_id` has a foreign key to `merchants`.** The engine only sets it when
-   the caller names one, and never invents one — but a caller passing a merchant id that is not in
+   the caller names one, and never invents one - but a caller passing a merchant id that is not in
    the database will fail on that constraint.
 7. **Retained event streams are in-memory, per-instance and capped** at
    `retained-stream-limit` (5000). After a restart, `DUPLICATE_EVENT` against a finished run has
@@ -603,12 +603,12 @@ curl -s localhost:8088/sim/v1/chaos | jq '.[] | {type, status, mode: .result.mod
 11. **Determinism is guaranteed for a fixed `(seed, startAt)` pair, on the same JDK major version.**
     `java.util.Random`'s algorithm is specified, so this holds across machines; the id alphabet and
     the payload field order are also fixed. It is *not* guaranteed across changes to
-    `WorldGenerator` itself — any edit to the draw order changes every generated world, which is
+    `WorldGenerator` itself - any edit to the draw order changes every generated world, which is
     correct but worth knowing before comparing benchmarks across commits.
 12. **No test covers `ChaosEngine`, `EventEmitter` or `ReplayService`.** They need a broker and a
     database; Testcontainers (already in the reactor's dependency management) is the intended route.
 13. **`SimulationRunner` keeps runs in memory only while they execute.** A restart mid-run leaves
-    the `simulation_runs` row in RUNNING forever — there is no startup reconciliation sweep that
+    the `simulation_runs` row in RUNNING forever - there is no startup reconciliation sweep that
     marks orphaned runs FAILED.
 14. **The `partial-refund-dispute` and `multi-shipment-order` scenarios both resolve
     deterministically**, which is the honest outcome of the current requirement matrix but makes

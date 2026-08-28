@@ -13,7 +13,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-/** Representment cases — the case queue ({@code GET /cases?status&merchantId}). */
+/** Representment cases - the case queue ({@code GET /cases?status&merchantId}). */
 @Repository
 public interface DisputeCaseRepository extends JpaRepository<DisputeCaseEntity, String> {
 

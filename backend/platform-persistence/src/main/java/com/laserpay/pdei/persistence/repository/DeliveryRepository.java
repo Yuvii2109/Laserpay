@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 /**
- * Deliveries — DELIVERY_PROOF evidence source. Conflicting {@code deliveredAt} values across
+ * Deliveries - DELIVERY_PROOF evidence source. Conflicting {@code deliveredAt} values across
  * two deliveries of the same transaction are exactly what ContradictionDetector looks for.
  */
 @Repository

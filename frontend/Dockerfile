@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# pdei-web — Next.js 15 standalone image. Host port 3000 (contract §2).
+# pdei-web - Next.js 15 standalone image. Host port 3000 (contract §2).
 
 FROM node:20-alpine AS deps
 WORKDIR /app

@@ -27,7 +27,7 @@ function stageColor(index: number, total: number): string {
 }
 
 function percent(part: number, whole: number): string {
-  if (whole <= 0) return '—';
+  if (whole <= 0) return '-';
   return `${((part / whole) * 100).toFixed(part / whole < 0.1 ? 1 : 0)}%`;
 }
 

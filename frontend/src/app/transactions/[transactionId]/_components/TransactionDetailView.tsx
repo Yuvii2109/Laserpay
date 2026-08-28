@@ -54,11 +54,11 @@ type TabKey = 'timeline' | 'evidence' | 'graph' | 'gaps' | 'readiness';
  * `/transactions/[transactionId]` (contract 14).
  *
  * Five views of one transaction, each answering a different question:
- *   timeline  — what happened, and when did we find out?
- *   evidence  — what do we hold, in which version, at which hash?
- *   graph     — how do those artifacts and entities connect?
- *   gaps      — what is missing, stale or contradictory?
- *   readiness — why is the score what it is?
+ *   timeline  - what happened, and when did we find out?
+ *   evidence  - what do we hold, in which version, at which hash?
+ *   graph     - how do those artifacts and entities connect?
+ *   gaps      - what is missing, stale or contradictory?
+ *   readiness - why is the score what it is?
  *
  * The graph is fetched lazily: it is the largest payload and most visits never open it.
  * Everything else loads up front because the tab labels carry counts.
@@ -278,7 +278,7 @@ export function TransactionDetailView({ transactionId }: TransactionDetailViewPr
             caption={
               snapshot
                 ? undefined
-                : 'No readiness snapshot yet — readiness-worker has not scored this transaction.'
+                : 'No readiness snapshot yet - readiness-worker has not scored this transaction.'
             }
           />
           {snapshot ? (

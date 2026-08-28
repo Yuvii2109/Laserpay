@@ -109,7 +109,7 @@ export function EventTimeline({
     <div className={cn('space-y-4', className)}>
       <p className="text-xs text-muted-foreground">
         Ordered by <strong className="font-medium text-foreground">occurredAt</strong>. The second
-        instant on each row is <strong className="font-medium text-foreground">observedAt</strong> —
+        instant on each row is <strong className="font-medium text-foreground">observedAt</strong> -
         when the platform saw it.
         {lateCount > 0 ? ` ${lateCount} arrived late.` : ''}
         {outOfOrderCount > 0 ? ` ${outOfOrderCount} arrived out of order.` : ''}
@@ -209,7 +209,7 @@ function TimelineRow({
               {formatTime(observedAt, timeZoneMode)}
             </time>
           ) : (
-            '—'
+            '-'
           )}
         </span>
         {hasDetails ? (

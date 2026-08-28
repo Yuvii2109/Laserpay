@@ -55,7 +55,7 @@ export function OverviewTab({ xray, caseView, bypassedAi }: OverviewTabProps) {
         />
         <StatTile
           label="Package version"
-          value={caseView ? caseView.packageVersion : '—'}
+          value={caseView ? caseView.packageVersion : '-'}
           hint={
             xray.packageManifest
               ? `Bundle generated ${formatInstant(xray.packageManifest.generatedAt)}.`
@@ -237,8 +237,8 @@ export function OverviewTab({ xray, caseView, bypassedAi }: OverviewTabProps) {
                       {contradiction.detail ?? 'No detail supplied by the detector.'}
                     </span>
                     <span className="mono-id mt-1 block text-2xs text-muted-foreground">
-                      {contradiction.left ?? '?'} ({contradiction.leftValue ?? '—'}) ·{' '}
-                      {contradiction.right ?? '?'} ({contradiction.rightValue ?? '—'})
+                      {contradiction.left ?? '?'} ({contradiction.leftValue ?? '-'}) ·{' '}
+                      {contradiction.right ?? '?'} ({contradiction.rightValue ?? '-'})
                     </span>
                   </li>
                 ))}

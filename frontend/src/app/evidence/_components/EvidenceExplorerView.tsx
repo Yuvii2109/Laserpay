@@ -53,7 +53,7 @@ const STATUS_OPTIONS = EVIDENCE_STATUSES.map((status) => ({
 }));
 
 /**
- * `/evidence` — the evidence explorer (contract 14).
+ * `/evidence` - the evidence explorer (contract 14).
  *
  * The search box is the Postgres full-text index behind `GET /evidence?q=`: the gateway turns
  * the string into a `tsquery`, so this side sends the raw text and never tries to build query
@@ -139,7 +139,7 @@ export function EvidenceExplorerView({
           row.summary ? (
             <span className="line-clamp-2 text-sm text-muted-foreground">{row.summary}</span>
           ) : (
-            <span className="text-muted-foreground">—</span>
+            <span className="text-muted-foreground">-</span>
           ),
       },
       {
@@ -217,7 +217,7 @@ export function EvidenceExplorerView({
           row.expiresAt ? (
             <TimestampDisplay value={row.expiresAt} muted />
           ) : (
-            <span className="text-muted-foreground">—</span>
+            <span className="text-muted-foreground">-</span>
           ),
       },
     ],

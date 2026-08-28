@@ -1,4 +1,4 @@
-# document-processor-service — module context
+# document-processor-service - module context
 
 > Port **8086** · package `com.laserpay.pdei.docproc` · Spring Boot (worker + web)
 > Reload this file first when returning to this module. It is the complete picture of what
@@ -19,7 +19,7 @@ trigger turns into the FTS `search_vector`), and republishes an EVIDENCE event s
 recomputes against a now-searchable document.
 
 Everything it writes is text, metadata and integrity flags. It never touches money, status
-transitions, or any other financial state — those belong to `state-builder-worker` and
+transitions, or any other financial state - those belong to `state-builder-worker` and
 `evidence-core`.
 
 ---
@@ -53,7 +53,7 @@ document-processor-service/
     ├── main/java/com/laserpay/pdei/docproc/
     │   ├── DocumentProcessorApplication.java   @SpringBootApplication entry point
     │   ├── config/
-    │   │   ├── DocProcProperties.java          `pdei.docproc.*` — every guard rail
+    │   │   ├── DocProcProperties.java          `pdei.docproc.*` - every guard rail
     │   │   ├── DocProcConfiguration.java       extractor beans + registry ORDER + timeout pool
     │   │   └── DocProcKafkaConfiguration.java  String-valued consumer factory, manual ack
     │   ├── extract/
@@ -64,7 +64,7 @@ document-processor-service/
     │   │   ├── ExtractorRegistry.java          first-match-wins selection, order is the contract
     │   │   ├── PdfBoxDocumentExtractor.java    page count, per-page text, document info dict
     │   │   ├── EmlExtractor.java               RFC 5322/2047/2045 reader for customer emails
-    │   │   ├── PlainTextExtractor.java         text/*, JSON, CSV, XML — the hot path
+    │   │   ├── PlainTextExtractor.java         text/*, JSON, CSV, XML - the hot path
     │   │   ├── TikaDocumentExtractor.java      catch-all, bounded by a write limit
     │   │   └── TextNormalizer.java             unicode + whitespace clean-up before the tsvector
     │   ├── kafka/
@@ -121,7 +121,7 @@ same transaction as the evidence-row update.
 `payload.emittedBy = "document-processor-service"` and are skipped on sight; the
 SKIPPED_UNCHANGED short-circuit is the second line of defence.
 
-### 4.2 REST consumed (contract §8.3) — base `http://localhost:8086/docproc/v1`
+### 4.2 REST consumed (contract §8.3) - base `http://localhost:8086/docproc/v1`
 
 ```
 POST /extract                  {objectKey, bucket?} -> {text, metadata, pageCount, sha256, …}
@@ -137,7 +137,7 @@ GET  /actuator/health|prometheus|metrics|info|loggers
 | `pdei.evidence` | read + **write** | `extracted_text`, `metadata`, `content_type`, `size_bytes`, `sha256` (only when previously null), `integrity_ok`, `integrity_verified_at` |
 | `pdei.processed_events` | insert | idempotency claim |
 
-`evidence.search_vector` is **never** written directly — the `trg_evidence_search_vector` trigger
+`evidence.search_vector` is **never** written directly - the `trg_evidence_search_vector` trigger
 from `V10__fts.sql` recomputes it whenever `extracted_text` changes.
 
 ### 4.4 Object storage
@@ -173,7 +173,7 @@ Topic `pdei.evidence.events.v1`, one event per successful extraction:
 }
 ```
 
-**Why `EvidenceAdded` and not `EvidenceUpdated`.** `EventType` has no `EvidenceUpdated` member —
+**Why `EvidenceAdded` and not `EvidenceUpdated`.** `EventType` has no `EvidenceUpdated` member -
 the enum is frozen by `docs/SHARED-LIBRARY-API.md` §1.3 and inventing a variant is forbidden.
 `EvidenceAdded` carries the correct downstream semantics anyway: contract §7 says *any* EVIDENCE
 event triggers readiness recomputation, which is exactly what should happen when an artifact's
@@ -197,7 +197,7 @@ pdei_docproc_bytes_processed_total            module-local gauge
 
 The `outcome` tag stays inside the platform's bounded vocabulary
 (`MetricNames.Outcome`: `success` / `failure` / `skipped`) rather than emitting per-service status
-names — widening a shared tag is how one cross-service dashboard becomes five incompatible panels.
+names - widening a shared tag is how one cross-service dashboard becomes five incompatible panels.
 The finer detail lives on the module-local counter and in `/stats`.
 
 ---
@@ -205,7 +205,7 @@ The finer detail lives on the module-local counter and in `/stats`.
 ## 6. Extraction pipeline, in order
 
 1. **Load the evidence row.** Object key, recorded sha256 and merchant come from Postgres, never
-   from the event payload — an event can be replayed from a stale snapshot, the row cannot.
+   from the event payload - an event can be replayed from a stale snapshot, the row cannot.
 2. **`stat` then size check.** A 2 GB object never enters the heap just to be rejected.
 3. **`getBytes` + recompute sha256.** A mismatch means the artifact changed underneath us:
    quarantine `HASH_MISMATCH`, set `integrity_ok = false`, and **do not index the text**. Text from
@@ -241,7 +241,7 @@ feeding an evidence trail.
 Nothing is deleted. The object, the row and the version history all survive; what changes is that
 the text does not enter the index and `evidence.metadata` gains
 `docproc.quarantine.{reason,detail,at}`. The mark is written in a `REQUIRES_NEW` transaction so it
-survives a rollback of the surrounding processing transaction — losing it would leave an artifact
+survives a rollback of the surrounding processing transaction - losing it would leave an artifact
 silently absent from search with nothing anywhere saying why. `POST /reprocess/{evidenceId}` is
 the retry once the cause is fixed; a successful pass clears the marks.
 
@@ -269,7 +269,7 @@ All from `pdei.docproc.*` (see `DocProcProperties`) plus the shared `PDEI_*` var
 Environment variables (contract §15): `PDEI_POSTGRES_URL`, `PDEI_POSTGRES_USER`,
 `PDEI_POSTGRES_PASSWORD`, `PDEI_KAFKA_BOOTSTRAP`, `PDEI_REDIS_URL`, `PDEI_MINIO_ENDPOINT`,
 `PDEI_MINIO_ACCESS_KEY`, `PDEI_MINIO_SECRET_KEY`, `OTEL_EXPORTER_OTLP_ENDPOINT`,
-`OTEL_SERVICE_NAME`. Module-local: `PDEI_FLYWAY_ENABLED` (default `false` — one service should own
+`OTEL_SERVICE_NAME`. Module-local: `PDEI_FLYWAY_ENABLED` (default `false` - one service should own
 migration), `PDEI_DOCPROC_CONSUMER_ENABLED`.
 
 Profiles: `default` (compose hostnames) · `local` (localhost, DEBUG) · `test` (no broker, no
@@ -277,7 +277,7 @@ publishing, no Redis dedupe).
 
 **Kafka producer note.** The value serializer is `JsonSerializer`, not `StringSerializer`,
 because evidence-core's `KafkaEventPublisher` hands the template a `CanonicalEvent` object rather
-than a pre-serialised string. `spring.json.add.type.headers` is off — the envelope is a
+than a pre-serialised string. `spring.json.add.type.headers` is off - the envelope is a
 cross-language wire contract and a Java class name in a header is noise plus coupling.
 
 ---
@@ -290,7 +290,7 @@ cross-language wire contract and a Java class name in a header is noise plus cou
 | `platform-persistence` | `EvidenceEntity`, `EvidenceRepository`, `ProcessedEventRepository`, and the autoconfigured entity/repository scan |
 | `platform-common` | `CanonicalEvent`, `EventType`, `AggregateType`, `EventSource`, `Topics`, `ConsumerGroups`, `EventHeaders`, `Ids`, `Json`, `Hashes`, `Clocks`, `MetricNames`, `ErrorResponse`, `DeadLetterEnvelope` |
 
-Runtime: PostgreSQL, Kafka, Redis (optional — degrades to Postgres-only dedupe), MinIO.
+Runtime: PostgreSQL, Kafka, Redis (optional - degrades to Postgres-only dedupe), MinIO.
 
 `pdei.core.jdbc.enabled` is **false** here: this service reads and writes evidence through JPA
 repositories and does not need the evidence-core JDBC ports.
@@ -330,27 +330,27 @@ this service something to extract.
 
 ## 10. Extension points
 
-- **A new format** — implement `DocumentExtractor`, register the bean, and insert it in
+- **A new format** - implement `DocumentExtractor`, register the bean, and insert it in
   `DocProcConfiguration.extractorRegistry(...)` *before* `tika`. Nothing else changes.
-- **OCR** — a `TesseractExtractor` placed between `pdfbox` and `tika`, claiming `image/*` and PDFs
+- **OCR** - a `TesseractExtractor` placed between `pdfbox` and `tika`, claiming `image/*` and PDFs
   whose text layer is empty. `PdfBoxDocumentExtractor.WARNING_NO_TEXT_LAYER` already marks exactly
   those documents, and `QuarantineService.Reason.NO_TEXT` already collects them.
-- **Language detection / summarisation** — `ExtractionResult.metadata` is an open map; add
+- **Language detection / summarisation** - `ExtractionResult.metadata` is an open map; add
   `docproc.language` and it flows into `evidence.metadata` with no schema change.
-- **Per-page citations** — `ExtractionResult.pages` already holds per-page text for PDFs; it is
+- **Per-page citations** - `ExtractionResult.pages` already holds per-page text for PDFs; it is
   not yet persisted (see gaps).
-- **Different storage** — swap the `ObjectStore` bean; this module only calls the interface.
-- **Chunked/streaming extraction** — `ObjectStore.get(...)` returns an `InputStream`; the size
+- **Different storage** - swap the `ObjectStore` bean; this module only calls the interface.
+- **Chunked/streaming extraction** - `ObjectStore.get(...)` returns an `InputStream`; the size
   ceiling is the only reason the byte-array path is used.
 
 ---
 
 ## 11. Known gaps and TODOs
 
-1. **No OCR — deliberate and explicit.** Reference §25 puts OCR out of scope for this build: "the
+1. **No OCR - deliberate and explicit.** Reference §25 puts OCR out of scope for this build: "the
    first prototype should use mostly structured synthetic evidence so that the core system is
    tested rather than an OCR pipeline." A scanned PDF with no text layer produces empty text plus
-   `WARNING_NO_TEXT_LAYER` and is quarantined as `NO_TEXT` — a visible gap rather than a silently
+   `WARNING_NO_TEXT_LAYER` and is quarantined as `NO_TEXT` - a visible gap rather than a silently
    empty index. Images route to Tika, which reports the same thing. See the extension point above.
 2. **Per-page text is extracted but not persisted.** `ExtractionResult.pages` exists and is
    correct; there is no column for it. A citation can currently say "in EV-4F2A", not "on page 3
@@ -376,7 +376,7 @@ this service something to extract.
    `platform-persistence`) is the intended route.
 8. **Tika's write-limit exception is matched by simple class name**, not by import, so an upgrade
    that moves the class does not break the build. If Tika ever renames it, truncation would be
-   misreported as a parse failure — the test to add is a document that exceeds the limit.
+   misreported as a parse failure - the test to add is a document that exceeds the limit.
 9. **`payloadAs`-style typed projection of the incoming event is not used.** The consumer reads
    only `aggregateId` and the `emittedBy` marker, deliberately: the evidence row is the source of
    truth for everything else, so the payload shape can change without touching this service.

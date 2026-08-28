@@ -8,7 +8,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-/** Orders — ORDER_RECORD evidence source and the parent of {@code order_lines}. */
+/** Orders - ORDER_RECORD evidence source and the parent of {@code order_lines}. */
 @Repository
 public interface OrderRepository extends JpaRepository<OrderEntity, String> {
 

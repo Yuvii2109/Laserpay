@@ -11,7 +11,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
  * Base class for the persistence integration tests: a real PostgreSQL 16 in Docker, migrated by
- * the real Flyway scripts shipped in this module. Nothing is mocked — the whole point is to
+ * the real Flyway scripts shipped in this module. Nothing is mocked - the whole point is to
  * assert the behaviour of the actual schema (triggers, partial unique indexes, ON CONFLICT
  * semantics, tsvector maintenance), which an in-memory database could not reproduce.
  *
@@ -28,7 +28,7 @@ public abstract class AbstractPostgresIntegrationTest {
      * <p>The JUnit Testcontainers extension stops an annotated static container at the end of
      * <em>every</em> test class. Since this base class is shared, the second subclass would start a
      * fresh container on a new random port while Spring reused its <em>cached</em> application
-     * context — which still pointed at the now-dead first container. The symptom was a 30s Hikari
+     * context - which still pointed at the now-dead first container. The symptom was a 30s Hikari
      * timeout ("Connection is not available, request timed out after 30001ms") on every test after
      * the first class, while the first class passed cleanly.
      *
@@ -50,7 +50,7 @@ public abstract class AbstractPostgresIntegrationTest {
      * them instead of failing.
      *
      * <p><strong>In CI this deliberately never skips.</strong> A silent skip there would let the
-     * "Backend (integration)" job report success having executed nothing — the integration suite
+     * "Backend (integration)" job report success having executed nothing - the integration suite
      * would be permanently, invisibly green. GitHub Actions sets {@code CI=true}, so on a runner
      * without a usable Docker daemon these tests fail loudly, which is the correct outcome: the
      * job exists precisely to prove the schema behaves against a real PostgreSQL.

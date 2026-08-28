@@ -62,7 +62,7 @@ const config: Config = {
           'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
           border: 'hsl(var(--sidebar-border))',
         },
-        // Status ramp — reserved, never reused as a chart series colour.
+        // Status ramp - reserved, never reused as a chart series colour.
         status: {
           good: 'var(--status-good)',
           warning: 'var(--status-warning)',

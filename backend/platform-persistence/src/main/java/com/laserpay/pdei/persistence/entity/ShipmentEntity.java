@@ -13,7 +13,7 @@ import java.util.Map;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-/** Shipment ({@code SHP-} ids) — source of SHIPPING_RECORD evidence. */
+/** Shipment ({@code SHP-} ids) - source of SHIPPING_RECORD evidence. */
 @Entity
 @Table(name = "shipments", schema = PdeiSchema.NAME)
 public class ShipmentEntity extends VersionedEntity {
