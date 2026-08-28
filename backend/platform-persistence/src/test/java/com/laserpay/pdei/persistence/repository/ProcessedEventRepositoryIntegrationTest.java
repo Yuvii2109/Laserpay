@@ -17,6 +17,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIf;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 
 /**
  * The idempotency primitive every Kafka consumer in PDEI depends on (rule 9: all consumers
@@ -33,15 +34,25 @@ class ProcessedEventRepositoryIntegrationTest extends AbstractPostgresIntegratio
     private ProcessedEventRepository processedEvents;
 
     @Test
-    @DisplayName("migrations V1..V10 are applied to the pdei schema")
-    void migrationsApplied() {
+    @DisplayName("every migration on the classpath is applied to the pdei schema")
+    void migrationsApplied() throws Exception {
+        // Counted from the classpath, not hardcoded. This assertion used to read isEqualTo(10) and
+        // broke the moment V11 was added - which is a test failing because the schema grew, not
+        // because anything is wrong. Deriving the expected number from the migration files means
+        // it keeps checking the thing that matters (every migration applied, none silently
+        // skipped) without needing an edit each time one is written.
+        int expected = new PathMatchingResourcePatternResolver()
+                .getResources("classpath:db/migration/V*__*.sql").length;
+        assertThat(expected)
+                .as("migration files discovered on the classpath")
+                .isGreaterThanOrEqualTo(12);
+
         // `version IS NOT NULL` filters out Flyway 10's "<< Flyway Schema Creation >>" marker row,
         // which it records with a NULL version and type SCHEMA when it creates the pdei schema.
-        // Counting raw rows here asserted 10 and got 11 - all ten migrations had in fact applied.
         Integer applied = jdbcTemplate.queryForObject(
                 "SELECT count(*) FROM pdei.flyway_schema_history WHERE success AND version IS NOT NULL",
                 Integer.class);
-        assertThat(applied).isEqualTo(10);
+        assertThat(applied).isEqualTo(expected);
 
         List<String> tables = jdbcTemplate.queryForList(
                 "SELECT tablename FROM pg_tables WHERE schemaname = 'pdei' ORDER BY tablename",
