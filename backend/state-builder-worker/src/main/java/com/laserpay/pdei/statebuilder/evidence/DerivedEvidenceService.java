@@ -6,6 +6,7 @@ import com.laserpay.pdei.common.domain.EvidenceType;
 import com.laserpay.pdei.common.event.CanonicalEvent;
 import com.laserpay.pdei.common.json.Json;
 import com.laserpay.pdei.core.evidence.CreateEvidenceCommand;
+import com.laserpay.pdei.statebuilder.projection.ReferenceData;
 import com.laserpay.pdei.core.evidence.EvidenceService;
 import com.laserpay.pdei.core.model.EvidenceView;
 import org.slf4j.Logger;
@@ -57,6 +58,7 @@ public class DerivedEvidenceService {
     private static final double SELF_REPORTED_QUALITY = 0.7d;
 
     private final EvidenceService evidenceService;
+    private final ReferenceData referenceData;
 
     /**
      * @param evidenceService may be {@code null} when the object store is unavailable; derivation
@@ -65,7 +67,16 @@ public class DerivedEvidenceService {
      *                        worse failure
      */
     public DerivedEvidenceService(EvidenceService evidenceService) {
+        this(evidenceService, null);
+    }
+
+    /**
+     * @param referenceData used only to guarantee the transaction row exists before evidence
+     *                      references it; may be {@code null} in tests that stub the evidence port
+     */
+    public DerivedEvidenceService(EvidenceService evidenceService, ReferenceData referenceData) {
         this.evidenceService = evidenceService;
+        this.referenceData = referenceData;
     }
 
     /**
@@ -92,6 +103,15 @@ public class DerivedEvidenceService {
                     + "unaffected; re-run the event once object storage is reachable.", type,
                     event.eventType(), event.eventId());
             return null;
+        }
+
+        // pdei.evidence carries a foreign key to pdei.transactions, and evidence derived from a
+        // lifecycle fact can reach here before the transaction projection has written its row -
+        // the same cross-aggregate ordering that ReferenceData.ensureTransaction exists for. Without
+        // this the insert fails with fk_evidence_transaction, which aborts the handler's transaction
+        // and loses the projection work alongside the artifact.
+        if (referenceData != null) {
+            referenceData.ensureTransaction(transactionId, event, null);
         }
 
         byte[] content = documentFor(event, type, transactionId, relatedEntityId, summary);

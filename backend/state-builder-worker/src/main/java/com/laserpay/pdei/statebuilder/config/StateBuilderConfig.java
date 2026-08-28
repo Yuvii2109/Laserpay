@@ -87,6 +87,7 @@ public class StateBuilderConfig {
      */
     @Bean
     public DerivedEvidenceService derivedEvidenceService(ObjectProvider<EvidenceService> evidenceServices,
+                                                         ReferenceData referenceData,
                                                          StateBuilderProperties properties) {
         EvidenceService evidenceService = properties.isDeriveEvidence()
                 ? evidenceServices.getIfAvailable()
@@ -95,7 +96,7 @@ public class StateBuilderConfig {
             log.warn("evidence derivation is enabled but no EvidenceService bean is available "
                     + "(object store unreachable?). Projections will still be built.");
         }
-        return new DerivedEvidenceService(evidenceService);
+        return new DerivedEvidenceService(evidenceService, referenceData);
     }
 
     @Bean
