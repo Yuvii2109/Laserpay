@@ -181,7 +181,7 @@ export function RequirementMatrix({
         ))}
         <span className="ml-auto inline-flex items-center gap-1.5">
           <EvidenceTypeIcon type="DELIVERY_PROOF" />
-          weights: MANDATORY 3 · RECOMMENDED 2 · OPTIONAL 1 · PROHIBITED 0 (contract 7)
+          weights: MANDATORY 3 · RECOMMENDED 2 · OPTIONAL 1 · PROHIBITED 0
         </span>
       </div>
     </div>

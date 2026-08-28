@@ -273,7 +273,7 @@ export function EvidenceTab({ xray }: EvidenceTabProps) {
         getRowId={(row) => row.evidenceId}
         rowHref={(row) => `/evidence/${row.evidenceId}`}
         emptyTitle="No evidence attached to this case"
-        emptyDescription="gatherEvidence links artifacts already known for the transaction. If this is empty the case is on the ACCEPT_LIABILITY short-circuit path (contract 9.4)."
+        emptyDescription="gatherEvidence links artifacts already known for the transaction. If this is empty the case is on the ACCEPT_LIABILITY short-circuit path."
         caption={`${rows.length} artifact${rows.length === 1 ? '' : 's'} · requirement strength comes from the readiness snapshot, not from the file itself`}
       />
 
@@ -288,7 +288,7 @@ export function EvidenceTab({ xray }: EvidenceTabProps) {
             .filter((requirement) => requirement.strength === 'PROHIBITED')
             .map((requirement) => humanizeEnum(requirement.type))
             .join(', ')}
-          . A prohibited type in supportingEvidence is an automatic DENY (contract 9.3, rule 6).
+          . A prohibited type in supportingEvidence is an automatic DENY.
         </p>
       ) : null}
     </div>

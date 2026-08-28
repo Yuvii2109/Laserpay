@@ -4,6 +4,8 @@
 #   ./scripts/seed-demo.sh                   the full docs/demo-script.md world
 #   ./scripts/seed-demo.sh --small           300 transactions instead of 2000
 #   ./scripts/seed-demo.sh --seed 1234       different deterministic seed
+#   ./scripts/seed-demo.sh --dispute-rate-bps 2000   20% of transactions disputed
+#                                          (basis points, contract 8.5; default 200 = 2%)
 #   ./scripts/seed-demo.sh --no-scenarios    generate the world, skip the curated cases
 #   ./scripts/seed-demo.sh --no-chaos        skip the chaos injections
 #   ./scripts/seed-demo.sh --wait 600        allow longer for the run to finish
@@ -37,6 +39,7 @@ MAX_WAIT=300
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --seed)          SEED="$2"; shift 2 ;;
+    --dispute-rate-bps) DISPUTE_RATE_BPS="$2"; shift 2 ;;
     --transactions)  TRANSACTIONS="$2"; shift 2 ;;
     --merchants)     MERCHANTS="$2"; shift 2 ;;
     --days)          DAYS="$2"; shift 2 ;;

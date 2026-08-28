@@ -62,7 +62,7 @@ export function PackageTab({ manifest, caseId }: PackageTabProps) {
       <EmptyState
         icon={FileArchive}
         title="No representment package yet"
-        description={`prepareRepresentmentPackage (contract 10, step 9) has not run for ${caseId}. A package is only assembled after the safety gate allows the case to proceed.`}
+        description={`prepareRepresentmentPackage has not run for ${caseId}. A package is only assembled after the safety gate allows the case to proceed.`}
       />
     );
   }

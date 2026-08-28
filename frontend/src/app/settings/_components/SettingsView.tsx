@@ -204,7 +204,7 @@ export function SettingsView() {
           Service endpoints
         </h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          Inlined at build time from <span className="mono-id">NEXT_PUBLIC_*</span> (contract 15).
+          Inlined at build time from <span className="mono-id">NEXT_PUBLIC_*</span>.
           Changing one means rebuilding the image, or passing a different build arg to the
           Dockerfile - a running page cannot re-point itself.
         </p>

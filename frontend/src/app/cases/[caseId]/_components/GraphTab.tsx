@@ -88,7 +88,7 @@ export function GraphTab({ xray }: GraphTabProps) {
           {xray.contradictions.length === 0 ? (
             <p className="mt-2 text-xs text-muted-foreground">
               No <span className="mono-id">CONTRADICTS</span> edges. Zero contradictions is a
-              precondition for the deterministic auto-prepare path (contract 9.4).
+              precondition for the deterministic auto-prepare path.
             </p>
           ) : (
             <ul className="mt-2 space-y-2 text-xs">

@@ -113,7 +113,7 @@ export function AiReasoningTab({ xray, admission, policy, bypassedAi }: AiReason
           Nothing on this tab is missing by accident. Most cases are resolved by{' '}
           <span className="mono-id">evidence-core</span> without a model call, and that is the
           platform working as designed: the reasoner is a scarce resource applied only to
-          ambiguity (contract 9.4).
+          ambiguity.
         </p>
       </div>
     );
@@ -358,7 +358,7 @@ export function AiReasoningTab({ xray, admission, policy, bypassedAi }: AiReason
             </dl>
             <p className="mt-2 text-2xs text-muted-foreground">
               Java never imports a provider SDK; this metadata reached the console through{' '}
-              <span className="mono-id">ai-reasoning-service</span> and the gateway (contract 9.5).
+              <span className="mono-id">ai-reasoning-service</span> and the gateway.
             </p>
           </section>
 

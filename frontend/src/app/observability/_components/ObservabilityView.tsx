@@ -186,7 +186,7 @@ export function ObservabilityView() {
                 {formatPercent(reduction, 1)} of dispute candidates never reached a model.
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Admission control (contract 9.4) admits a case only when the deterministic path is
+                Admission control admits a case only when the deterministic path is
                 unresolved, the priority score clears 55 and the Redis budget allows it. Every case
                 it turns away is one that <span className="mono-id">evidence-core</span> answered
                 on its own - at no token cost, with a result that is reproducible and auditable.

@@ -74,7 +74,7 @@ export function OverviewTab({ xray, caseView, bypassedAi }: OverviewTabProps) {
           <AlertDescription>
             {unsatisfiedMandatory.map((requirement) => humanizeEnum(requirement.type)).join(', ')}.
             A DEFENDABLE classification with an unsatisfied mandatory requirement is rejected by
-            the validator (contract 9.3 rule 7).
+            the validator.
           </AlertDescription>
         </Alert>
       ) : null}
@@ -85,7 +85,7 @@ export function OverviewTab({ xray, caseView, bypassedAi }: OverviewTabProps) {
             <h2 className="text-sm font-semibold text-foreground">Dispute facts</h2>
             <p className="mt-1 text-xs text-muted-foreground">
               Everything below is deterministic platform state. No part of it was produced by a
-              model (contract 17, rules 1 and 2).
+              model.
             </p>
             <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-2.5 text-sm sm:grid-cols-2">
               <Fact label="Case">
@@ -221,7 +221,7 @@ export function OverviewTab({ xray, caseView, bypassedAi }: OverviewTabProps) {
             {xray.contradictions.length === 0 ? (
               <p className="mt-2 text-xs text-muted-foreground">
                 No cross-evidence conflicts. Zero contradictions is a precondition for the
-                deterministic auto-prepare path (contract 9.4).
+                deterministic auto-prepare path.
               </p>
             ) : (
               <ul className="mt-2 space-y-2 text-xs">

@@ -129,7 +129,7 @@ export function CaseQueueBoard() {
       <PageHeader
         eyebrow="Defend"
         title="Case queue"
-        description="Every dispute case in workflow order (contract 10). A lane is a Temporal state, not a folder: a card only moves when the workflow moves it, or when a person unblocks it."
+        description="Every dispute case in workflow order. A lane is a Temporal state, not a folder: a card only moves when the workflow moves it, or when a person unblocks it."
         meta={
           <>
             <Badge variant="outline">{merchantLabel}</Badge>
@@ -170,7 +170,7 @@ export function CaseQueueBoard() {
               label="Waiting on a human"
               value={isLoading ? '-' : awaitingHuman.length}
               tone={awaitingHuman.length > 0 ? 'warning' : 'neutral'}
-              hint="Parked on the humanDecision signal (contract 10, step 8)."
+              hint="Parked on the humanDecision signal."
               loading={isLoading}
             />
             <StatTile

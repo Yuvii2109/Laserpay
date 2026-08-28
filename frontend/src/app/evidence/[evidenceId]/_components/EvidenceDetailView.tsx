@@ -84,7 +84,7 @@ export function EvidenceDetailView({ evidenceId }: EvidenceDetailViewProps) {
     {
       label: 'Source',
       value: humanizeEnum(evidence.source),
-      hint: 'The system that produced this artifact (contract 6 EvidenceSource).',
+      hint: 'The system that produced this artifact.',
     },
     {
       label: 'Source event',

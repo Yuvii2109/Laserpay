@@ -132,7 +132,7 @@ export function SafetyGateTab({ xray, policy }: SafetyGateTabProps) {
             <p className="mt-1.5 max-w-md text-xs text-muted-foreground lg:ml-auto">
               {decision
                 ? DECISION_MEANING[decision]
-                : 'No SafetyVerdict is stored for this case, which means validateAndGate has not run yet (contract 10, step 7).'}
+                : 'No SafetyVerdict is stored for this case, which means validateAndGate has not run yet.'}
             </p>
           </div>
         </div>
@@ -194,7 +194,7 @@ export function SafetyGateTab({ xray, policy }: SafetyGateTabProps) {
       <section className="surface-card p-4" aria-label="Contract 9.3 rule checklist">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-sm font-semibold text-foreground">
-            The seven rules (contract 9.3)
+            The seven rules
           </h2>
           <span className="text-2xs text-muted-foreground">
             {checklist.rules.filter((rule) => rule.outcome === 'pass').length} passed ·{' '}

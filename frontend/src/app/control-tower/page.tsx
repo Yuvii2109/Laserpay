@@ -27,6 +27,7 @@ import { useUiStore } from '@/lib/store/uiStore';
 import { formatScore } from '@/lib/format/score';
 import { humanizeEnum } from '@/lib/format/id';
 import { CASE_STATUSES } from '@/lib/types/case';
+import { NextSteps } from './_components/NextSteps';
 import { PanelCard } from './_components/PanelCard';
 import { ReadinessDistributionChart } from './_components/ReadinessDistributionChart';
 import { AtRiskTransactionFeed } from './_components/AtRiskTransactionFeed';
@@ -68,12 +69,12 @@ export default function ControlTowerPage() {
       <>
         <PageHeader
           title="Merchant Control Tower"
-          description="Evidence readiness, the open dispute queue and the gaps that put a representment at risk."
+          description="How defensible is this merchant's revenue right now, and what is putting it at risk?"
         />
         <EmptyState
           icon={Building2}
           title="No merchant selected"
-          description="Pick a merchant in the top bar. Every route in this console is merchant-scoped, and the control-tower socket subscribes per merchant."
+          description="Pick a merchant in the top bar to see their evidence readiness."
         />
       </>
     );
@@ -83,7 +84,7 @@ export default function ControlTowerPage() {
     <>
       <PageHeader
         title="Merchant Control Tower"
-        description="Evidence readiness, the open dispute queue and the gaps that put a representment at risk. Panels refresh from REST whenever a control-tower frame says something moved."
+        description="How defensible is this merchant's revenue right now, and what is putting it at risk?"
         meta={
           summary ? (
             <>
@@ -113,6 +114,8 @@ export default function ControlTowerPage() {
         />
       ) : null}
 
+      <NextSteps summary={summary} />
+
       {/* ---- above the fold: five numbers that decide what gets worked next ---- */}
       {summaryQuery.isLoading && !summary ? (
         <LoadingState variant="cards" count={5} className="xl:grid-cols-5" />
@@ -124,7 +127,7 @@ export default function ControlTowerPage() {
             value={formatScore(summary?.averageReadinessScore)}
             hint={
               summary
-                ? `${summary.transactions} scored transaction${summary.transactions === 1 ? '' : 's'} · ${summary.atRiskTransactions} at risk`
+                ? `Across ${summary.transactions} transaction${summary.transactions === 1 ? '' : 's'}. 100 is fully defensible.`
                 : undefined
             }
             loading={summaryQuery.isLoading}
@@ -147,7 +150,7 @@ export default function ControlTowerPage() {
             value={summary?.atRiskTransactions ?? '-'}
             hint={
               summary
-                ? `In the AT_RISK or NOT_READY band, of ${summary.transactions} scored`
+                ? `Of ${summary.transactions}. These would be hard to defend if disputed today.`
                 : undefined
             }
             tone={summary && summary.atRiskTransactions > 0 ? 'serious' : undefined}
@@ -160,7 +163,7 @@ export default function ControlTowerPage() {
             value={summary?.openDisputes ?? '-'}
             hint={
               summary
-                ? `${summary.blockingGaps} blocking gap${summary.blockingGaps === 1 ? '' : 's'} (HIGH or CRITICAL) unresolved`
+                ? `${summary.blockingGaps} serious evidence gap${summary.blockingGaps === 1 ? '' : 's'} still unresolved`
                 : undefined
             }
             loading={summaryQuery.isLoading}
@@ -172,7 +175,7 @@ export default function ControlTowerPage() {
             value={summary?.casesRequiringReview ?? '-'}
             hint={
               summary
-                ? `Of ${totalCases} case${totalCases === 1 ? '' : 's'} on this merchant. Parked on the humanDecision signal (contract 10, 8).`
+                ? `Of ${totalCases} case${totalCases === 1 ? '' : 's'}. Waiting for a human to approve or reject.`
                 : undefined
             }
             tone={summary && summary.casesRequiringReview > 0 ? 'warning' : undefined}
@@ -185,7 +188,7 @@ export default function ControlTowerPage() {
             value={summary?.expiringEvidence ?? '-'}
             hint={
               summary
-                ? `Of ${totalEvidence} artifact${totalEvidence === 1 ? '' : 's'}. Inside the policy expiring-soon horizon; contract 7 penalises the last 7 days.`
+                ? `Of ${totalEvidence} document${totalEvidence === 1 ? '' : 's'}. Expiring within 7 days and still needed.`
                 : undefined
             }
             tone={summary && summary.expiringEvidence > 0 ? 'warning' : undefined}
@@ -199,7 +202,7 @@ export default function ControlTowerPage() {
         <div className="min-w-0 space-y-4">
           <PanelCard
             title="Readiness distribution"
-            description="Transactions per readiness band (contract 6 thresholds: 90 / 75 / 50)."
+            description="Transactions per readiness band."
             icon={Gauge}
             href="/transactions"
             hrefLabel="Browse transactions"

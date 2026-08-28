@@ -140,7 +140,7 @@ export function WorkflowStepper({ status, bypassedAi, workflowId, className }: W
                 <p className="mt-0.5 text-2xs leading-snug text-muted-foreground">{step.detail}</p>
                 {state === 'skipped' ? (
                   <p className="mt-0.5 text-2xs" style={{ color: 'var(--status-neutral)' }}>
-                    Bypassed by a deterministic short-circuit (contract 9.4). No model call was
+                    Bypassed by a deterministic short-circuit. No model call was
                     made and no tokens were spent.
                   </p>
                 ) : null}
