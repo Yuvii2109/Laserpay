@@ -74,8 +74,21 @@ pdei:
     default-currency: ${PDEI_DEFAULT_CURRENCY:INR}
     publish-timeout: 10s
     # Ordering is per partition and the key is merchantId:aggregateId, so raising concurrency
-    # parallelises across aggregates and never reorders one aggregate's events.
-    concurrency: 3
+    # parallelises across aggregates and never reorders one aggregate's EVENTS.
+    #
+    # It does reorder work on rows those aggregates SHARE, and two of those are unique-constrained:
+    #
+    #   pk_merchants          ReferenceData.ensureMerchant is find-then-save. Two threads handling
+    #                         different aggregates of the same merchant both miss, both insert.
+    #   ux_audit_events_link  UNIQUE (merchant_id, previous_hash). Two concurrent appends read the
+    #                         same last hash and both chain onto it - which is a FORKED audit chain,
+    #                         and the index exists precisely to refuse it.
+    #
+    # Either violation aborts the JDBC transaction, so the projection work and the derived evidence
+    # in that same transaction are lost too: 66 violations cost most of a seeded run's evidence.
+    # Serialising is the honest fix until the merchant stub is an upsert and the chain append holds
+    # its per-merchant Redis lock; raise this again only once both are true.
+    concurrency: 1
     max-poll-records: 50
     derive-evidence: true
     retry:
