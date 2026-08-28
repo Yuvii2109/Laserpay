@@ -35,6 +35,12 @@ public class JdbcAuditRepository implements AuditRepositoryPort {
         this.jdbc = jdbc;
     }
 
+    // audit_events keys on audit_id and stores the two snapshots as before_state / after_state.
+    private static final String COLUMNS = """
+            audit_id AS id, entity_type, entity_id, merchant_id, action, actor, actor_type, occurred_at,
+            correlation_id, before_state AS before_json, after_state AS after_json, previous_hash, hash
+            """;
+
     private static final RowMapper<AuditEvent> MAPPER = (rs, i) -> new AuditEvent(
             rs.getString("id"),
             rs.getString("entity_type"),
@@ -65,11 +71,12 @@ public class JdbcAuditRepository implements AuditRepositoryPort {
     @Override
     public void append(AuditEvent event) {
         jdbc.update("""
-                INSERT INTO pdei.audit_events (id, entity_type, entity_id, merchant_id, action, actor,
-                    actor_type, occurred_at, correlation_id, before_json, after_json, previous_hash, hash)
+                INSERT INTO pdei.audit_events (audit_id, entity_type, entity_id, merchant_id, action,
+                    actor, actor_type, occurred_at, correlation_id, before_state, after_state,
+                    previous_hash, hash)
                 VALUES (:id, :entityType, :entityId, :merchantId, :action, :actor, :actorType, :occurredAt,
                     :correlationId, CAST(:before AS jsonb), CAST(:after AS jsonb), :previousHash, :hash)
-                ON CONFLICT (id) DO NOTHING
+                ON CONFLICT (audit_id) DO NOTHING
                 """,
                 new MapSqlParameterSource()
                         .addValue("id", event.auditId())
@@ -91,16 +98,16 @@ public class JdbcAuditRepository implements AuditRepositoryPort {
     public Optional<String> lastHash(String merchantId) {
         List<String> hashes = jdbc.queryForList("""
                 SELECT hash FROM pdei.audit_events WHERE merchant_id = :merchant
-                 ORDER BY occurred_at DESC, id DESC LIMIT 1
+                 ORDER BY occurred_at DESC, audit_id DESC LIMIT 1
                 """, Map.of("merchant", merchantId), String.class);
         return hashes.stream().findFirst();
     }
 
     @Override
     public List<AuditEvent> findChain(String merchantId, int limit) {
-        return jdbc.query("""
-                SELECT * FROM pdei.audit_events WHERE merchant_id = :merchant
-                 ORDER BY occurred_at, id LIMIT :limit
+        return jdbc.query("SELECT " + COLUMNS + """
+                  FROM pdei.audit_events WHERE merchant_id = :merchant
+                 ORDER BY occurred_at, audit_id LIMIT :limit
                 """,
                 new MapSqlParameterSource()
                         .addValue("merchant", merchantId)
@@ -109,11 +116,11 @@ public class JdbcAuditRepository implements AuditRepositoryPort {
 
     @Override
     public List<AuditEvent> findByEntity(String entityType, String entityId, int page, int size) {
-        return jdbc.query("""
-                SELECT * FROM pdei.audit_events
+        return jdbc.query("SELECT " + COLUMNS + """
+                  FROM pdei.audit_events
                  WHERE (CAST(:entityType AS text) IS NULL OR entity_type = :entityType)
                    AND (CAST(:entityId AS text) IS NULL OR entity_id = :entityId)
-                 ORDER BY occurred_at DESC, id DESC
+                 ORDER BY occurred_at DESC, audit_id DESC
                  LIMIT :limit OFFSET :offset
                 """,
                 new MapSqlParameterSource()
@@ -126,13 +133,13 @@ public class JdbcAuditRepository implements AuditRepositoryPort {
     @Override
     public List<AuditEvent> findByFilter(String merchantId, String actor, Instant from, Instant to,
                                          int page, int size) {
-        return jdbc.query("""
-                SELECT * FROM pdei.audit_events
+        return jdbc.query("SELECT " + COLUMNS + """
+                  FROM pdei.audit_events
                  WHERE (CAST(:merchant AS text) IS NULL OR merchant_id = :merchant)
                    AND (CAST(:actor AS text) IS NULL OR actor = :actor)
                    AND (CAST(:from AS timestamptz) IS NULL OR occurred_at >= :from)
                    AND (CAST(:to AS timestamptz) IS NULL OR occurred_at < :to)
-                 ORDER BY occurred_at DESC, id DESC
+                 ORDER BY occurred_at DESC, audit_id DESC
                  LIMIT :limit OFFSET :offset
                 """,
                 new MapSqlParameterSource()
