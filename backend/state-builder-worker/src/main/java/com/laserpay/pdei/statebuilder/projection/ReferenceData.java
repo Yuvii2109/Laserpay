@@ -24,6 +24,15 @@ import java.util.Map;
 /**
  * Creates the placeholder rows that make out-of-order projection possible.
  *
+ * <p><strong>Every stub is written with {@code saveAndFlush}, not {@code save}.</strong> These
+ * rows exist to satisfy foreign keys for writes that follow in the same transaction, and some of
+ * those writes are raw JDBC - {@code JdbcEvidenceRepository} inserts derived evidence through
+ * {@code NamedParameterJdbcTemplate}. JPA defers an INSERT until flush, so a plain {@code save}
+ * leaves the row in the persistence context and invisible to SQL issued on the same connection.
+ * The evidence insert then fails with {@code fk_evidence_transaction} / {@code fk_evidence_merchant}
+ * against a parent that this class believes it just created. Flushing makes the row real at the
+ * point the constraint will be checked. 104 violations in one seeded run traced to exactly this.
+ *
  * <h2>The problem</h2>
  *
  * The schema is relationally honest: {@code payments.transaction_id}, {@code shipments.order_id},
@@ -96,7 +105,7 @@ public class ReferenceData {
             entity.setTimezone("UTC");
             entity.setMetadata(stubMetadata("created by state-builder-worker from an event stream"));
             log.info("created stub merchant {} (first event for an unknown merchant)", merchantId);
-            return merchants.save(entity);
+            return merchants.saveAndFlush(entity);
         });
     }
 
@@ -117,7 +126,7 @@ public class ReferenceData {
             entity.setFirstSeenAt(seenAt);
             entity.setLastSeenAt(seenAt);
             entity.setMetadata(stubMetadata("created by state-builder-worker from an event stream"));
-            return customers.save(entity);
+            return customers.saveAndFlush(entity);
         });
     }
 
@@ -167,7 +176,7 @@ public class ReferenceData {
             entity.setObservedAt(event.observedAt());
             entity.setMetadata(stubMetadata("implied by " + event.eventType() + " " + event.eventId()));
             log.debug("created stub transaction {} implied by {}", transactionId, event.eventType());
-            return transactions.save(entity);
+            return transactions.saveAndFlush(entity);
         });
     }
 
@@ -196,7 +205,7 @@ public class ReferenceData {
             entity.setPlacedAt(event.occurredAt());
             entity.setMetadata(stubMetadata("implied by " + event.eventType() + " " + event.eventId()));
             log.debug("created stub order {} implied by {}", orderId, event.eventType());
-            return orders.save(entity);
+            return orders.saveAndFlush(entity);
         });
     }
 
@@ -218,7 +227,7 @@ public class ReferenceData {
             entity.setDeclaredValue(MoneyEmbeddable.zero(currency));
             entity.setMetadata(stubMetadata("implied by " + event.eventType() + " " + event.eventId()));
             log.debug("created stub shipment {} implied by {}", shipmentId, event.eventType());
-            return shipments.save(entity);
+            return shipments.saveAndFlush(entity);
         });
     }
 
@@ -240,7 +249,7 @@ public class ReferenceData {
             entity.setOccurredAt(event.occurredAt());
             entity.setMetadata(stubMetadata("implied by " + event.eventType() + " " + event.eventId()));
             log.debug("created stub payment {} implied by {}", paymentId, event.eventType());
-            return payments.save(entity);
+            return payments.saveAndFlush(entity);
         });
     }
 

@@ -91,8 +91,13 @@ public final class Repositories {
     }
 
     /**
-     * Stubs {@code findById} and {@code save} against the store. Every handler under test uses only
-     * those two plus the derived queries stubbed individually below.
+     * Stubs {@code findById}, {@code save} and {@code saveAndFlush} against the store.
+     *
+     * <p>{@code saveAndFlush} is stubbed identically to {@code save} because this store is already
+     * immediately visible - there is no deferred flush to model. ReferenceData calls the flushing
+     * variant deliberately: against a real EntityManager a plain {@code save} leaves the row
+     * invisible to the raw JDBC that writes evidence in the same transaction. That distinction
+     * cannot be reproduced here, which is exactly why it went unnoticed until the stack ran.
      */
     private static <T extends BaseEntity> void stubCrud(JpaRepository<T, String> repository,
                                                         Store<T> store) {
@@ -103,6 +108,11 @@ public final class Repositories {
             store.put(entity);
             return entity;
         }).when(repository).save(any());
+        Mockito.doAnswer(invocation -> {
+            T entity = invocation.getArgument(0);
+            store.put(entity);
+            return entity;
+        }).when(repository).saveAndFlush(any());
     }
 
     // --- factories ------------------------------------------------------------------------------
