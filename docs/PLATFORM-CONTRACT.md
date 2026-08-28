@@ -610,7 +610,7 @@ Every object gets user metadata: `x-amz-meta-sha256`, `x-amz-meta-source-event-i
 ## 12. Redis Key Namespace
 
 ```
-pdei:idem:{eventId}                     event dedupe          TTL 7d
+pdei:idem:{eventId}:{consumerGroup}     event dedupe          TTL 7d
 pdei:readiness:{transactionId}          cached snapshot JSON  TTL 10m
 pdei:case:{caseId}:state                hot case state        TTL 24h
 pdei:lock:{resource}                    distributed lock      TTL 30s
@@ -619,6 +619,18 @@ pdei:ai:budget:{date} / pdei:ai:bucket  AI admission control
 pdei:sim:run:{runId}                    simulator progress
 pdei:stream:offsets:{consumerGroup}     replay bookmarks
 ```
+
+**The consumer group is part of the dedupe key, not optional detail.** Several services consume
+the same topic - `pdei.canonical.events.v1` feeds state-builder-worker, audit-service and
+document-processor-service - so a bare `pdei:idem:{eventId}` is one namespace shared by all of
+them. The first service to `SETNX` an event claims it and every other consumer of that same event
+treats it as a duplicate and silently skips its own work: no error, no lag, no dead letter.
+
+Measured on a seeded run before this was fixed: of 3373 canonical events, audit-service claimed
+3778 rows in `processed_events` while state-builder-worker claimed 58, and only 48 of 324
+transactions were ever projected. The Postgres side was always correct - `processed_events` is
+keyed `(event_id, consumer_group)` - so this simply makes the Redis fast path agree with the
+durable claim it exists to shortcut.
 
 ---
 

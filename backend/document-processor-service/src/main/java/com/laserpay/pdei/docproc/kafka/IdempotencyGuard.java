@@ -79,7 +79,8 @@ public class IdempotencyGuard {
         }
         try {
             Boolean firstTime = redis.opsForValue()
-                    .setIfAbsent(KEY_PREFIX + eventId, CONSUMER_GROUP, properties.getIdempotencyTtl());
+                    .setIfAbsent(KEY_PREFIX + eventId + ":" + CONSUMER_GROUP, CONSUMER_GROUP,
+                            properties.getIdempotencyTtl());
             return Boolean.FALSE.equals(firstTime);
         } catch (RuntimeException e) {
             // Redis is a cache here, never the source of truth: a failure means one extra

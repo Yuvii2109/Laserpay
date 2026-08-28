@@ -50,8 +50,25 @@ public class IdempotencyGuard {
         this.metrics = metrics;
     }
 
-    public static String key(String eventId) {
-        return KEY_PREFIX + eventId;
+    /*
+     * The consumer group is part of the KEY, not just the value.
+     *
+     * pdei.canonical.events.v1 is consumed by state-builder-worker, audit-service and
+     * document-processor-service, and pdei.evidence.events.v1 by readiness-worker and
+     * audit-service. A bare pdei:idem:{eventId} is one namespace shared by all of them, so the
+     * first service to SETNX an event claims it and every other consumer of that same event
+     * concludes it is a duplicate and skips its own work - silently, with no error and no lag.
+     *
+     * Measured on a seeded run before this fix: of 3373 canonical events, audit-service claimed
+     * 3778 rows in processed_events and state-builder-worker claimed 58. Only 48 of 324
+     * transactions and 3 of 58 disputes were ever projected. Nothing failed; the work was simply
+     * never done.
+     *
+     * Postgres already had this right: processed_events is keyed (event_id, consumer_group).
+     * This makes the Redis fast path agree with the durable claim it is meant to shortcut.
+     */
+    public static String key(String eventId, String consumerGroup) {
+        return KEY_PREFIX + eventId + ":" + consumerGroup;
     }
 
     /**
@@ -81,7 +98,7 @@ public class IdempotencyGuard {
             return false;
         }
         try {
-            Boolean set = redis.opsForValue().setIfAbsent(key(eventId), consumerGroup, ttl);
+            Boolean set = redis.opsForValue().setIfAbsent(key(eventId, consumerGroup), consumerGroup, ttl);
             return Boolean.TRUE.equals(set);
         } catch (RuntimeException e) {
             log.debug("redis idempotency unavailable, falling through to postgres: {}", e.toString());
