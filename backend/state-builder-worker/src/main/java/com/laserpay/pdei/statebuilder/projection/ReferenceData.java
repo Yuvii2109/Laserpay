@@ -164,6 +164,12 @@ public class ReferenceData {
             return null;
         }
         String resolved = currency == null ? defaultCurrency : currency;
+        // The chain is merchant -> transaction -> evidence, and every link is a foreign key.
+        // Stubbing the transaction without its merchant just moves the violation one table along:
+        // transactions.merchant_id references merchants, so the insert below fails, the stub is
+        // never created, and the evidence that needed it then fails on fk_evidence_transaction.
+        // Callers that already ensured the merchant pay only a findById for this.
+        ensureMerchant(event.merchantId(), resolved);
         return transactions.findById(transactionId).orElseGet(() -> {
             TransactionEntity entity = new TransactionEntity();
             entity.setId(transactionId);
