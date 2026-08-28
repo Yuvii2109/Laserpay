@@ -98,7 +98,13 @@ public class TransactionProjection {
         if (amount != null && (entity.getAmount() == null || entity.getAmount().getAmountMinor() == 0L)) {
             entity.setAmount(MoneyEmbeddable.of(amount));
         }
-        return transactions.save(entity);
+        // saveAndFlush, not save: derived evidence is written by raw JDBC later in this same
+        // transaction and its foreign key is checked by PostgreSQL, not by Hibernate. A plain
+        // save leaves the row in the first-level cache - where ReferenceData.ensureTransaction's
+        // findById happily finds it, concludes the parent exists and skips its own insert, while
+        // the database still has nothing. The evidence insert then fails fk_evidence_transaction
+        // against a row two different code paths both believe they created.
+        return transactions.saveAndFlush(entity);
     }
 
     /**
@@ -119,7 +125,13 @@ public class TransactionProjection {
         entity.setLastEventAt(event.occurredAt());
         entity.setObservedAt(latest(entity.getObservedAt(), event.observedAt()));
         entity.setMetadata(ProjectionWatermark.stamp(entity.getMetadata(), event));
-        return transactions.save(entity);
+        // saveAndFlush, not save: derived evidence is written by raw JDBC later in this same
+        // transaction and its foreign key is checked by PostgreSQL, not by Hibernate. A plain
+        // save leaves the row in the first-level cache - where ReferenceData.ensureTransaction's
+        // findById happily finds it, concludes the parent exists and skips its own insert, while
+        // the database still has nothing. The evidence insert then fails fk_evidence_transaction
+        // against a row two different code paths both believe they created.
+        return transactions.saveAndFlush(entity);
     }
 
     /**
