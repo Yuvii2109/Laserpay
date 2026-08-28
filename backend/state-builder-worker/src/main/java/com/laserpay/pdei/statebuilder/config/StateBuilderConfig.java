@@ -58,11 +58,12 @@ public class StateBuilderConfig {
     @Bean
     public ReferenceData referenceData(MerchantRepository merchants,
                                        CustomerRepository customers,
+                                       TransactionRepository transactions,
                                        OrderRepository orders,
                                        ShipmentRepository shipments,
                                        PaymentRepository payments,
                                        StateBuilderProperties properties) {
-        return new ReferenceData(merchants, customers, orders, shipments, payments,
+        return new ReferenceData(merchants, customers, transactions, orders, shipments, payments,
                 properties.getDefaultCurrency());
     }
 

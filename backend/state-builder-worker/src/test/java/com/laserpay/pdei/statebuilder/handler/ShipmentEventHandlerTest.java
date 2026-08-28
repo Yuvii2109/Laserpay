@@ -9,6 +9,7 @@ import com.laserpay.pdei.persistence.entity.MerchantEntity;
 import com.laserpay.pdei.persistence.entity.OrderEntity;
 import com.laserpay.pdei.persistence.entity.PaymentEntity;
 import com.laserpay.pdei.persistence.entity.ShipmentEntity;
+import com.laserpay.pdei.persistence.entity.TransactionEntity;
 import com.laserpay.pdei.statebuilder.EvidenceStubs;
 import com.laserpay.pdei.statebuilder.Events;
 import com.laserpay.pdei.statebuilder.Repositories;
@@ -36,6 +37,9 @@ class ShipmentEventHandlerTest {
     private final Repositories.Store<MerchantEntity> merchantStore = new Repositories.Store<>();
     private final Repositories.Store<CustomerEntity> customerStore = new Repositories.Store<>();
     private final Repositories.Store<PaymentEntity> paymentStore = new Repositories.Store<>();
+    // ReferenceData stubs the parent transaction before any child row that names it, so this
+    // handler now needs a transaction store even though it asserts nothing about transactions.
+    private final Repositories.Store<TransactionEntity> transactionStore = new Repositories.Store<>();
 
     private EvidenceStubs.Recorder evidence;
     private ShipmentEventHandler handler;
@@ -46,6 +50,7 @@ class ShipmentEventHandlerTest {
         ReferenceData referenceData = new ReferenceData(
                 Repositories.merchants(merchantStore),
                 Repositories.customers(customerStore),
+                Repositories.transactions(transactionStore),
                 Repositories.orders(orderStore),
                 Repositories.shipments(shipmentStore),
                 Repositories.payments(paymentStore),

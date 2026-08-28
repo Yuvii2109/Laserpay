@@ -53,6 +53,7 @@ class RefundEventHandlerTest {
         ReferenceData referenceData = new ReferenceData(
                 Repositories.merchants(merchantStore),
                 Repositories.customers(customerStore),
+                Repositories.transactions(transactionStore),
                 Repositories.orders(orderStore),
                 Repositories.shipments(shipmentStore),
                 Repositories.payments(paymentStore),

@@ -7,11 +7,13 @@ import com.laserpay.pdei.persistence.entity.MoneyEmbeddable;
 import com.laserpay.pdei.persistence.entity.OrderEntity;
 import com.laserpay.pdei.persistence.entity.PaymentEntity;
 import com.laserpay.pdei.persistence.entity.ShipmentEntity;
+import com.laserpay.pdei.persistence.entity.TransactionEntity;
 import com.laserpay.pdei.persistence.repository.CustomerRepository;
 import com.laserpay.pdei.persistence.repository.MerchantRepository;
 import com.laserpay.pdei.persistence.repository.OrderRepository;
 import com.laserpay.pdei.persistence.repository.PaymentRepository;
 import com.laserpay.pdei.persistence.repository.ShipmentRepository;
+import com.laserpay.pdei.persistence.repository.TransactionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,6 +55,7 @@ public class ReferenceData {
 
     private final MerchantRepository merchants;
     private final CustomerRepository customers;
+    private final TransactionRepository transactions;
     private final OrderRepository orders;
     private final ShipmentRepository shipments;
     private final PaymentRepository payments;
@@ -60,12 +63,14 @@ public class ReferenceData {
 
     public ReferenceData(MerchantRepository merchants,
                          CustomerRepository customers,
+                         TransactionRepository transactions,
                          OrderRepository orders,
                          ShipmentRepository shipments,
                          PaymentRepository payments,
                          String defaultCurrency) {
         this.merchants = merchants;
         this.customers = customers;
+        this.transactions = transactions;
         this.orders = orders;
         this.shipments = shipments;
         this.payments = payments;
@@ -117,6 +122,56 @@ public class ReferenceData {
     }
 
     /**
+     * Ensures the transaction row a stub is about to point at actually exists.
+     *
+     * <p><strong>Twelve tables carry a foreign key to {@code pdei.transactions}</strong> - orders,
+     * payments, shipments, refunds, communications, deliveries, evidence, disputes, dispute_cases,
+     * readiness_snapshots, readiness_gaps and investigations. A nullable {@code transaction_id}
+     * column is not permission to write an id that has no row: the constraint fires on any
+     * non-null value.
+     *
+     * <p>This is what made out-of-order tolerance fail in practice. A {@code ShipmentCreated}
+     * arriving before its {@code OrderCreated} - routine, since contract §4 only guarantees
+     * per-aggregate ordering - made {@link #ensureOrder} write a stub order naming a transaction
+     * that had not been seen yet:
+     *
+     * <pre>
+     * ERROR: insert or update on table "orders" violates foreign key constraint
+     *        "fk_orders_transaction"
+     * </pre>
+     *
+     * <p>That aborts the JDBC transaction, so <em>every</em> later statement in the same handler
+     * fails with SQLSTATE 25P02 ("current transaction is aborted") - including the evidence insert
+     * that {@code DerivedEvidenceService} makes at the end. One missing parent row therefore took
+     * out the entire evidence plane, and only 21 of 324 transactions survived a seeded run.
+     *
+     * <p>The stub is deliberately minimal and carries no watermark, exactly like the others: when
+     * the real lifecycle event arrives, {@code TransactionProjection.ensure} fills in the amount,
+     * customer and status, and moves {@code occurredAt} earlier if the event predates it.
+     */
+    public TransactionEntity ensureTransaction(String transactionId, CanonicalEvent event,
+                                               String currency) {
+        if (transactionId == null || transactionId.isBlank()) {
+            return null;
+        }
+        String resolved = currency == null ? defaultCurrency : currency;
+        return transactions.findById(transactionId).orElseGet(() -> {
+            TransactionEntity entity = new TransactionEntity();
+            entity.setId(transactionId);
+            entity.setMerchantId(event.merchantId());
+            entity.setAmount(MoneyEmbeddable.zero(resolved));
+            entity.setCapturedAmount(MoneyEmbeddable.zero(resolved));
+            entity.setRefundedAmount(MoneyEmbeddable.zero(resolved));
+            entity.setStatus(TransactionStatus.CREATED);
+            entity.setOccurredAt(event.occurredAt());
+            entity.setObservedAt(event.observedAt());
+            entity.setMetadata(stubMetadata("implied by " + event.eventType() + " " + event.eventId()));
+            log.debug("created stub transaction {} implied by {}", transactionId, event.eventType());
+            return transactions.save(entity);
+        });
+    }
+
+    /**
      * Guarantees an order row exists so a shipment can reference it.
      *
      * <p>The stub's {@code placedAt} is the arriving event's {@code occurredAt}: it is the latest
@@ -127,6 +182,8 @@ public class ReferenceData {
         if (orderId == null || orderId.isBlank()) {
             return null;
         }
+        // Before the child, the parent: see ensureTransaction.
+        ensureTransaction(transactionId, event, currency);
         return orders.findById(orderId).orElseGet(() -> {
             OrderEntity entity = new OrderEntity();
             entity.setId(orderId);
@@ -149,6 +206,8 @@ public class ReferenceData {
         if (shipmentId == null || shipmentId.isBlank()) {
             return null;
         }
+        // Before the child, the parent: see ensureTransaction.
+        ensureTransaction(transactionId, event, currency);
         return shipments.findById(shipmentId).orElseGet(() -> {
             ShipmentEntity entity = new ShipmentEntity();
             entity.setId(shipmentId);
@@ -169,6 +228,8 @@ public class ReferenceData {
         if (paymentId == null || paymentId.isBlank()) {
             return null;
         }
+        // Before the child, the parent: see ensureTransaction.
+        ensureTransaction(transactionId, event, currency);
         return payments.findById(paymentId).orElseGet(() -> {
             PaymentEntity entity = new PaymentEntity();
             entity.setId(paymentId);
