@@ -542,10 +542,11 @@ docker run --rm --network pdei-test-net -e DOCKER_HOST=tcp://pdei-dind:2375 \
 - [x] ~~Python suite never executed~~ — **89 pytest tests pass**, plus ruff, ruff-format and mypy
       (42 files) clean. `uv.lock` committed (74 packages), which also fixes `setup-uv`'s cache
       glob and activates the `uv sync --frozen` reproducible path.
-- [ ] `docker compose up` never run end-to-end. **This is the current task.** `bootstrap.sh`
-      now passes; next step is `./scripts/up.sh core` then `./scripts/smoke-test.sh`.
-- [ ] Uncommitted right now: `.gitattributes` (new), `.gitignore` (`!*.example` fix),
-      `frontend/.env.local.example` (recovered). See "Repo relocated" below.
+- [x] ~~`docker compose up` never run end-to-end~~ — **the stack boots; 20/20 smoke checks
+      pass** (2026-08-28). Six boot defects found and fixed; see “First `docker compose up`”.
+- [ ] **The event pipeline does not work yet.** 49% of raw events dead-letter, zero evidence
+      reaches the database, and the funnel is empty past stage one. Five root causes, A–E,
+      written up in “First `docker compose up`” below. A and B are the blockers.
 - [ ] 16 MEDIUM/LOW audit findings logged but not fixed — re-run an audit to recover the list.
 - [ ] `InvestigationEntity.missingEvidence` (jsonb) has **no readers or writers** anywhere —
       dead field, or a persistence path that was never wired. Decide which.
@@ -557,6 +558,134 @@ docker run --rm --network pdei-test-net -e DOCKER_HOST=tcp://pdei-dind:2375 \
 - [ ] `SimulatedNetworkSubmitter` is a named seam — real PSP submission out of scope.
 - [ ] No OCR (deliberate — reference doc §25).
 - [ ] Benchmarks unrun; `benchmarks/results/` does not exist yet.
+
+### First `docker compose up` — 2026-08-28
+
+**The stack boots.** `./scripts/up.sh core app` brings up all 20 components and
+`./scripts/smoke-test.sh --core --app` reports **20/20 UP with zero restarts**. All 11 images
+build from source in ~9 minutes (not the 30–60 estimated); core alone is healthy in ~45 s.
+
+Verified against the running stack rather than the config: 8 topics with contract §4 partition
+counts and `pdei.readiness.events.v1` carrying `cleanup.policy=compact,delete`; both MinIO
+buckets versioned; Postgres schema `pdei` with roles + extensions, TimeZone UTC; Temporal
+namespace `pdei` at 72 h retention; Flyway applied all 10 migrations → 28 tables + history.
+
+#### Six defects found by booting — all fixed (`d5f1915`, `7b9d6bf`)
+
+| # | Defect | Why nothing caught it earlier |
+|---|---|---|
+| 1 | `temporalio/admin-tools:1.25.1` does not exist — that repo published no bare semver tags before 1.26. Compose aborts **all** parallel pulls on one resolution failure, so the symptom was "nothing starts". Pinned `1.25.1-tctl-1.18.1-cli-1.1.1`. | Image tags are only resolved by a real pull. |
+| 2 | `smoke-test.sh` reported Kafka DOWN on a healthy broker: `check_exec` passes `/opt/kafka/bin/...` to a native `docker.exe` and Git Bash rewrites it to `C:/Program Files/Git/opt/...`. Fixed with `MSYS_NO_PATHCONV=1` + `MSYS2_ARG_CONV_EXCL='*'`. | Windows-only; CI runs on Linux. |
+| 3 | `api-gateway-service` crash-looped: `NoClassDefFoundError GenericObjectPoolConfig`. `application.yml` enables `lettuce.pool` and `spring-boot-starter-data-redis` declares `commons-pool2` **optional**. Added the dependency. | The class is only touched when pooling is switched on at runtime. |
+| 4 | `audit-service` + `readiness-worker` crash-looped: *"JsonDeserializer must be configured with property setters, or via configuration properties; not both"*. Each `KafkaConfig` builds the deserializer programmatically (to inject the shared `Json.mapper()`) **and** the YAML set `spring.json.trusted.packages`. Removed the YAML half. | Needs a real Kafka consumer to start. |
+| 5 | `frontend` ran `next start` against `output: 'standalone'`; Next.js 15 rejects that combination out loud but still served `/api/health`, so the healthcheck stayed green. Now serves `.next/standalone` + `.next/static` + `public/` via `node server.js`. | A green healthcheck hid it. |
+| 6 | The documented claim that `--profile app` alone works via `depends_on` auto-enable is **false** on Compose v5.1.4 — that, `COMPOSE_PROFILES=app`, and naming a service all fail project validation. Corrected in the compose file and `infra/context.md`. | The scripts always pass both profiles. |
+
+#### Then the pipeline was exercised, and it does not work yet
+
+`./scripts/seed-demo.sh --small` plus the three curated scenarios emitted **5672** raw events.
+Downstream, the funnel is dead after stage one:
+
+```
+pdei.raw.events.v1        5672     simulator → Kafka: correct
+pdei.canonical.events.v1  2784     normalization: only half got through
+pdei.dlq.v1               2756     ← 49% of all events dead-lettered
+pdei.evidence.events.v1      0     ← no evidence exists anywhere
+pdei.dispute.events.v1       4     (24 were generated)
+pdei.case.events.v1          0
+Postgres: transactions 21 (of 324) · evidence 0 · disputes 4 · dispute_cases 0 · investigations 0
+GET /api/v1/metrics/funnel: events 8336 → candidates 0 → ambiguous 0 → aiInvestigated 0
+```
+
+⚠️ **Measuring topic depth:** `kafka.tools.GetOffsetShell` moved package in Kafka 3.x and now
+prints nothing while exiting 0 — it reported every topic as empty and nearly sent this
+investigation the wrong way. Use `kafka-get-offsets.sh --topic-partitions 'pdei.*'`.
+
+Five distinct root causes, none yet fixed. **A and B are the blockers**; C, D and E are
+independent and smaller.
+
+**A. Raw-event vocabulary drift — 2756 DLQ, all `UnmappableEventException`.**
+`simulator/world/SourceVocabulary.java` calls itself "the mapping table normalization-worker
+must implement". It is not the table the adapters implement:
+
+| Simulator emits | Adapter | Adapter's vocabulary | DLQ |
+|---|---|---|---|
+| `merchant-portal` / `document.uploaded` | `MerchantPortalAdapter` | no `document.*` mapping at all | 2004 |
+| `crm` / `message.sent` | `CrmAdapter` | `email.sent`, `message.outbound`, `sms.sent`, … | 362 |
+| `crm` / `message.received` | `CrmAdapter` | `email.received`, `message.inbound`, … | 123 |
+
+`psp-adapter`, `order-system` and `logistics` agree, which is why 2784 events did normalize.
+`document.uploaded` is the only evidence-bearing source event, so losing it means the platform
+holds **zero evidence** — the product is a no-op. Root cause: PLATFORM-CONTRACT §4 says raw
+events are "source-shaped" but never pins the strings, so two authors chose two vocabularies.
+**The contract needs a normative source-system → sourceEventType → EventType table.**
+
+**B. `JdbcEvidenceRepository` is written against a schema that does not exist.**
+`evidence-core/spi/jdbc/JdbcEvidenceRepository.java` — 31 failures in state-builder,
+`BadSqlGrammarException … column "id" does not exist`. Its `COLUMNS` list disagrees with
+`V3__evidence.sql` in three different ways:
+
+| Kind | Query assumes | Flyway has |
+|---|---|---|
+| rename | `evidence.id` | `evidence_id` |
+| rename | `evidence_versions.id` / `.version` | `evidence_version_id` / `version_number` |
+| rename | `evidence_relationships.id` / `.relation` | `relationship_id` / `relationship_type` |
+| **semantic collision** | `evidence.version`, meaning the version number | `current_version`; `version` exists but is the JPA optimistic-lock counter |
+| **absent** | `parent_evidence_id`, `quality_score`, `provenance_verified` | no such columns |
+
+The renames are mechanical. The three absent columns are not dead code — each is load-bearing
+and required by the contract:
+
+- `parentEvidenceId` drives `EvidenceLineageService`'s version-chain walk and
+  `EvidenceGraphService`'s `SUPERSEDES` edges — correctness property #4. (`superseded_by` is the
+  *forward* pointer and its complement, not a substitute.)
+- `provenanceVerified` drives `GapType.UNVERIFIABLE_PROVENANCE`, which carries the **−20**
+  penalty in the readiness formula (§7).
+- `qualityScore` drives `GapType.LOW_QUALITY`; `POST /evidence` already validates it 0.0–1.0.
+
+So the **migrations are incomplete relative to the contract** and the fix is a new migration,
+not deletion. The file's javadoc says "if the Flyway migrations name them differently, this is
+the only file that needs changing" — true for the renames, wrong for these three.
+
+**C. Out-of-order tolerance breaks on the transaction FK.** `ShipmentCreated` arriving before
+`OrderCreated` makes state-builder insert a stub order
+(`metadata: {"pdeiStub":true,"pdeiStubReason":"implied by ShipmentCreated …"}`), but the stub
+points at a `transaction_id` that does not exist yet, so `fk_orders_transaction` rejects it.
+The stub strategy covers the order-level gap and not the transaction-level one. This is
+correctness property #2 failing against real interleaving, and it is why only **21 of 324**
+transactions persisted.
+
+**D. `disputeRate` unit mismatch — silently zeroes every dispute.** Contract §8.5 names the
+field but never gives a unit, and three readings exist:
+
+- `scripts/seed-demo.sh` sends `disputeRate: 0.02` (a fraction);
+- `frontend/.../RunLauncher.tsx` sends `disputeRate: percent * 0.01` (a fraction);
+- `CreateRunRequestDto` declares `Integer disputeRate` in **basis points**.
+
+Jackson truncates `0.02` → `0`, so the world run reported `disputeRateBps: 0` and created **0
+disputes**. `RunProgressPanel.tsx` then renders "0 bps dispute rate" back at the user who asked
+for 3%. The three curated scenarios set `disputeRateBps: 10000` internally and *do* produce
+disputes, which is why any exist at all. The backend and its own `context.md` are self-consistent
+on integer basis points (same reproducibility argument as money); **both callers are wrong**, and
+the contract must state the unit with `disputeRateBps` as the canonical spelling.
+
+**E. `GET /sim/v1/runs/{runId}` is wrapped; the list endpoint is not.** The detail route returns
+`{"run":{…},"scenario":{…}}` while `GET /runs` returns bare run objects. `seed-demo.sh` reads
+`status` at the top level, so it never observes progress or completion: every run prints
+`events=?` and ends with "did not report completion within 300s" even when it finished in 15 s.
+Contract §8.5 does not specify the envelope — the same unspecified-shape failure as D.
+
+#### Still unexplained (downstream of the above, probably)
+
+24 disputes were generated but only 4 reached `pdei.dispute.events.v1` and Postgres, and
+`dispute_cases` is 0 — no Temporal workflow ever opened. Likely a consequence of the missing
+transaction rows (C) and missing evidence (A+B); re-check after those are fixed rather than
+treating it as a sixth root cause.
+
+#### What is not a defect
+
+`Failed to export spans … otel-collector: Name or service not known` (27× on the gateway) is
+expected when `obs` is not running. WARN, non-fatal. `up.sh core app obs` silences it.
 
 ### Repo relocated + line-ending policy (2026-08-28)
 
