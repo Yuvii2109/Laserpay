@@ -82,6 +82,23 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-data-redis</artifactId>
     </dependency>
+    <!--
+      Required by spring.data.redis.lettuce.pool.enabled=true in application.yml.
+      spring-boot-starter-data-redis declares commons-pool2 as OPTIONAL, so it is absent
+      unless asked for explicitly. Without it LettuceConnectionFactory dies at context
+      refresh with
+
+        NoClassDefFoundError: org/apache/commons/pool2/impl/GenericObjectPoolConfig
+
+      which nothing catches - the gateway crash-looped on first boot. Nothing at compile
+      time can see this: the class is only touched when pooling is switched on at runtime.
+      If pooling is ever turned off in application.yml, this dependency can go with it.
+      Version comes from the spring-boot-dependencies BOM.
+    -->
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-pool2</artifactId>
+    </dependency>
 
     <!-- Control-tower fan-out consumer -->
     <dependency>

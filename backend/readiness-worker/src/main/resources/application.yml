@@ -56,7 +56,15 @@ spring:
       enable-auto-commit: false
       max-poll-records: 200
       properties:
-        spring.json.trusted.packages: com.laserpay.pdei.*
+        # DO NOT add spring.json.* here. config/KafkaConfig.java builds the JsonDeserializer
+        # itself so it can inject the shared Json.mapper() (SHARED-LIBRARY-API section 1.7 -
+        # one ObjectMapper for the whole platform) and calls addTrustedPackages() on it.
+        # Spring Kafka forbids configuring a JsonDeserializer both ways and throws at
+        # context refresh:
+        #   JsonDeserializer must be configured with property setters, or via
+        #   configuration properties; not both
+        # A spring.json.trusted.packages line here duplicated the setter and crash-looped
+        # this service on first boot. Trusted packages are owned by KafkaConfig.java.
         max.poll.interval.ms: 300000
     listener:
       ack-mode: manual_immediate

@@ -153,9 +153,18 @@ All nine JVM services are built from **one** Dockerfile with `--build-arg MODULE
 | `app` | `… --profile core --profile app up -d` | the above plus the nine Spring services, the Python service and the frontend |
 | `obs` | `… --profile core --profile app --profile obs up -d` | plus collector, Prometheus, Grafana, Loki, Promtail, Tempo, three exporters |
 
-Compose ≥ 2.24 auto-enables the profile of anything reachable via `depends_on`, so
-`--profile app` alone also works. The scripts pass profiles explicitly anyway, because
-relying on that behaviour makes the failure mode confusing on older Compose.
+**Profiles must be named explicitly, and `app` always needs `core` alongside it.** This file
+previously said Compose ≥ 2.24 auto-enables the profile of anything reachable via
+`depends_on`, so `--profile app` alone would work. It does not — verified against Compose
+v5.1.4, where every shorthand fails at project validation, before a container is created:
+
+```
+docker compose --profile app config          service "normalization-worker" depends on
+COMPOSE_PROFILES=app docker compose config   undefined service "postgres": invalid compose project
+docker compose up api-gateway-service        no such service: kafka
+```
+
+The scripts pass profiles explicitly, which is why the incorrect note never caused a failure.
 
 `scripts/up.sh` with no arguments starts all three.
 

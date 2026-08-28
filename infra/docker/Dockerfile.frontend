@@ -3,8 +3,16 @@
 #
 #   docker build -f infra/docker/Dockerfile.frontend -t pdei/frontend:dev .
 #
-# Deliberately NOT using output: "standalone": that requires a next.config setting this
-# image does not own. A plain `next start` costs a slightly larger image and nothing else.
+# frontend/next.config.ts sets `output: 'standalone'`, so this image runs the standalone
+# server. It previously ran `next start` against the full build tree on the assumption that
+# standalone was not configured; Next.js 15 rejects that combination out loud at boot:
+#
+#   ⚠ "next start" does not work with "output: standalone" configuration.
+#     Use "node .next/standalone/server.js" instead.
+#
+# It happened to serve /api/health, which is why the container reported healthy, but the
+# arrangement is unsupported. next.config.ts belongs to the frontend module; this file
+# follows it rather than the other way round.
 
 # --------------------------------------------------------------------------- deps
 FROM node:20-alpine AS deps
@@ -40,11 +48,20 @@ ENV NODE_ENV=production \
 
 RUN addgroup -g 10003 -S pdei && adduser -u 10003 -S pdei -G pdei
 
-# Copying the whole build tree (rather than cherry-picking .next/public/next.config.*)
-# keeps this image agnostic about which optional Next.js files the frontend actually has.
-COPY --from=build --chown=pdei:pdei /app ./
+# The three pieces a standalone build needs, and nothing else. `server.js` and the traced
+# subset of node_modules come from .next/standalone; Next deliberately leaves static assets
+# and public/ out of that folder, so they are copied alongside it. The runtime therefore
+# carries ~57MB of application (54MB traced node_modules + 2.6MB static) instead of the
+# whole build tree with every devDependency in it.
+# The build stage runs `mkdir -p ./public`, so public/ always exists even though this
+# frontend currently ships no static files.
+COPY --from=build --chown=pdei:pdei /app/.next/standalone ./
+COPY --from=build --chown=pdei:pdei /app/.next/static ./.next/static
+COPY --from=build --chown=pdei:pdei /app/public ./public
 
 USER pdei
 EXPOSE 3000
 
-CMD ["npx", "next", "start", "-p", "3000", "-H", "0.0.0.0"]
+# server.js reads PORT and HOSTNAME from the environment (both set above and re-set by
+# compose), so there are no port flags to pass and no npx indirection to resolve.
+CMD ["node", "server.js"]

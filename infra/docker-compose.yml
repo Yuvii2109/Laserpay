@@ -6,8 +6,16 @@
 #   docker compose --profile core --profile app up -d                + the 11 services
 #   docker compose --profile core --profile app --profile obs up -d  + observability
 #
-# Compose v2.24+ auto-enables the profiles of anything reachable through depends_on, so
-# "--profile app" alone also works; the scripts in scripts/ always pass profiles explicitly.
+# Profiles must be listed explicitly, and "app" always needs "core" with it. An earlier note
+# here claimed Compose v2.24+ auto-enables the profiles of anything reachable through
+# depends_on so "--profile app" alone would work. It does not - verified on Compose v5.1.4,
+# where all three of these are rejected before anything starts:
+#
+#   docker compose --profile app config     -> service "normalization-worker" depends on
+#   COMPOSE_PROFILES=app docker compose ...     undefined service "postgres": invalid
+#   docker compose up api-gateway-service       compose project / no such service: kafka
+#
+# The scripts in scripts/ always pass profiles explicitly, which is why this never surfaced.
 
 name: pdei
 
