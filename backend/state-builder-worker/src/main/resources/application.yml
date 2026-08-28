@@ -86,9 +86,11 @@ pdei:
     #
     # Either violation aborts the JDBC transaction, so the projection work and the derived evidence
     # in that same transaction are lost too: 66 violations cost most of a seeded run's evidence.
-    # Serialising is the honest fix until the merchant stub is an upsert and the chain append holds
-    # its per-merchant Redis lock; raise this again only once both are true.
-    concurrency: 1
+    # Serialising did NOT fix this: the collisions persisted at concurrency 1, because the audit
+    # chain race is between SERVICES (this worker and audit-service), not between these threads.
+    # The append is now conflict-tolerant instead, so 3 is safe again - and 1 cost roughly a
+    # quarter of the throughput for nothing.
+    concurrency: 3
     max-poll-records: 50
     derive-evidence: true
     retry:

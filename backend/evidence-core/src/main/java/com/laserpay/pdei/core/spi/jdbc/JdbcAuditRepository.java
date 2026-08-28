@@ -76,7 +76,22 @@ public class JdbcAuditRepository implements AuditRepositoryPort {
                     previous_hash, hash)
                 VALUES (:id, :entityType, :entityId, :merchantId, :action, :actor, :actorType, :occurredAt,
                     :correlationId, CAST(:before AS jsonb), CAST(:after AS jsonb), :previousHash, :hash)
-                ON CONFLICT (audit_id) DO NOTHING
+                -- No conflict target on purpose: audit_id is not the only unique constraint on
+                -- this table. ux_audit_events_link is UNIQUE (merchant_id, previous_hash) and
+                -- enforces that a merchant's hash chain stays linear - it refuses a fork.
+                --
+                -- Two writers reach this chain: AuditRecorder here (under a per-merchant Redis
+                -- lock) and audit-service's appender consuming pdei.audit.events.v1. They do not
+                -- share a lock, so one occasionally loses the race and its previous_hash is
+                -- already taken. Targeting only audit_id turned that into a raw constraint
+                -- violation, which aborted the caller's JDBC transaction and destroyed the
+                -- projection and derived evidence written alongside it - 18 collisions cost most
+                -- of a seeded run.
+                --
+                -- Skipping the losing append is safe because it is not the durable path: the same
+                -- event is published to pdei.audit.events.v1 and audit-service writes it. Losing
+                -- the business transaction to protect a duplicate audit row was the wrong trade.
+                ON CONFLICT DO NOTHING
                 """,
                 new MapSqlParameterSource()
                         .addValue("id", event.auditId())
