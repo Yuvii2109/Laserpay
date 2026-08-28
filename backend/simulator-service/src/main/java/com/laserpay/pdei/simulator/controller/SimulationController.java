@@ -113,14 +113,20 @@ public class SimulationController {
         return found.getContent().stream().map(run -> RunViewDto.from(run, plannedOf(run))).toList();
     }
 
-    /** The durable row plus the live progress snapshot. */
+    /**
+     * The durable row with the live progress snapshot laid over it.
+     *
+     * <p>Returns the run object <strong>unwrapped</strong>, the same shape {@code GET /runs}
+     * returns for each element (contract §8.5). It previously returned
+     * {@code {"run": …, "progress": …}}, which no caller expected.
+     */
     @GetMapping("/runs/{runId}")
-    public RunViewDto.RunDetailDto getRun(@PathVariable @NotBlank @Size(max = 64) String runId) {
+    public RunViewDto getRun(@PathVariable @NotBlank @Size(max = 64) String runId) {
         SimulationRunEntity run = runs.findById(runId)
                 .orElseThrow(() -> new NotFoundException("simulation run", runId));
         RunProgress progress = progressStore.progress(runId).orElse(null);
         long planned = progress != null ? progress.eventsPlanned() : plannedOf(run);
-        return new RunViewDto.RunDetailDto(RunViewDto.from(run, planned), progress);
+        return RunViewDto.from(run, planned).withLiveProgress(progress);
     }
 
     /**

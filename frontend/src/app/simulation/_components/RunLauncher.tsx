@@ -28,8 +28,10 @@ export interface RunLauncherProps {
  *
  * The seed is the point: contract 17, rule 11 requires reproducible workloads, so the same seed
  * with the same parameters must produce the same events, the same evidence and the same
- * disputes. The dispute rate is entered as a percentage and sent as the [0,1] rate the API
- * expects - converted by multiplication, never by dividing by a hard-coded 100.
+ * disputes. The dispute rate is entered as a percentage and sent as the integer basis points
+ * the API expects (contract 8.5): 3% becomes 300. It used to be sent as a [0,1] fraction,
+ * which the server's Integer field truncated to 0 - so the console launched runs that could
+ * never produce a dispute, then displayed "0 bps" back to whoever set the slider.
  */
 export function RunLauncher({ onStart, busy }: RunLauncherProps) {
   const [seed, setSeed] = React.useState<number>(DEFAULTS.seed);
@@ -50,7 +52,7 @@ export function RunLauncher({ onStart, busy }: RunLauncherProps) {
     merchants,
     transactions,
     days,
-    disputeRate: disputeRatePercent * 0.01,
+    disputeRateBps: Math.round(disputeRatePercent * 100),
     failureProfile,
     requestedBy: 'console',
   };

@@ -62,8 +62,13 @@ export interface SimulationRunRequest {
   merchants: number;
   transactions: number;
   days: number;
-  /** Dispute rate in basis points is stored server-side; the request takes a [0,1] rate. */
-  disputeRate: number;
+  /**
+   * Dispute rate in **basis points** (contract 8.5): 200 = 2%, 10000 = 100%.
+   * Not a [0,1] fraction - this field was typed as one, the server declares it an
+   * Integer, and Jackson truncated 0.03 to 0, so every run launched from this console
+   * silently produced zero disputes.
+   */
+  disputeRateBps: number;
   failureProfile?: string;
   scenarioKey?: string;
   requestedBy?: string;

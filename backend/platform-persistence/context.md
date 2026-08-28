@@ -13,7 +13,7 @@
 PDEI — and the JPA/Spring Data layer that maps it. It is a **library module** (never repackaged
 into an executable jar). Every Spring service module adds the dependency and immediately gets:
 
-- the Flyway migrations `V1__baseline.sql` … `V10__fts.sql` (schema `pdei`),
+- the Flyway migrations `V1__baseline.sql` … `V11__evidence_lineage_quality.sql` (schema `pdei`),
 - JPA entities for all 28 tables,
 - Spring Data repositories for all of them,
 - `PersistenceAutoConfiguration`, which wires entity scan + repository scan + Flyway defaults.
@@ -87,7 +87,7 @@ Conventions that apply to every table below:
 
 ### `V3__evidence.sql`
 
-- **evidence**: `evidence_id` VARCHAR(64) NOT NULL; `merchant_id` VARCHAR(64) NOT NULL; `transaction_id` VARCHAR(64); `customer_id` VARCHAR(64); `related_entity_type` VARCHAR(32); `related_entity_id` VARCHAR(64); `type` VARCHAR(48) NOT NULL; `status` VARCHAR(32) NOT NULL; `source` VARCHAR(32) NOT NULL; `current_version` INTEGER NOT NULL; `object_key` VARCHAR(512); `content_type` VARCHAR(128); `size_bytes` BIGINT; `filename` VARCHAR(256); `sha256` VARCHAR(64); `title` VARCHAR(256); `summary` TEXT; `extracted_text` TEXT; `amount_minor` BIGINT; `currency` CHAR(3); `source_event_id` VARCHAR(64); `captured_at` TIMESTAMPTZ; `observed_at` TIMESTAMPTZ NOT NULL; `effective_from` TIMESTAMPTZ; `expires_at` TIMESTAMPTZ; `invalidated_at` TIMESTAMPTZ; `invalidated_reason` VARCHAR(512); `superseded_by` VARCHAR(64); `integrity_verified_at` TIMESTAMPTZ; `integrity_ok` BOOLEAN; `provenance` JSONB; `metadata` JSONB; `created_at` TIMESTAMPTZ NOT NULL; `updated_at` TIMESTAMPTZ NOT NULL; `version` BIGINT NOT NULL; `search_vector` tsvector *(added in V10)*
+- **evidence**: `evidence_id` VARCHAR(64) NOT NULL; `merchant_id` VARCHAR(64) NOT NULL; `transaction_id` VARCHAR(64); `customer_id` VARCHAR(64); `related_entity_type` VARCHAR(32); `related_entity_id` VARCHAR(64); `type` VARCHAR(48) NOT NULL; `status` VARCHAR(32) NOT NULL; `source` VARCHAR(32) NOT NULL; `current_version` INTEGER NOT NULL; `object_key` VARCHAR(512); `content_type` VARCHAR(128); `size_bytes` BIGINT; `filename` VARCHAR(256); `sha256` VARCHAR(64); `title` VARCHAR(256); `summary` TEXT; `extracted_text` TEXT; `amount_minor` BIGINT; `currency` CHAR(3); `source_event_id` VARCHAR(64); `captured_at` TIMESTAMPTZ; `observed_at` TIMESTAMPTZ NOT NULL; `effective_from` TIMESTAMPTZ; `expires_at` TIMESTAMPTZ; `invalidated_at` TIMESTAMPTZ; `invalidated_reason` VARCHAR(512); `superseded_by` VARCHAR(64); `integrity_verified_at` TIMESTAMPTZ; `integrity_ok` BOOLEAN; `provenance` JSONB; `metadata` JSONB; `created_at` TIMESTAMPTZ NOT NULL; `updated_at` TIMESTAMPTZ NOT NULL; `version` BIGINT NOT NULL; `search_vector` tsvector *(added in V10)*; `parent_evidence_id` VARCHAR(64), `quality_score` DOUBLE PRECISION, `provenance_verified` BOOLEAN NOT NULL, `status_reason` VARCHAR(512) *(all added in V11)*
 - **evidence_versions**: `evidence_version_id` VARCHAR(64) NOT NULL; `evidence_id` VARCHAR(64) NOT NULL; `version_number` INTEGER NOT NULL; `parent_version` INTEGER; `sha256` VARCHAR(64) NOT NULL; `object_key` VARCHAR(512) NOT NULL; `content_type` VARCHAR(128); `size_bytes` BIGINT; `filename` VARCHAR(256); `status` VARCHAR(32) NOT NULL; `source` VARCHAR(32) NOT NULL; `source_event_id` VARCHAR(64); `change_reason` VARCHAR(512); `created_by` VARCHAR(128); `observed_at` TIMESTAMPTZ NOT NULL; `created_at` TIMESTAMPTZ NOT NULL; `metadata` JSONB
 - **evidence_relationships**: `relationship_id` VARCHAR(64) NOT NULL; `from_evidence_id` VARCHAR(64) NOT NULL; `to_evidence_id` VARCHAR(64) NOT NULL; `relationship_type` VARCHAR(32) NOT NULL; `confidence_bps` INTEGER; `detected_by` VARCHAR(32) NOT NULL; `field` VARCHAR(128); `detail` TEXT; `metadata` JSONB; `created_at` TIMESTAMPTZ NOT NULL; `updated_at` TIMESTAMPTZ NOT NULL; `version` BIGINT NOT NULL
 
@@ -124,6 +124,27 @@ Conventions that apply to every table below:
 - **chaos_injections**: `injection_id` VARCHAR(64) NOT NULL; `run_id` VARCHAR(64); `merchant_id` VARCHAR(64); `type` VARCHAR(32) NOT NULL; `status` VARCHAR(32) NOT NULL; `target` JSONB; `delay_ms` BIGINT; `event_count` INTEGER; `actor` VARCHAR(128); `injected_at` TIMESTAMPTZ NOT NULL; `completed_at` TIMESTAMPTZ; `result` JSONB; `error_message` VARCHAR(1024); `created_at` TIMESTAMPTZ NOT NULL; `updated_at` TIMESTAMPTZ NOT NULL; `version` BIGINT NOT NULL
 
 ### `V10__fts.sql`
+
+### `V11__evidence_lineage_quality.sql`
+
+Adds four columns to **evidence** that sections 6 and 7 of the contract already depended on and V3
+never created: `parent_evidence_id` VARCHAR(64) (FK to `evidence`, indexed); `quality_score` DOUBLE
+PRECISION with a `0.0 <= x <= 1.0` check; `provenance_verified` BOOLEAN NOT NULL DEFAULT FALSE;
+`status_reason` VARCHAR(512), backfilled from `invalidated_reason`.
+
+This migration exists because `evidence-core`'s `JdbcEvidenceRepository` selected all four by name
+and every read and write of `pdei.evidence` therefore failed at runtime with `column "id" does not
+exist` — the platform held no evidence at all. They are not conveniences:
+
+| Column | What breaks without it |
+|---|---|
+| `parent_evidence_id` | `EvidenceLineageService`'s version-chain walk and `EvidenceGraphService`'s SUPERSEDES edges — correctness property 4. It is the **backward** pointer; `superseded_by` is the forward one, and they are complements, not duplicates. |
+| `provenance_verified` | `GapType.UNVERIFIABLE_PROVENANCE` and its −20 readiness penalty (contract §7). Distinct from `integrity_ok`: integrity is "the bytes still hash", provenance is "we can prove where this came from". |
+| `quality_score` | `GapType.LOW_QUALITY`. `POST /api/v1/evidence` has always validated it as 0.0–1.0. DOUBLE PRECISION, not minor units — the no-floating-point rule governs *money*, and a quality score is never summed into an amount. |
+| `status_reason` | `updateStatus` is called for SUPERSEDED, EXPIRED, EXPIRING **and** INVALIDATED, so `invalidated_reason` alone could record one transition in four. It is still written, alongside `invalidated_at`, when the status actually becomes INVALIDATED. |
+
+`provenance_verified` defaults to FALSE rather than TRUE on purpose: unverified is the honest state
+for evidence whose provenance was never checked, and the penalty that triggers is the correct signal.
 
 ### 3.1 Behaviour that is NOT visible in the column list
 
@@ -191,7 +212,7 @@ backend/platform-persistence/
     │   │   │   └── ChaosInjectionEntity.java  chaos_injections (+ status constants)
     │   │   └── repository/                    one <Entity>Repository per entity (28 interfaces)
     │   └── resources/
-    │       ├── db/migration/V1__baseline.sql … V10__fts.sql
+    │       ├── db/migration/V1__baseline.sql … V11__evidence_lineage_quality.sql
     │       └── META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports
     └── test/
         ├── java/com/laserpay/pdei/persistence/
@@ -303,7 +324,7 @@ The integration tests need a running Docker daemon; without one they are **skipp
 Applying migrations manually against a running Postgres:
 
 ```bash
-psql "postgresql://pdei:pdei@localhost:5432/pdei" -f src/main/resources/db/migration/V1__baseline.sql   # …through V10
+psql "postgresql://pdei:pdei@localhost:5432/pdei" -f src/main/resources/db/migration/V1__baseline.sql   # …through V11
 ```
 
 ## 10. Extension points

@@ -62,7 +62,7 @@ simulator-service/
     │   │   └── CorsConfig.java                 browser grant for /sim/** from the Next.js console
     │   ├── world/
     │   │   ├── WorldGenerator.java             THE generator; deterministic, no wall clock
-    │   │   ├── WorldSpec.java                  seed, size, days, disputeRate, startAt, floors
+    │   │   ├── WorldSpec.java                  seed, size, days, disputeRateBps, startAt, floors
     │   │   ├── FailureMix.java                 every "how broken" knob, in basis points
     │   │   ├── FailureProfile.java             CLEAN | REALISTIC | HOSTILE presets
     │   │   ├── GeneratedWorld.java             the stream + ids + counts + gross value
@@ -245,10 +245,10 @@ a flat -15.
 ### 6.1 REST (contract §8.5) — base `http://localhost:8088/sim/v1`
 
 ```
-POST /runs                   {seed, merchants, transactions, days, disputeRate, failureProfile,
+POST /runs                   {seed, merchants, transactions, days, disputeRateBps, failureProfile,
                               currency?, startAt?, reasonCode?, requestedBy?}   -> 202 + runId
 GET  /runs                   ?page&size
-GET  /runs/{runId}           durable row + live progress snapshot
+GET  /runs/{runId}           the run, UNWRAPPED, with live progress laid over its counters
 POST /runs/{runId}/stop      cooperative stop
 POST /chaos                  {type, target, delayMs?, count?, runId?, actor?}   -> ChaosResult
 GET  /chaos                  ?runId&page&size
@@ -523,7 +523,7 @@ curl -s localhost:8088/sim/v1/runs/SIM-XXXXXXXX | jq .progress
 
 # 4. an ad-hoc world
 curl -s -XPOST localhost:8088/sim/v1/runs -H 'content-type: application/json' \
-  -d '{"seed":4281,"merchants":3,"transactions":500,"days":30,"disputeRate":250,"failureProfile":"REALISTIC"}' | jq .
+  -d '{"seed":4281,"merchants":3,"transactions":500,"days":30,"disputeRateBps":250,"failureProfile":"REALISTIC"}' | jq .
 
 # 5. prove idempotency: duplicate the next 50 events of the live run
 curl -s -XPOST localhost:8088/sim/v1/chaos -H 'content-type: application/json' \

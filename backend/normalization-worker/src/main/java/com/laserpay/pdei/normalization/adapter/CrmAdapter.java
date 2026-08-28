@@ -32,13 +32,20 @@ import java.util.Set;
  */
 public class CrmAdapter extends AbstractSourceAdapter {
 
+    // PLATFORM-CONTRACT section 4.1 is the normative list. message.sent / message.received are the
+    // strings simulator-service emits (SourceVocabulary.sourceEventType); the rest are the wordings
+    // real helpdesks use. Both must keep working: without the first two, 485 communication events
+    // dead-lettered on the first end-to-end run, and narrowing this map to only the simulator's
+    // vocabulary would throw away the alias handling that is the entire point of an adapter layer.
     private static final Map<String, EventType> MAPPINGS = Map.ofEntries(
+            Map.entry("message.sent", EventType.CommunicationCreated),
             Map.entry("email.sent", EventType.CommunicationCreated),
             Map.entry("message.outbound", EventType.CommunicationCreated),
             Map.entry("ticket.reply.outbound", EventType.CommunicationCreated),
             Map.entry("ticket.agent_reply", EventType.CommunicationCreated),
             Map.entry("sms.sent", EventType.CommunicationCreated),
             Map.entry("notification.sent", EventType.CommunicationCreated),
+            Map.entry("message.received", EventType.CommunicationReceived),
             Map.entry("email.received", EventType.CommunicationReceived),
             Map.entry("message.inbound", EventType.CommunicationReceived),
             Map.entry("ticket.reply.inbound", EventType.CommunicationReceived),

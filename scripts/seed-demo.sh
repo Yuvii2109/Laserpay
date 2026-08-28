@@ -25,7 +25,10 @@ SEED=4281
 MERCHANTS=3
 TRANSACTIONS=2000
 DAYS=45
-DISPUTE_RATE=0.02
+# Basis points, per PLATFORM-CONTRACT section 8.5: 200 = 2%. NOT a fraction - this was
+# 0.02, which Jackson truncated into the Integer field as 0, so every seeded world was
+# generated with a 0% dispute rate and the whole dispute/case/AI path stayed empty.
+DISPUTE_RATE_BPS=200
 FAILURE_PROFILE=REALISTIC
 RUN_SCENARIOS=1
 RUN_CHAOS=1
@@ -68,10 +71,10 @@ get_json() {
 
 # --------------------------------------------------------------------------- 1. the world
 printf '\n%s1. Generating the synthetic merchant world%s\n' "${C_BOLD}" "${C_RESET}"
-info "seed=${SEED} merchants=${MERCHANTS} transactions=${TRANSACTIONS} days=${DAYS} disputeRate=${DISPUTE_RATE}"
+info "seed=${SEED} merchants=${MERCHANTS} transactions=${TRANSACTIONS} days=${DAYS} disputeRateBps=${DISPUTE_RATE_BPS}"
 
 RUN_BODY="$(cat <<JSON
-{"seed": ${SEED}, "merchants": ${MERCHANTS}, "transactions": ${TRANSACTIONS}, "days": ${DAYS}, "disputeRate": ${DISPUTE_RATE}, "failureProfile": "${FAILURE_PROFILE}"}
+{"seed": ${SEED}, "merchants": ${MERCHANTS}, "transactions": ${TRANSACTIONS}, "days": ${DAYS}, "disputeRateBps": ${DISPUTE_RATE_BPS}, "failureProfile": "${FAILURE_PROFILE}"}
 JSON
 )"
 

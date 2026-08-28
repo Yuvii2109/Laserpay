@@ -128,6 +128,38 @@ Producers of the raw topic: `ingestion-service`, `simulator-service`.
 An alias claimed by two adapters is a startup failure, not a warning: silent misrouting would send
 a source system's events through the wrong vocabulary.
 
+### The `sourceEventType` vocabulary is normative — PLATFORM-CONTRACT §4.1
+
+The table above routes on `sourceSystem`. Which **`sourceEventType`** strings each adapter must
+accept is now pinned in contract §4.1, and it was not before. That gap cost the first end-to-end
+run: `simulator-service` emits one canonical string per event type from
+`simulator/world/SourceVocabulary.java` — a class whose javadoc calls itself "the mapping table
+normalization-worker must implement" — and for two source systems this worker implemented a
+different one. **2489 of 5672 raw events, 49%, dead-lettered as `UnmappableEventException`:**
+
+| Simulator emitted | Adapter | Adapter's vocabulary at the time | DLQ'd |
+|---|---|---|---|
+| `crm` / `message.sent` | `CrmAdapter` | `email.sent`, `message.outbound`, `sms.sent`, … | 362 |
+| `crm` / `message.received` | `CrmAdapter` | `email.received`, `message.inbound`, … | 123 |
+| `merchant-portal` / `document.uploaded` | `MerchantPortalAdapter` | no `document.*` mapping at all | 2004 |
+
+`PspAdapter`, `OrderSystemAdapter` and `LogisticsAdapter` already agreed, which is why the other
+2784 events normalized cleanly and the failure looked partial rather than structural.
+
+`CrmAdapter` now accepts `message.sent` / `message.received` **in addition to** its existing
+aliases. The aliases are not redundancy to be trimmed: a real helpdesk says `ticket.created`, and
+narrowing the map to the simulator's vocabulary would discard the translation layer this worker
+exists to provide. Adding a canonical emission to `SourceVocabulary` without adding it here *and*
+to contract §4.1 silently routes those events to the DLQ.
+
+⚠️ **`merchant-portal` / `document.uploaded` is still unmapped, deliberately.** Mapping it is not
+sufficient on its own: nothing persists an `EvidenceAdded` that arrives on the bus.
+`state-builder-worker`'s `EvidenceEventHandler` only forwards it to `pdei.evidence.events.v1`, and
+`readiness-worker`'s consumer there only triggers recomputation. The two paths that actually write
+`pdei.evidence` are `DerivedEvidenceService` (from lifecycle facts) and `POST /api/v1/evidence`
+(uploads carrying bytes). Adding the mapping alone would convert 2004 dead letters into 2004
+canonical events that land nowhere. See the root `context.md` for the open decision.
+
 ---
 
 ## 5. Outbound contracts

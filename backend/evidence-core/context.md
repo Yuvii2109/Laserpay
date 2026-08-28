@@ -721,17 +721,56 @@ scenarios rather than as 21-argument constructor calls.
 
 Ordered by how likely they are to bite a future session.
 
-1. **The SQL column names are this module's assumption, not a verified contract.** `docs/PLATFORM-CONTRACT.md`
-   fixes the table names (section 5) but not the columns, and platform-persistence owns the Flyway
-   migrations. The adapters in `core.spi.jdbc` assume snake_case columns matching the record fields
-   (`evidence.object_key`, `evidence.parent_evidence_id`, `evidence.status_reason`,
-   `evidence.search_vector`, `readiness_snapshots.requirements_json`, `dispute_cases.manifest_json`,
-   `investigations.result_json` / `verdict_json`, `ai_admission_log.short_circuit`,
-   `processed_events.processed_at`, and so on). **First integration step:** diff those against
-   `backend/platform-persistence/src/main/resources/db/migration` and fix the six adapter files.
-   Nothing outside `core.spi.jdbc` needs to change — that is exactly why the ports exist.
-   Enum-set columns (`policy_versions.permitted_actions`, `prohibited_evidence_types`) are assumed to
-   be comma-separated text, not Postgres arrays.
+1. **The SQL column names were this module's assumption, and the assumption was wrong.**
+   This item used to read "first integration step: diff those against the migrations and fix the
+   six adapter files." That step was never taken, and the first `docker compose up` is what
+   collected the bill. **1 of 6 files fixed; 5 remain.**
+
+   `JdbcEvidenceRepository` failed on every single call with
+
+   ```
+   BadSqlGrammarException ... column "id" does not exist
+   ```
+
+   so `pdei.evidence` was never read or written and the platform held zero evidence — 31 failures
+   in state-builder on one seeded run. **No table in schema `pdei` has a column named `id`; every
+   primary key is `<entity>_id`.** Three kinds of divergence showed up, and only the first is a
+   simple rename:
+
+   - *renames* — `evidence.id` → `evidence_id`, `evidence_versions.id`/`.version` →
+     `evidence_version_id`/`version_number`, `evidence_relationships.id`/`.relation` →
+     `relationship_id`/`relationship_type`. Now handled with SQL aliases (`evidence_id AS id`) so
+     the row mappers keep the record's vocabulary.
+   - *a semantic collision* — the query selected `evidence.version` meaning the version number.
+     That column exists, and it is the JPA optimistic-lock counter; the version number is
+     `current_version`. This would have compiled, run, and returned the wrong integer. **Worse than
+     a missing column, because nothing would have failed.**
+   - *columns that genuinely did not exist* — `parent_evidence_id`, `quality_score`,
+     `provenance_verified`, `status_reason`. Not dead code: they drive the version-chain walk, the
+     `UNVERIFIABLE_PROVENANCE` −20 readiness penalty and `LOW_QUALITY` gaps, all of which contract
+     §6/§7 already required. Added by `V11__evidence_lineage_quality.sql`.
+
+   **Still to do — the other five adapters, all with the same `id` assumption:**
+
+   | File | bare `id` | other columns that do not exist |
+   |---|---|---|
+   | `JdbcCaseRepository` | 14× | ~12, incl. `manifest_json` → `package_manifest`, `dispute_amount_minor` → `amount_minor` |
+   | `JdbcTransactionRepository` | 10× | ~6, incl. `processor_reference` → `psp_reference` |
+   | `JdbcPolicyRepository` | 8× | ~9, incl. **`auto_prepare_min_confidence` → `auto_prepare_min_confidence_bps`** |
+   | `JdbcAuditRepository` | 7× | `before_json`/`after_json` → `before_state`/`after_state` |
+   | `JdbcReadinessRepository` | 4× | ~7, incl. `penalty_points` → `penalty_total` |
+
+   The policy one is **not** a rename: it is a units change on the threshold that contract §9.3
+   rule 4 compares `confidence` against in the AI safety gate. A fraction read as basis points
+   would make the gate compare `0.90` to `9000`.
+
+   Enum-set columns (`policy_versions.permitted_actions`, `prohibited_evidence_types`) are still
+   assumed to be comma-separated text rather than Postgres arrays — unverified.
+
+   **None of this is reachable from a unit test:** every test in this module stubs the ports, so the
+   SQL is only executed against a real database by the integration suite or a running stack. A
+   column-name checker belongs in CI alongside the existing architectural greps
+   (`docs/testing-strategy.md`).
 2. **`PdeiException` constructor shapes are assumed to be `(String message)`.** Every throw goes
    through `core.util.CoreErrors`, so if platform-common's sealed subtypes take something else, that
    single file is the only thing to adapt.
