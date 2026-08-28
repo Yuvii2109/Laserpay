@@ -103,7 +103,7 @@ infra/
 | `pdei-minio` | `minio/minio:latest` | 9000 → 9000, 9001 → 9001 | `pdei-minio-data` | Evidence blobs and representment packages. |
 | `pdei-minio-init` | `minio/mc:latest` | — | — | One-shot. Creates `pdei-evidence` + `pdei-packages`, enables versioning. |
 | `pdei-temporal` | `temporalio/auto-setup:1.25.1` | 7233 → 7233 | (uses postgres) | Workflow engine; auto-creates schema and the `pdei` namespace. |
-| `pdei-temporal-admin-tools` | `temporalio/admin-tools:1.25.1` | — | — | Long-lived shell for `temporal` CLI; re-asserts the namespace. |
+| `pdei-temporal-admin-tools` | `temporalio/admin-tools:1.25.1-tctl-1.18.1-cli-1.1.1` | — | — | Long-lived shell for `temporal` CLI; re-asserts the namespace. |
 | `pdei-temporal-ui` | `temporalio/ui:2.31.2` | 8233 → 8080 | — | Workflow durability proof in demo beat 7. |
 
 ### 4.2 Profile `app` — the platform (11 containers)

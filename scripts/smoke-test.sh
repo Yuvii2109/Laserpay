@@ -87,12 +87,21 @@ check_http() {
 # ---------------------------------------------------------------------------
 # check_exec <group> <name> <container> <command...>
 # Used where there is no HTTP surface (postgres, redis, kafka, temporal).
+#
+# MSYS_NO_PATHCONV / MSYS2_ARG_CONV_EXCL: under Git Bash (MSYS2) on Windows, any argument
+# that looks like an absolute POSIX path is rewritten to a Windows path before the native
+# docker.exe sees it. The command runs INSIDE a Linux container, so that rewrite is always
+# wrong. It turned the kafka probe into
+#   exec: "C:/Program Files/Git/opt/kafka/bin/kafka-topics.sh": no such file or directory
+# while the broker itself was perfectly healthy - a false DOWN row in the table. Both
+# variables are inert on Linux and macOS, so this is set unconditionally rather than
+# guarded by a platform test.
 # ---------------------------------------------------------------------------
 check_exec() {
   local group="$1" name="$2" container="$3"; shift 3
   local start end ms
   start="$(date +%s%N 2>/dev/null || echo 0)"
-  if docker exec "${container}" "$@" >/dev/null 2>&1; then
+  if MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' docker exec "${container}" "$@" >/dev/null 2>&1; then
     end="$(date +%s%N 2>/dev/null || echo 0)"
     ms=$(( (end - start) / 1000000 ))
     record "${group}" "${name}" "docker exec ${container}" "UP" "exec ok" "${ms}ms"

@@ -312,7 +312,14 @@ services:
     logging: *json-logging
 
   temporal-admin-tools:
-    image: temporalio/admin-tools:1.25.1
+    # NOT "1.25.1". temporalio/admin-tools did not publish bare semver tags until 1.26;
+    # for the 1.25.x line the only immutable tags are
+    # <server>-tctl-<tctl>-cli-<cli>, and pulling 1.25.1 fails with
+    #   failed to resolve reference "docker.io/temporalio/admin-tools:1.25.1": not found
+    # which aborts the whole `compose up`, not just this container. This tag is the
+    # admin-tools build for server 1.25.1; the cli-1.1.1 half is what provides the
+    # `temporal operator ...` command used below (tctl is the older CLI, unused here).
+    image: temporalio/admin-tools:1.25.1-tctl-1.18.1-cli-1.1.1
     container_name: pdei-temporal-admin-tools
     profiles: ["core"]
     restart: unless-stopped
