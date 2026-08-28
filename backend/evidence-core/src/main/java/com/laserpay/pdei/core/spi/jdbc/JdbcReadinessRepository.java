@@ -19,6 +19,7 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -45,7 +46,7 @@ public class JdbcReadinessRepository implements ReadinessRepositoryPort {
     }
 
     private static final RowMapper<ReadinessGap> GAP = (rs, i) -> new ReadinessGap(
-            rs.getString("id"),
+            rs.getString("gap_id"),
             rs.getString("transaction_id"),
             JdbcSupport.enumValue(rs, "type", GapType.class),
             JdbcSupport.enumValue(rs, "evidence_type", EvidenceType.class),
@@ -55,20 +56,58 @@ public class JdbcReadinessRepository implements ReadinessRepositoryPort {
             JdbcSupport.instant(rs, "detected_at"),
             JdbcSupport.instant(rs, "expires_at"));
 
+    /**
+     * Maps a snapshot row with an EMPTY gap list; {@link #withGaps} fills it in.
+     *
+     * <p>Gaps are not stored on the snapshot. They live in {@code pdei.readiness_gaps}, because
+     * the at-risk feed ({@code GET /api/v1/gaps}) queries across merchants by type and severity -
+     * something a JSON blob on the snapshot could not serve. This file used to read a
+     * {@code gaps_json} column that was never created; loading them back by {@code snapshot_id}
+     * keeps one copy of a gap rather than two that can disagree.
+     *
+     * <p>{@code base_score} is INTEGER in the schema while the record field is a double, so the
+     * value read back is the stored (rounded) one, not the computed one.
+     */
     private final RowMapper<ReadinessSnapshot> snapshotMapper = (rs, i) -> new ReadinessSnapshot(
-            rs.getString("id"),
+            rs.getString("snapshot_id"),
             rs.getString("transaction_id"),
             rs.getString("merchant_id"),
             JdbcSupport.enumValue(rs, "reason_code", DisputeReasonCode.class),
             rs.getInt("score"),
             JdbcSupport.enumValue(rs, "band", ReadinessBand.class),
             rs.getDouble("base_score"),
-            rs.getInt("penalty_points"),
-            readList(rs.getString("requirements_json"), new TypeReference<List<RequirementView>>() { }),
-            readList(rs.getString("gaps_json"), new TypeReference<List<ReadinessGap>>() { }),
-            readList(rs.getString("contradictions_json"), new TypeReference<List<ContradictionView>>() { }),
-            rs.getString("policy_version_id"),
+            rs.getInt("penalty_total"),
+            readList(rs.getString("requirements"), new TypeReference<List<RequirementView>>() { }),
+            List.of(),
+            readList(rs.getString("contradictions"), new TypeReference<List<ContradictionView>>() { }),
+            rs.getString("policy_version"),
             JdbcSupport.instant(rs, "computed_at"));
+
+    /** Re-reads a snapshot with its gaps attached, in one query per snapshot set. */
+    private List<ReadinessSnapshot> withGaps(List<ReadinessSnapshot> snapshots) {
+        if (snapshots.isEmpty()) {
+            return snapshots;
+        }
+        List<String> ids = snapshots.stream().map(ReadinessSnapshot::snapshotId).toList();
+        Map<String, List<ReadinessGap>> bySnapshot = new LinkedHashMap<>();
+        jdbc.query("SELECT snapshot_id, " + GAP_COLUMNS + " FROM pdei.readiness_gaps"
+                        + " WHERE snapshot_id IN (:ids) ORDER BY detected_at",
+                Map.of("ids", ids),
+                rs -> {
+                    bySnapshot.computeIfAbsent(rs.getString("snapshot_id"), k -> new ArrayList<>())
+                            .add(GAP.mapRow(rs, 0));
+                });
+        return snapshots.stream()
+                .map(s -> new ReadinessSnapshot(s.snapshotId(), s.transactionId(), s.merchantId(),
+                        s.reasonCode(), s.score(), s.band(), s.baseScore(), s.penaltyPoints(),
+                        s.requirements(), bySnapshot.getOrDefault(s.snapshotId(), List.of()),
+                        s.contradictions(), s.policyVersionId(), s.computedAt()))
+                .toList();
+    }
+
+    private static final String GAP_COLUMNS =
+            "gap_id, transaction_id, type, evidence_type, severity, evidence_id, detail,"
+                    + " detected_at, expires_at";
 
     private static <T> List<T> readList(String json, TypeReference<List<T>> type) {
         if (json == null || json.isBlank()) {
@@ -85,13 +124,13 @@ public class JdbcReadinessRepository implements ReadinessRepositoryPort {
     @Override
     public void saveSnapshot(ReadinessSnapshot snapshot) {
         jdbc.update("""
-                INSERT INTO pdei.readiness_snapshots (id, transaction_id, merchant_id, reason_code, score,
-                    band, base_score, penalty_points, policy_version_id, requirements_json, gaps_json,
-                    contradictions_json, computed_at)
+                INSERT INTO pdei.readiness_snapshots (snapshot_id, transaction_id, merchant_id,
+                    reason_code, score, band, base_score, penalty_total, policy_version, requirements,
+                    contradictions, gap_count, contradiction_count, computed_at)
                 VALUES (:id, :transactionId, :merchantId, :reasonCode, :score, :band, :baseScore,
-                    :penaltyPoints, :policyVersionId, CAST(:requirements AS jsonb), CAST(:gaps AS jsonb),
-                    CAST(:contradictions AS jsonb), :computedAt)
-                ON CONFLICT (id) DO NOTHING
+                    :penaltyPoints, :policyVersionId, CAST(:requirements AS jsonb),
+                    CAST(:contradictions AS jsonb), :gapCount, :contradictionCount, :computedAt)
+                ON CONFLICT (snapshot_id) DO NOTHING
                 """,
                 new MapSqlParameterSource()
                         .addValue("id", snapshot.snapshotId())
@@ -104,7 +143,9 @@ public class JdbcReadinessRepository implements ReadinessRepositoryPort {
                         .addValue("penaltyPoints", snapshot.penaltyPoints())
                         .addValue("policyVersionId", snapshot.policyVersionId())
                         .addValue("requirements", Json.write(snapshot.requirements()))
-                        .addValue("gaps", Json.write(snapshot.gaps()))
+                        // gaps go to pdei.readiness_gaps below, not into the snapshot row
+                        .addValue("gapCount", snapshot.gaps().size())
+                        .addValue("contradictionCount", snapshot.contradictions().size())
                         .addValue("contradictions", Json.write(snapshot.contradictions()))
                         .addValue("computedAt", JdbcSupport.timestamp(snapshot.computedAt())));
 
@@ -112,9 +153,9 @@ public class JdbcReadinessRepository implements ReadinessRepositoryPort {
         // changed, and an audit reader can see that a gap was closed rather than never recorded.
         List<String> currentIds = snapshot.gaps().stream().map(ReadinessGap::gapId).toList();
         jdbc.update("""
-                UPDATE pdei.readiness_gaps SET resolved_at = :at
+                UPDATE pdei.readiness_gaps SET resolved = TRUE, resolved_at = :at
                  WHERE transaction_id = :tx AND resolved_at IS NULL
-                   AND (:hasCurrent = FALSE OR id NOT IN (:ids))
+                   AND (CAST(:hasCurrent AS boolean) = FALSE OR gap_id NOT IN (:ids))
                 """,
                 new MapSqlParameterSource()
                         .addValue("at", JdbcSupport.timestamp(snapshot.computedAt()))
@@ -126,6 +167,7 @@ public class JdbcReadinessRepository implements ReadinessRepositoryPort {
         for (ReadinessGap gap : snapshot.gaps()) {
             params.add(new MapSqlParameterSource()
                     .addValue("id", gap.gapId())
+                    .addValue("snapshotId", snapshot.snapshotId())
                     .addValue("transactionId", gap.transactionId())
                     .addValue("merchantId", snapshot.merchantId())
                     .addValue("type", JdbcSupport.name(gap.type()))
@@ -138,14 +180,17 @@ public class JdbcReadinessRepository implements ReadinessRepositoryPort {
         }
         if (!params.isEmpty()) {
             jdbc.batchUpdate("""
-                    INSERT INTO pdei.readiness_gaps (id, transaction_id, merchant_id, type, evidence_type,
-                        severity, evidence_id, detail, detected_at, expires_at, resolved_at)
-                    VALUES (:id, :transactionId, :merchantId, :type, :evidenceType, :severity, :evidenceId,
-                        :detail, :detectedAt, :expiresAt, NULL)
-                    ON CONFLICT (id) DO UPDATE
-                        SET severity = EXCLUDED.severity,
+                    INSERT INTO pdei.readiness_gaps (gap_id, snapshot_id, transaction_id, merchant_id,
+                        type, evidence_type, severity, evidence_id, detail, detected_at, expires_at,
+                        resolved, resolved_at)
+                    VALUES (:id, :snapshotId, :transactionId, :merchantId, :type, :evidenceType,
+                        :severity, :evidenceId, :detail, :detectedAt, :expiresAt, FALSE, NULL)
+                    ON CONFLICT (gap_id) DO UPDATE
+                        SET snapshot_id = EXCLUDED.snapshot_id,
+                            severity = EXCLUDED.severity,
                             detail = EXCLUDED.detail,
                             expires_at = EXCLUDED.expires_at,
+                            resolved = FALSE,
                             resolved_at = NULL
                     """, params.toArray(new MapSqlParameterSource[0]));
         }
@@ -153,16 +198,16 @@ public class JdbcReadinessRepository implements ReadinessRepositoryPort {
 
     @Override
     public Optional<ReadinessSnapshot> findLatest(String transactionId) {
-        return jdbc.query("""
+        return withGaps(jdbc.query("""
                         SELECT * FROM pdei.readiness_snapshots WHERE transaction_id = :tx
                          ORDER BY computed_at DESC LIMIT 1
-                        """, Map.of("tx", transactionId), snapshotMapper)
+                        """, Map.of("tx", transactionId), snapshotMapper))
                 .stream().findFirst();
     }
 
     @Override
     public List<ReadinessSnapshot> findLatestForMerchant(String merchantId, int limit) {
-        return jdbc.query("""
+        return withGaps(jdbc.query("""
                 SELECT DISTINCT ON (transaction_id) *
                   FROM pdei.readiness_snapshots
                  WHERE merchant_id = :merchant
@@ -171,14 +216,14 @@ public class JdbcReadinessRepository implements ReadinessRepositoryPort {
                 """,
                 new MapSqlParameterSource()
                         .addValue("merchant", merchantId)
-                        .addValue("limit", Math.max(1, limit)), snapshotMapper);
+                        .addValue("limit", Math.max(1, limit)), snapshotMapper));
     }
 
     @Override
     public List<ReadinessGap> findGaps(String merchantId, GapType type, GapSeverity severity,
                                        int page, int size) {
-        return jdbc.query("""
-                SELECT * FROM pdei.readiness_gaps
+        return jdbc.query("SELECT " + GAP_COLUMNS + """
+                  FROM pdei.readiness_gaps
                  WHERE resolved_at IS NULL
                    AND (CAST(:merchant AS text) IS NULL OR merchant_id = :merchant)
                    AND (CAST(:type AS text) IS NULL OR type = :type)
@@ -197,8 +242,8 @@ public class JdbcReadinessRepository implements ReadinessRepositoryPort {
 
     @Override
     public List<ReadinessGap> findGapsForTransaction(String transactionId) {
-        return jdbc.query("""
-                SELECT * FROM pdei.readiness_gaps
+        return jdbc.query("SELECT " + GAP_COLUMNS + """
+                  FROM pdei.readiness_gaps
                  WHERE transaction_id = :tx AND resolved_at IS NULL
                  ORDER BY detected_at
                 """, Map.of("tx", transactionId), GAP);
