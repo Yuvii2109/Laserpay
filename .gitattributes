@@ -1,0 +1,41 @@
+# PDEI line-ending policy.
+#
+# WHY THIS FILE EXISTS
+# Git for Windows ships with core.autocrlf=true, so a fresh clone on Windows rewrites every
+# text file to CRLF. That broke the stack in a way that was hard to see:
+#
+#   scripts/lib.sh reads infra/.env with `IFS= read -r line`, which keeps the trailing CR.
+#   It exports PDEI_KAFKA_HOST_PORT=29092<CR>, and exported variables take precedence over
+#   compose's own .env parsing, so `docker compose config` failed with
+#       invalid hostPort: 29092
+#   with the carriage return invisible in the message. The reported port changed between
+#   runs, and running `docker compose` directly (no shell exports) worked fine - which made
+#   it look intermittent rather than deterministic.
+#
+# CRLF also breaks shell scripts outright ($'\r': command not found), Dockerfile RUN lines,
+# and anything a Linux container reads from a bind mount. The whole stack runs in Linux
+# containers, so LF is the only correct checkout format here.
+#
+# Normalise everything to LF in the repository AND in the working tree, on every platform.
+* text=auto eol=lf
+
+# Windows-native script formats are the exception: cmd.exe genuinely requires CRLF, and
+# PowerShell is conventionally CRLF on Windows.
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+
+# Never touch binaries - `text=auto` guesses, and a wrong guess corrupts them.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.webp binary
+*.pdf  binary
+*.zip  binary
+*.gz   binary
+*.jar  binary
+*.woff binary
+*.woff2 binary
+*.eml  binary

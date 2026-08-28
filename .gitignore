@@ -74,8 +74,11 @@ uv-cache/
 # The committed source of truth is infra/.env.example.
 .env
 .env.*
-!.env.example
-!infra/.env.example
+# ...but *.example files are templates/documentation, never secrets - keep them tracked.
+# Naming them one by one was not enough: ".env.*" above also swallowed
+# frontend/.env.local.example, which was therefore never committed at all. A fresh clone
+# had no record of the NEXT_PUBLIC_* variables the frontend needs.
+!*.example
 *.local
 secrets/
 *.pem

@@ -3,7 +3,7 @@
 > **Read this first in any new session.** It is the living index of the whole repository.
 > Keep it updated as the project changes — it is the primary guide for reclaiming context.
 >
-> Last updated: 2026-08-27 · Baseline generation complete · 1,031 source files
+> Last updated: 2026-08-28 · CI green · first stack boot in progress · 1,031 source files
 
 ---
 
@@ -20,7 +20,7 @@ that must be continuously maintained.
 **The architectural rule:** *deterministic systems establish financial truth; AI reasons only
 about ambiguity.* Or: **AI proposes, policy disposes.**
 
-Repo root: `c:\Users\Dell\OneDrive - Espalier\Desktop\Laserpay`. Not yet a git repo with commits.
+Repo root: `C:\Users\Dell\dev\Laserpay` (moved off OneDrive 2026-08-28 — see §15). Git branch `master`.
 
 ---
 
@@ -64,10 +64,10 @@ Laserpay/
 
 Counts exclude `node_modules/`, `.next/`, `target/` — all gitignored build artifacts.
 
-⚠️ **The repo lives inside a OneDrive-synced folder.** OneDrive tries to sync `node_modules`
-(~32k files) and `.next` (~2k), which triggers bulk-delete prompts and slows builds. Exclude
-them from sync, or move the repo to e.g. `C:\dev\Laserpay`. Maven `target/` will add tens of
-thousands more on first `mvn package`.
+⚠️ **Keep the repo out of any synced folder.** It used to live under OneDrive, which tried to
+sync `node_modules` (~32k files), `.next` (~2k) and would have added tens of thousands more from
+Maven `target/`, firing bulk-delete prompts and slowing every build. It now lives at
+`C:\Users\Dell\dev\Laserpay`.
 
 ---
 
@@ -542,8 +542,10 @@ docker run --rm --network pdei-test-net -e DOCKER_HOST=tcp://pdei-dind:2375 \
 - [x] ~~Python suite never executed~~ — **89 pytest tests pass**, plus ruff, ruff-format and mypy
       (42 files) clean. `uv.lock` committed (74 packages), which also fixes `setup-uv`'s cache
       glob and activates the `uv sync --frozen` reproducible path.
-- [ ] `docker compose up` never run end-to-end.
-- [ ] Only one commit (`a03ee6b`); the CI fixes above are uncommitted (38 files).
+- [ ] `docker compose up` never run end-to-end. **This is the current task.** `bootstrap.sh`
+      now passes; next step is `./scripts/up.sh core` then `./scripts/smoke-test.sh`.
+- [ ] Uncommitted right now: `.gitattributes` (new), `.gitignore` (`!*.example` fix),
+      `frontend/.env.local.example` (recovered). See "Repo relocated" below.
 - [ ] 16 MEDIUM/LOW audit findings logged but not fixed — re-run an audit to recover the list.
 - [ ] `InvestigationEntity.missingEvidence` (jsonb) has **no readers or writers** anywhere —
       dead field, or a persistence path that was never wired. Decide which.
@@ -555,6 +557,33 @@ docker run --rm --network pdei-test-net -e DOCKER_HOST=tcp://pdei-dind:2375 \
 - [ ] `SimulatedNetworkSubmitter` is a named seam — real PSP submission out of scope.
 - [ ] No OCR (deliberate — reference doc §25).
 - [ ] Benchmarks unrun; `benchmarks/results/` does not exist yet.
+
+### Repo relocated + line-ending policy (2026-08-28)
+
+The repo now lives at **`C:\Users\Dell\dev\Laserpay`** (was under OneDrive, which was syncing
+~1 GB of `node_modules`/`.next`/`target` and firing bulk-delete prompts). Moved by fresh clone.
+That clone exposed two latent bugs:
+
+**1. No `.gitattributes` + `core.autocrlf=true` → CRLF everywhere → broken stack.**
+`scripts/lib.sh:load_env_file` reads `infra/.env` with `IFS= read -r line`, keeping the trailing
+CR, and exports `PDEI_KAFKA_HOST_PORT=29092<CR>`. Exported variables take precedence over
+compose's own `.env` parsing, so `docker compose config` failed with `invalid hostPort: 29092`
+— the CR invisible in the message. It looked intermittent because the reported port varied with
+which export was validated first, and plain `docker compose` (no shell exports) always worked.
+Fixed by adding `.gitattributes` (`* text=auto eol=lf`; `.bat`/`.cmd`/`.ps1` stay CRLF; binaries
+excluded) then renormalising the tree. **CRLF also breaks `.sh` outright** (`$'\r': command not
+found`), and every service here runs in a Linux container reading bind-mounted files, so LF is
+the only correct checkout format for this repo.
+
+**2. `frontend/.env.local.example` was never committed.** `.gitignore`'s `.env.*` swallowed it
+and the negations only named `.env.example` / `infra/.env.example`. A fresh clone therefore had
+no record of `NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_WS_URL`, `NEXT_PUBLIC_USE_MOCKS`,
+`NEXT_PUBLIC_SIM_BASE_URL`. Recovered from the old folder; rule is now `!*.example`.
+
+Local toolchain as of this date: Temurin JDK 21.0.12 (user-scope,
+`%LOCALAPPDATA%\Programs\Eclipse Adoptium\jdk-21.0.12.101-hotspot`), Maven 3.9.16 at
+`%USERPROFILE%\Tools\apache-maven-3.9.16`, Node 24.16, Python 3.14, Docker Desktop 29.4.3,
+Compose v5.1.4. `uv` and `gh` are NOT installed.
 
 ---
 
