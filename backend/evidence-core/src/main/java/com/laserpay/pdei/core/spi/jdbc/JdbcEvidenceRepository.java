@@ -262,13 +262,28 @@ public class JdbcEvidenceRepository implements EvidenceRepositoryPort {
                         .addValue("id", evidenceId));
     }
 
+    /**
+     * Writes a version row, taking {@code status} and {@code source} from the parent evidence.
+     *
+     * <p>Both are NOT NULL on {@code evidence_versions} and neither is carried by
+     * {@link EvidenceVersionRecord}, so a plain VALUES insert failed with
+     * {@code null value in column "status" ... violates not-null constraint} - which aborted the
+     * transaction and took the evidence row down with it. Reading them from the parent is also the
+     * correct answer rather than a convenient one: a version is a snapshot of that artifact, so its
+     * status and provenance are the artifact's at the moment the version was cut. INSERT ... SELECT
+     * additionally makes a version for a non-existent evidence id a no-op instead of an
+     * integrity-constraint failure.
+     */
     @Override
     public void insertVersion(EvidenceVersionRecord version) {
         jdbc.update("""
-                INSERT INTO pdei.evidence_versions (evidence_version_id, evidence_id, version_number, object_key, sha256,
-                    size_bytes, content_type, filename, source_event_id, created_by, created_at)
-                VALUES (:id, :evidenceId, :version, :objectKey, :sha256, :sizeBytes, :contentType,
-                    :filename, :sourceEventId, :createdBy, :createdAt)
+                INSERT INTO pdei.evidence_versions (evidence_version_id, evidence_id, version_number,
+                    object_key, sha256, size_bytes, content_type, filename, status, source,
+                    source_event_id, created_by, observed_at, created_at)
+                SELECT :id, :evidenceId, :version, :objectKey, :sha256, :sizeBytes, :contentType,
+                       :filename, e.status, e.source, :sourceEventId, :createdBy, :createdAt, :createdAt
+                  FROM pdei.evidence e
+                 WHERE e.evidence_id = :evidenceId
                 ON CONFLICT (evidence_version_id) DO NOTHING
                 """,
                 new MapSqlParameterSource()
