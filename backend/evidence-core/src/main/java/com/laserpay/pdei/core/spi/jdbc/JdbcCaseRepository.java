@@ -111,11 +111,25 @@ public class JdbcCaseRepository implements CaseRepositoryPort {
             strengthOf(rs.getString("role")), rs.getInt("position"),
             rs.getString("sha256_at_selection"), JdbcSupport.instant(rs, "attached_at"));
 
+    // investigations stores confidence in basis points and the request instant as requested_at.
+    // result_json / verdict_json have no column: the schema decomposes a result into
+    // supporting_evidence / missing_evidence / contradictions / citations / rejection_reasons.
+    // Until InvestigationRecord is reshaped to match that, both blobs ride in metadata under
+    // their own keys - preserved and readable, without pretending metadata is either of them.
+    private static final String INVESTIGATION_COLUMNS = """
+            investigation_id AS id, case_id, dispute_id, merchant_id, transaction_id, classification,
+            confidence_bps, recommended_action, safety_decision, provider, model, latency_ms,
+            prompt_tokens, completion_tokens, attempt, reasoning_summary, narrative,
+            metadata ->> 'result'  AS result_json,
+            metadata ->> 'verdict' AS verdict_json,
+            requested_at AS started_at, completed_at
+            """;
+
     private static final RowMapper<InvestigationRecord> INVESTIGATION = (rs, i) -> new InvestigationRecord(
             rs.getString("id"), rs.getString("case_id"), rs.getString("dispute_id"),
             rs.getString("merchant_id"), rs.getString("transaction_id"),
             JdbcSupport.enumValue(rs, "classification", InvestigationClassification.class),
-            rs.getDouble("confidence"),
+            rs.getInt("confidence_bps") / 10000.0d,
             JdbcSupport.enumValue(rs, "recommended_action", RecommendedAction.class),
             JdbcSupport.enumValue(rs, "safety_decision", SafetyDecision.class),
             rs.getString("provider"), rs.getString("model"), rs.getLong("latency_ms"),
@@ -354,21 +368,20 @@ public class JdbcCaseRepository implements CaseRepositoryPort {
     @Override
     public void saveInvestigation(InvestigationRecord investigation) {
         jdbc.update("""
-                INSERT INTO pdei.investigations (id, case_id, dispute_id, merchant_id, transaction_id,
-                    classification, confidence, recommended_action, safety_decision, provider, model,
-                    latency_ms, prompt_tokens, completion_tokens, attempt, reasoning_summary, narrative,
-                    result_json, verdict_json, started_at, completed_at)
-                VALUES (:id, :caseId, :disputeId, :merchantId, :transactionId, :classification, :confidence,
-                    :recommendedAction, :safetyDecision, :provider, :model, :latencyMs, :promptTokens,
-                    :completionTokens, :attempt, :reasoningSummary, :narrative, CAST(:result AS jsonb),
-                    CAST(:verdict AS jsonb), :startedAt, :completedAt)
-                ON CONFLICT (id) DO UPDATE
+                INSERT INTO pdei.investigations (investigation_id, case_id, dispute_id, merchant_id,
+                    transaction_id, classification, confidence_bps, recommended_action, safety_decision,
+                    provider, model, latency_ms, prompt_tokens, completion_tokens, attempt,
+                    reasoning_summary, narrative, metadata, requested_at, completed_at)
+                VALUES (:id, :caseId, :disputeId, :merchantId, :transactionId, :classification,
+                    :confidenceBps, :recommendedAction, :safetyDecision, :provider, :model, :latencyMs,
+                    :promptTokens, :completionTokens, :attempt, :reasoningSummary, :narrative,
+                    CAST(:resultAndVerdict AS jsonb), :startedAt, :completedAt)
+                ON CONFLICT (investigation_id) DO UPDATE
                     SET classification = EXCLUDED.classification,
-                        confidence = EXCLUDED.confidence,
+                        confidence_bps = EXCLUDED.confidence_bps,
                         recommended_action = EXCLUDED.recommended_action,
                         safety_decision = EXCLUDED.safety_decision,
-                        result_json = EXCLUDED.result_json,
-                        verdict_json = EXCLUDED.verdict_json,
+                        metadata = EXCLUDED.metadata,
                         completed_at = EXCLUDED.completed_at
                 """,
                 new MapSqlParameterSource()
@@ -378,7 +391,7 @@ public class JdbcCaseRepository implements CaseRepositoryPort {
                         .addValue("merchantId", investigation.merchantId())
                         .addValue("transactionId", investigation.transactionId())
                         .addValue("classification", JdbcSupport.name(investigation.classification()))
-                        .addValue("confidence", investigation.confidence())
+                        .addValue("confidenceBps", (int) Math.round(investigation.confidence() * 10000))
                         .addValue("recommendedAction", JdbcSupport.name(investigation.recommendedAction()))
                         .addValue("safetyDecision", JdbcSupport.name(investigation.safetyDecision()))
                         .addValue("provider", investigation.provider())
@@ -389,22 +402,25 @@ public class JdbcCaseRepository implements CaseRepositoryPort {
                         .addValue("attempt", investigation.attempt())
                         .addValue("reasoningSummary", investigation.reasoningSummary())
                         .addValue("narrative", investigation.narrative())
-                        .addValue("result", investigation.resultJson())
-                        .addValue("verdict", investigation.verdictJson())
+                        // See INVESTIGATION_COLUMNS: the schema has no result_json/verdict_json, so
+                        // both ride in metadata under their own keys until the record is decomposed.
+                        .addValue("resultAndVerdict", Json.write(java.util.Map.of(
+                                "result", investigation.resultJson() == null ? "" : investigation.resultJson(),
+                                "verdict", investigation.verdictJson() == null ? "" : investigation.verdictJson())))
                         .addValue("startedAt", JdbcSupport.timestamp(investigation.startedAt()))
                         .addValue("completedAt", JdbcSupport.timestamp(investigation.completedAt())));
     }
 
     @Override
     public Optional<InvestigationRecord> findInvestigation(String investigationId) {
-        return jdbc.query("SELECT * FROM pdei.investigations WHERE id = :id",
+        return jdbc.query("SELECT " + INVESTIGATION_COLUMNS + " FROM pdei.investigations WHERE investigation_id = :id",
                 Map.of("id", investigationId), INVESTIGATION).stream().findFirst();
     }
 
     @Override
     public Optional<InvestigationRecord> findLatestInvestigationForCase(String caseId) {
-        return jdbc.query("""
-                        SELECT * FROM pdei.investigations WHERE case_id = :id
+        return jdbc.query("SELECT " + INVESTIGATION_COLUMNS + """
+                          FROM pdei.investigations WHERE case_id = :id
                          ORDER BY started_at DESC NULLS LAST, id DESC LIMIT 1
                         """, Map.of("id", caseId), INVESTIGATION).stream().findFirst();
     }
@@ -412,13 +428,14 @@ public class JdbcCaseRepository implements CaseRepositoryPort {
     @Override
     public void appendAdmissionLog(AdmissionLogRecord record) {
         jdbc.update("""
-                INSERT INTO pdei.ai_admission_log (id, case_id, merchant_id, transaction_id, admitted,
-                    priority, reason, short_circuit, financial_impact, deadline_urgency, ambiguity_score,
-                    deterministic_confidence, dispute_amount_minor, currency, decided_at)
+                INSERT INTO pdei.ai_admission_log (admission_id, case_id, merchant_id, transaction_id,
+                    admitted, priority, reason, short_circuit, financial_impact_component,
+                    deadline_urgency_component, ambiguity_component, deterministic_confidence_component,
+                    amount_minor, currency, decided_at)
                 VALUES (:id, :caseId, :merchantId, :transactionId, :admitted, :priority, :reason,
                     :shortCircuit, :financialImpact, :deadlineUrgency, :ambiguityScore,
                     :deterministicConfidence, :amountMinor, :currency, :decidedAt)
-                ON CONFLICT (id) DO NOTHING
+                ON CONFLICT (admission_id) DO NOTHING
                 """,
                 new MapSqlParameterSource()
                         .addValue("id", record.admissionId())
@@ -468,17 +485,17 @@ public class JdbcCaseRepository implements CaseRepositoryPort {
         long humanReviewed = count("SELECT count(*) FROM pdei.investigations"
                 + " WHERE (CAST(:merchant AS text) IS NULL OR merchant_id = :merchant)"
                 + "   AND safety_decision IN ('ALLOW_WITH_REVIEW','DENY')"
-                + "   AND (CAST(:from AS timestamptz) IS NULL OR started_at >= :from)"
-                + "   AND (CAST(:to AS timestamptz) IS NULL OR started_at < :to)", params);
+                + "   AND (CAST(:from AS timestamptz) IS NULL OR requested_at >= :from)"
+                + "   AND (CAST(:to AS timestamptz) IS NULL OR requested_at < :to)", params);
         long autoPrepared = count("SELECT count(*) FROM pdei.investigations"
                 + " WHERE (CAST(:merchant AS text) IS NULL OR merchant_id = :merchant)"
                 + "   AND safety_decision = 'ALLOW' AND recommended_action = 'PREPARE_REPRESENTMENT'"
-                + "   AND (CAST(:from AS timestamptz) IS NULL OR started_at >= :from)"
-                + "   AND (CAST(:to AS timestamptz) IS NULL OR started_at < :to)", params);
+                + "   AND (CAST(:from AS timestamptz) IS NULL OR requested_at >= :from)"
+                + "   AND (CAST(:to AS timestamptz) IS NULL OR requested_at < :to)", params);
         long denied = count("SELECT count(*) FROM pdei.investigations"
                 + " WHERE (CAST(:merchant AS text) IS NULL OR merchant_id = :merchant) AND safety_decision = 'DENY'"
-                + "   AND (CAST(:from AS timestamptz) IS NULL OR started_at >= :from)"
-                + "   AND (CAST(:to AS timestamptz) IS NULL OR started_at < :to)", params);
+                + "   AND (CAST(:from AS timestamptz) IS NULL OR requested_at >= :from)"
+                + "   AND (CAST(:to AS timestamptz) IS NULL OR requested_at < :to)", params);
 
         return new FunnelMetrics(merchantId, from, to, events, candidates, ambiguous, investigated,
                 humanReviewed, autoPrepared, denied);
