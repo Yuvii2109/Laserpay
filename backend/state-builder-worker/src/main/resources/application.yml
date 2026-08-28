@@ -86,11 +86,27 @@ pdei:
     #
     # Either violation aborts the JDBC transaction, so the projection work and the derived evidence
     # in that same transaction are lost too: 66 violations cost most of a seeded run's evidence.
-    # Serialising did NOT fix this: the collisions persisted at concurrency 1, because the audit
-    # chain race is between SERVICES (this worker and audit-service), not between these threads.
-    # The append is now conflict-tolerant instead, so 3 is safe again - and 1 cost roughly a
-    # quarter of the throughput for nothing.
-    concurrency: 3
+    # 1, not 3, and the reason is worth keeping.
+    #
+    # Partitioning by merchantId:aggregateId guarantees per-aggregate event ordering, but several
+    # aggregates of one merchant land on different partitions and are handled by different threads.
+    # They then contend for the rows they SHARE. ReferenceData.ensureMerchant is find-then-save, so
+    # two threads both miss and both insert:
+    #
+    #   ERROR: duplicate key value violates unique constraint "pk_merchants"
+    #   Detail: Key (merchant_id)=(MER-...) already exists.
+    #
+    # That fails the whole Hibernate BATCH, so the derived evidence in it dies too - 7 races cost
+    # 100 evidence rows in one seeded run, which is why the FK errors looked like the problem when
+    # they were only the symptom.
+    #
+    # An earlier attempt at 1 looked like it made things worse; that was the separate audit-chain
+    # race, since fixed by making the append conflict-tolerant.
+    #
+    # The proper fix is a native INSERT ... ON CONFLICT DO NOTHING for the stubs, which would make
+    # this safe at any concurrency. Until then 1 is correct rather than merely convenient: a demo
+    # world of a few thousand events drains in well under a minute either way.
+    concurrency: 1
     max-poll-records: 50
     derive-evidence: true
     retry:
