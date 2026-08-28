@@ -148,6 +148,62 @@ AUDIT:         AuditRecorded                                    (internal)
 **Consumer groups:** `pdei-<service-name>` e.g. `pdei-normalization-worker`.
 All consumers MUST be idempotent (dedupe on `eventId` via Redis SETNX + Postgres `processed_events`).
 
+### 4.1 Raw source vocabulary (NORMATIVE)
+
+`pdei.raw.events.v1` carries **source-shaped** events: `RawEventEnvelope.sourceEventType` is the
+word the originating system uses, not a canonical `EventType`. Translating one into the other is
+normalization-worker's entire job, so both sides need the same table — and until this section
+existed they did not have it. The simulator emitted `document.uploaded` and `message.sent`, no
+adapter mapped either, and **49% of every event produced on first boot went to the DLQ**,
+including every evidence-bearing event.
+
+Each row below is the string a `SourceAdapter` MUST accept. The **canonical emission** column is
+the single string simulator-service produces for that canonical type; the remaining aliases model
+the wording real webhooks use and MUST keep working. Matching is case-insensitive with `.`, `_`
+and `-` ignored (`AbstractSourceAdapter.normalizeKey`).
+
+| `sourceSystem` | `sourceEventType` | → `EventType` | Canonical emission |
+|---|---|---|---|
+| `psp-adapter` | `payment_intent.created` | `PaymentCreated` | ✔ |
+| `psp-adapter` | `payment_intent.authorized` | `PaymentAuthorized` | ✔ |
+| `psp-adapter` | `payment_intent.succeeded` | `PaymentCaptured` | ✔ |
+| `psp-adapter` | `payment_intent.payment_failed` | `PaymentFailed` | ✔ |
+| `psp-adapter` | `refund.created` | `RefundCreated` | ✔ |
+| `psp-adapter` | `refund.succeeded` | `RefundProcessed` | ✔ |
+| `psp-adapter` | `charge.dispute.created` | `DisputeCreated` | ✔ |
+| `psp-adapter` | `charge.dispute.updated` | `DisputeUpdated` | ✔ |
+| `psp-adapter` | `charge.dispute.closed` | `DisputeClosed` | ✔ |
+| `order-system` | `order.created` | `OrderCreated` | ✔ |
+| `order-system` | `order.fulfilled` | `OrderFulfilled` | ✔ |
+| `order-system` | `order.cancelled` | `OrderCancelled` | ✔ |
+| `logistics` | `shipment.label_created` | `ShipmentCreated` | ✔ |
+| `logistics` | `shipment.in_transit` | `ShipmentDispatched` | ✔ |
+| `logistics` | `shipment.delivered` | `ShipmentDelivered` | ✔ |
+| `crm` | `message.sent` | `CommunicationCreated` | ✔ |
+| `crm` | `email.sent`, `message.outbound`, `sms.sent`, `notification.sent`, `ticket.reply.outbound`, `ticket.agent_reply` | `CommunicationCreated` | |
+| `crm` | `message.received` | `CommunicationReceived` | ✔ |
+| `crm` | `email.received`, `message.inbound`, `ticket.reply.inbound`, `ticket.created`, `chat.message.customer` | `CommunicationReceived` | |
+| `merchant-portal` | `document.uploaded` | `EvidenceAdded` | ✔ |
+| `merchant-portal` | `document.expired` | `EvidenceExpired` | ✔ |
+| `merchant-portal` | `document.invalidated` | `EvidenceInvalidated` | ✔ |
+| `merchant-portal` | `communication.logged` | `CommunicationCreated` | |
+| `merchant-portal` | `communication.received` | `CommunicationReceived` | |
+| `merchant-portal` | `delivery.confirmed` | `ShipmentDelivered` | |
+| `merchant-portal` | `shipment.recorded` | `ShipmentCreated` | |
+| `merchant-portal` | `shipment.dispatched` | `ShipmentDispatched` | |
+| `merchant-portal` | `order.recorded` | `OrderCreated` | |
+| `merchant-portal` | `order.cancelled` | `OrderCancelled` | |
+| `merchant-portal` | `refund.recorded` | `RefundProcessed` | |
+| `merchant-portal` | `dispute.reported` | `DisputeCreated` | |
+
+Two rules follow from this table:
+
+1. An adapter MUST NOT be narrowed to only the canonical emissions — the aliases are the point of
+   having an adapter layer at all.
+2. Adding a canonical emission to `simulator/world/SourceVocabulary.java` without adding it here
+   and to the owning adapter silently routes those events to the DLQ. The `pdei-event-type`
+   header is a *hint* only; adapters derive the type from `sourceEventType`.
+
 ---
 
 ## 5. PostgreSQL Schema (Flyway, owned by `platform-persistence`)
@@ -166,7 +222,17 @@ V7__investigations.sql    investigations, investigation_findings, ai_admission_l
 V8__audit.sql             audit_events (hash-chained)
 V9__simulation.sql        simulation_runs, chaos_injections
 V10__fts.sql              tsvector columns + GIN indexes for evidence search
+V11__evidence_lineage_quality.sql
+                          evidence.parent_evidence_id, quality_score, provenance_verified
 ```
+
+**V11 exists because §6 and §7 already required these three columns and V3 never created them.**
+`parent_evidence_id` is the *backward* pointer of the version chain that `EvidenceLineageService`
+walks and `EvidenceGraphService` renders as `SUPERSEDES` edges — the complement of
+`superseded_by`, not a duplicate of it. `provenance_verified` is what raises
+`GapType.UNVERIFIABLE_PROVENANCE`, which carries the **−20** penalty in §7.
+`quality_score` (`DOUBLE PRECISION`, 0.0–1.0) is what raises `GapType.LOW_QUALITY`; it is not
+money and never enters an amount, so the integer-minor-units rule below does not apply to it.
 
 **Money rule (non-negotiable):** every monetary column is
 `amount_minor BIGINT NOT NULL` + `currency CHAR(3) NOT NULL`. No FLOAT/DOUBLE/NUMERIC for money.
@@ -340,7 +406,7 @@ GET  /export            NDJSON export
 ### 8.5 `simulator-service` — `http://localhost:8088/sim/v1`
 
 ```
-POST /runs              {seed, merchants, transactions, days, disputeRate, failureProfile} -> runId
+POST /runs              {seed, merchants, transactions, days, disputeRateBps, failureProfile} -> runId
 GET  /runs              list
 GET  /runs/{runId}      progress + stats
 POST /runs/{runId}/stop
@@ -350,6 +416,27 @@ POST /replay            {topic, fromOffset|fromTimestamp, merchantId?}
 GET  /scenarios         curated demo scenarios
 POST /scenarios/{key}/run
 ```
+
+**`disputeRateBps` is an integer in basis points** — `200` is 2%, `10000` is 100%. It is an
+integer for the same reason money is: a generated world must be byte-reproducible from its seed,
+and that must not depend on floating-point rounding. `disputeRate` is accepted as a deprecated
+alias **also in basis points**.
+
+> This field previously appeared here as bare `disputeRate` with no unit, and every caller
+> guessed differently: `seed-demo.sh` and the frontend's `RunLauncher` both sent a *fraction*
+> (`0.02`, `percent * 0.01`) into an `Integer` field, Jackson truncated it to `0`, and every run
+> produced **zero disputes** — no cases, no workflows, no AI investigations — while the UI
+> cheerfully echoed "0 bps" back at whoever asked for 3%. Nothing errored.
+
+**`GET /runs` and `GET /runs/{runId}` both return the run object unwrapped** — the list returns
+`SimulationRun[]`, the detail returns one `SimulationRun`, same fields. The detail response MUST
+NOT be wrapped in an envelope such as `{"run": …, "progress": …}`: it once was, so `seed-demo.sh`
+and the frontend both read `status` from the top level and found nothing, and every seeded run
+reported "did not report completion within 300s" after finishing in 15 seconds. Live progress is
+overlaid onto the returned object's counters rather than being carried beside them.
+
+`POST /scenarios/{key}/run` is the one exception and returns `{"run": …, "scenario": …}`,
+because the caller needs the scenario's expectations to assert against.
 
 ### 8.6 `ai-reasoning-service` (Python FastAPI) — `http://localhost:8000`
 
