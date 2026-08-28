@@ -180,9 +180,9 @@ public class JdbcReadinessRepository implements ReadinessRepositoryPort {
         return jdbc.query("""
                 SELECT * FROM pdei.readiness_gaps
                  WHERE resolved_at IS NULL
-                   AND (:merchant IS NULL OR merchant_id = :merchant)
-                   AND (:type IS NULL OR type = :type)
-                   AND (:severity IS NULL OR severity = :severity)
+                   AND (CAST(:merchant AS text) IS NULL OR merchant_id = :merchant)
+                   AND (CAST(:type AS text) IS NULL OR type = :type)
+                   AND (CAST(:severity AS text) IS NULL OR severity = :severity)
                  ORDER BY CASE severity WHEN 'CRITICAL' THEN 0 WHEN 'HIGH' THEN 1 WHEN 'MEDIUM' THEN 2
                           ELSE 3 END, detected_at DESC
                  LIMIT :limit OFFSET :offset

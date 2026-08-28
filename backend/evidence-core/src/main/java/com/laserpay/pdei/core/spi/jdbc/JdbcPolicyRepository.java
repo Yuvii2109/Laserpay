@@ -83,7 +83,7 @@ public class JdbcPolicyRepository implements PolicyRepositoryPort {
     public Optional<PolicyView> findActive(String merchantId, DisputeReasonCode reasonCode, Instant at) {
         return jdbc.query("SELECT " + VERSION_COLUMNS + " FROM pdei.policy_versions"
                                 + " WHERE merchant_id = :merchant"
-                                + "   AND ((:reason IS NULL AND reason_code IS NULL)"
+                                + "   AND ((CAST(:reason AS text) IS NULL AND reason_code IS NULL)"
                                 + "        OR reason_code = :reason)"
                                 + "   AND effective_from <= :at"
                                 + "   AND (effective_to IS NULL OR effective_to > :at)"

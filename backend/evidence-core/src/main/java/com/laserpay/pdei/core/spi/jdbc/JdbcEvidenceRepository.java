@@ -155,7 +155,7 @@ public class JdbcEvidenceRepository implements EvidenceRepositoryPort {
     public List<EvidenceView> findByMerchantIdAndTypeAndStatus(String merchantId, EvidenceType type,
                                                                EvidenceStatus status) {
         return jdbc.query("SELECT " + COLUMNS + " FROM pdei.evidence WHERE merchant_id = :merchant"
-                        + " AND (:type IS NULL OR type = :type) AND (:status IS NULL OR status = :status)"
+                        + " AND (CAST(:type AS text) IS NULL OR type = :type) AND (CAST(:status AS text) IS NULL OR status = :status)"
                         + " ORDER BY created_at DESC",
                 new MapSqlParameterSource()
                         .addValue("merchant", merchantId)
@@ -337,11 +337,11 @@ public class JdbcEvidenceRepository implements EvidenceRepositoryPort {
                 .addValue("offset", JdbcSupport.offset(page, size));
 
         String where = """
-                 WHERE (:merchant IS NULL OR merchant_id = :merchant)
-                   AND (:type IS NULL OR type = :type)
-                   AND (:status IS NULL OR status = :status)
-                   AND (:tx IS NULL OR transaction_id = :tx)
-                   AND (:q IS NULL OR search_vector @@ to_tsquery('english', :q))
+                 WHERE (CAST(:merchant AS text) IS NULL OR merchant_id = :merchant)
+                   AND (CAST(:type AS text) IS NULL OR type = :type)
+                   AND (CAST(:status AS text) IS NULL OR status = :status)
+                   AND (CAST(:tx AS text) IS NULL OR transaction_id = :tx)
+                   AND (CAST(:q AS text) IS NULL OR search_vector @@ to_tsquery('english', :q))
                 """;
 
         Long total = jdbc.queryForObject("SELECT count(*) FROM pdei.evidence" + where, params, Long.class);
@@ -355,8 +355,8 @@ public class JdbcEvidenceRepository implements EvidenceRepositoryPort {
     public long countByMerchantAndStatus(String merchantId, EvidenceStatus status) {
         Long count = jdbc.queryForObject("""
                 SELECT count(*) FROM pdei.evidence
-                 WHERE (:merchant IS NULL OR merchant_id = :merchant)
-                   AND (:status IS NULL OR status = :status)
+                 WHERE (CAST(:merchant AS text) IS NULL OR merchant_id = :merchant)
+                   AND (CAST(:status AS text) IS NULL OR status = :status)
                 """,
                 new MapSqlParameterSource()
                         .addValue("merchant", merchantId)

@@ -111,8 +111,8 @@ public class JdbcAuditRepository implements AuditRepositoryPort {
     public List<AuditEvent> findByEntity(String entityType, String entityId, int page, int size) {
         return jdbc.query("""
                 SELECT * FROM pdei.audit_events
-                 WHERE (:entityType IS NULL OR entity_type = :entityType)
-                   AND (:entityId IS NULL OR entity_id = :entityId)
+                 WHERE (CAST(:entityType AS text) IS NULL OR entity_type = :entityType)
+                   AND (CAST(:entityId AS text) IS NULL OR entity_id = :entityId)
                  ORDER BY occurred_at DESC, id DESC
                  LIMIT :limit OFFSET :offset
                 """,
@@ -128,8 +128,8 @@ public class JdbcAuditRepository implements AuditRepositoryPort {
                                          int page, int size) {
         return jdbc.query("""
                 SELECT * FROM pdei.audit_events
-                 WHERE (:merchant IS NULL OR merchant_id = :merchant)
-                   AND (:actor IS NULL OR actor = :actor)
+                 WHERE (CAST(:merchant AS text) IS NULL OR merchant_id = :merchant)
+                   AND (CAST(:actor AS text) IS NULL OR actor = :actor)
                    AND (CAST(:from AS timestamptz) IS NULL OR occurred_at >= :from)
                    AND (CAST(:to AS timestamptz) IS NULL OR occurred_at < :to)
                  ORDER BY occurred_at DESC, id DESC

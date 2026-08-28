@@ -127,9 +127,9 @@ public class JdbcCaseRepository implements CaseRepositoryPort {
                                           DisputeReasonCode reasonCode, int page, int size) {
         return jdbc.query("""
                 SELECT * FROM pdei.disputes
-                 WHERE (:merchant IS NULL OR merchant_id = :merchant)
-                   AND (:status IS NULL OR status = :status)
-                   AND (:reason IS NULL OR reason_code = :reason)
+                 WHERE (CAST(:merchant AS text) IS NULL OR merchant_id = :merchant)
+                   AND (CAST(:status AS text) IS NULL OR status = :status)
+                   AND (CAST(:reason AS text) IS NULL OR reason_code = :reason)
                  ORDER BY opened_at DESC LIMIT :limit OFFSET :offset
                 """,
                 new MapSqlParameterSource()
@@ -170,7 +170,7 @@ public class JdbcCaseRepository implements CaseRepositoryPort {
         Integer count = jdbc.queryForObject("""
                 SELECT count(*) FROM pdei.disputes
                  WHERE merchant_id = :merchant
-                   AND (:reason IS NULL OR reason_code = :reason)
+                   AND (CAST(:reason AS text) IS NULL OR reason_code = :reason)
                    AND status IN ('WON','LOST')
                 """,
                 new MapSqlParameterSource()
@@ -200,8 +200,8 @@ public class JdbcCaseRepository implements CaseRepositoryPort {
     public List<CaseView> findCases(String merchantId, CaseStatus status, int page, int size) {
         return jdbc.query("""
                 SELECT * FROM pdei.dispute_cases
-                 WHERE (:merchant IS NULL OR merchant_id = :merchant)
-                   AND (:status IS NULL OR status = :status)
+                 WHERE (CAST(:merchant AS text) IS NULL OR merchant_id = :merchant)
+                   AND (CAST(:status AS text) IS NULL OR status = :status)
                  ORDER BY opened_at DESC LIMIT :limit OFFSET :offset
                 """,
                 new MapSqlParameterSource()
@@ -396,30 +396,30 @@ public class JdbcCaseRepository implements CaseRepositoryPort {
                 + " WHERE (CAST(:from AS timestamptz) IS NULL OR processed_at >= :from)"
                 + "   AND (CAST(:to AS timestamptz) IS NULL OR processed_at < :to)", params);
         long candidates = count("SELECT count(*) FROM pdei.disputes"
-                + " WHERE (:merchant IS NULL OR merchant_id = :merchant)"
+                + " WHERE (CAST(:merchant AS text) IS NULL OR merchant_id = :merchant)"
                 + "   AND (CAST(:from AS timestamptz) IS NULL OR opened_at >= :from)"
                 + "   AND (CAST(:to AS timestamptz) IS NULL OR opened_at < :to)", params);
         long ambiguous = count("SELECT count(*) FROM pdei.ai_admission_log"
-                + " WHERE (:merchant IS NULL OR merchant_id = :merchant)"
+                + " WHERE (CAST(:merchant AS text) IS NULL OR merchant_id = :merchant)"
                 + "   AND short_circuit <> 'ALL_REQUIREMENTS_SATISFIED'"
                 + "   AND (CAST(:from AS timestamptz) IS NULL OR decided_at >= :from)"
                 + "   AND (CAST(:to AS timestamptz) IS NULL OR decided_at < :to)", params);
         long investigated = count("SELECT count(*) FROM pdei.ai_admission_log"
-                + " WHERE (:merchant IS NULL OR merchant_id = :merchant) AND admitted = TRUE"
+                + " WHERE (CAST(:merchant AS text) IS NULL OR merchant_id = :merchant) AND admitted = TRUE"
                 + "   AND (CAST(:from AS timestamptz) IS NULL OR decided_at >= :from)"
                 + "   AND (CAST(:to AS timestamptz) IS NULL OR decided_at < :to)", params);
         long humanReviewed = count("SELECT count(*) FROM pdei.investigations"
-                + " WHERE (:merchant IS NULL OR merchant_id = :merchant)"
+                + " WHERE (CAST(:merchant AS text) IS NULL OR merchant_id = :merchant)"
                 + "   AND safety_decision IN ('ALLOW_WITH_REVIEW','DENY')"
                 + "   AND (CAST(:from AS timestamptz) IS NULL OR started_at >= :from)"
                 + "   AND (CAST(:to AS timestamptz) IS NULL OR started_at < :to)", params);
         long autoPrepared = count("SELECT count(*) FROM pdei.investigations"
-                + " WHERE (:merchant IS NULL OR merchant_id = :merchant)"
+                + " WHERE (CAST(:merchant AS text) IS NULL OR merchant_id = :merchant)"
                 + "   AND safety_decision = 'ALLOW' AND recommended_action = 'PREPARE_REPRESENTMENT'"
                 + "   AND (CAST(:from AS timestamptz) IS NULL OR started_at >= :from)"
                 + "   AND (CAST(:to AS timestamptz) IS NULL OR started_at < :to)", params);
         long denied = count("SELECT count(*) FROM pdei.investigations"
-                + " WHERE (:merchant IS NULL OR merchant_id = :merchant) AND safety_decision = 'DENY'"
+                + " WHERE (CAST(:merchant AS text) IS NULL OR merchant_id = :merchant) AND safety_decision = 'DENY'"
                 + "   AND (CAST(:from AS timestamptz) IS NULL OR started_at >= :from)"
                 + "   AND (CAST(:to AS timestamptz) IS NULL OR started_at < :to)", params);
 
