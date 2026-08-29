@@ -11,6 +11,7 @@ import type {
   ReplayRequest,
   ReplayResult,
   Scenario,
+  ScenarioRunResult,
   SimulationRun,
   SimulationRunRequest,
 } from '@/lib/types/simulation';
@@ -58,8 +59,13 @@ export const simulationApi = {
     return api.get<Scenario[]>('/scenarios', { ...sim(), signal });
   },
 
-  /** `POST /sim/v1/scenarios/{key}/run` */
+  /**
+   * `POST /sim/v1/scenarios/{key}/run`
+   *
+   * The one enveloped response in 8.5: `{run, scenario}`, not a bare run. The caller wants the
+   * scenario's expectations beside the run it just started, so it can say what should happen.
+   */
   runScenario(key: string) {
-    return api.post<SimulationRun>(`/scenarios/${encodeURIComponent(key)}/run`, sim());
+    return api.post<ScenarioRunResult>(`/scenarios/${encodeURIComponent(key)}/run`, sim());
   },
 } as const;

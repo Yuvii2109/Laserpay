@@ -79,8 +79,8 @@ export function InjectionHistory() {
       header: 'Count',
       align: 'right',
       hideBelowSm: true,
-      cell: (row) => <span className="tabular text-xs">{row.eventCount ?? '-'}</span>,
-      sortValue: (row) => row.eventCount ?? 0,
+      cell: (row) => <span className="tabular text-xs">{row.count ?? '-'}</span>,
+      sortValue: (row) => row.count ?? 0,
     },
     {
       id: 'run',

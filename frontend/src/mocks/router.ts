@@ -519,7 +519,8 @@ function resolveSimulator(request: MockRequest): unknown {
         status: 'APPLIED' as const,
         target: (body['target'] as Record<string, unknown>) ?? {},
         delayMs: (body['delayMs'] as number) ?? null,
-        eventCount: (body['count'] as number) ?? null,
+        category: null,
+        count: (body['count'] as number) ?? null,
         actor: (body['actor'] as string) ?? 'console',
         injectedAt: new Date().toISOString(),
         completedAt: new Date().toISOString(),
@@ -550,7 +551,7 @@ function resolveSimulator(request: MockRequest): unknown {
       if (!scenario) throw notFound(request, `scenario ${second} not found`);
       const run: SimulationRun = {
         runId: `SIM-${String(data.simulationRuns.length + 1).padStart(6, '0')}`,
-        seed: 42,
+        seed: scenario.seed,
         merchants: scenario.merchants,
         transactions: scenario.transactions,
         days: scenario.days,
@@ -572,7 +573,8 @@ function resolveSimulator(request: MockRequest): unknown {
         params: { scenarioKey: scenario.key },
       };
       data.simulationRuns.unshift(run);
-      return run;
+      // Enveloped, unlike every other run endpoint (contract 8.5).
+      return { run, scenario };
     }
   }
 

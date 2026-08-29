@@ -38,10 +38,16 @@ export function ScenarioLibrary({ onScenarioStarted }: ScenarioLibraryProps) {
 
   const runMutation = useMutation({
     mutationFn: (key: string) => simulationApi.runScenario(key),
-    onSuccess: (run) => {
+    // `{run, scenario}`, not a bare run (contract 8.5). Reading `runId` off the envelope gave
+    // `undefined`, so the toast named nothing and the run was never selected.
+    onSuccess: ({ run, scenario }) => {
       onScenarioStarted(run);
       void queryClient.invalidateQueries({ queryKey: queryKeys.simulation.runs() });
-      toast.success(`Scenario started as ${run.runId}`);
+      toast.success(`Scenario started as ${run.runId}`, {
+        description: `Expect ${humanizeEnum(scenario.expected.readinessBand)} at score ${
+          scenario.expected.scoreMin
+        }-${scenario.expected.scoreMax}.`,
+      });
     },
     onError: (error: Error) => toast.error('Scenario failed to start', { description: error.message }),
   });

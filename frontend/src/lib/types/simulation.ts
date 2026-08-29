@@ -71,7 +71,9 @@ export interface SimulationRunRequest {
    */
   disputeRateBps: number;
   failureProfile?: string;
-  scenarioKey?: string;
+  currency?: string;
+  startAt?: Iso8601;
+  reasonCode?: string;
   requestedBy?: string;
 }
 
@@ -125,10 +127,13 @@ export interface ChaosInjection {
   runId: string | null;
   merchantId: string | null;
   type: ChaosType;
+  /** Server-side grouping, e.g. `EVIDENCE`, `EVENT_STREAM`, `SERVICE`. */
+  category: string | null;
   status: ChaosStatus;
   target: Record<string, unknown>;
   delayMs: number | null;
-  eventCount: number | null;
+  /** How many events the injection touched. Named `count` on the wire, not `eventCount`. */
+  count: number | null;
   actor: string | null;
   injectedAt: Iso8601;
   completedAt: Iso8601 | null;
@@ -189,4 +194,17 @@ export interface Scenario {
   expected: ScenarioExpectation;
   /** One line on what makes this scenario worth watching. */
   demoNote: string;
+}
+
+/**
+ * `POST /sim/v1/scenarios/{key}/run` - the one enveloped response in 8.5.
+ *
+ * Every other run endpoint returns the run unwrapped; this one carries the scenario beside it
+ * because the caller needs the expectations to assert against. Typing it as a bare
+ * `SimulationRun` made `run.runId` undefined, so the console toasted "Scenario started as
+ * undefined" and never selected the run it had just started.
+ */
+export interface ScenarioRunResult {
+  run: SimulationRun;
+  scenario: Scenario;
 }
