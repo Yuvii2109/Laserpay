@@ -41,6 +41,17 @@ safety gating) live in `evidence-core`; the console displays their outputs and n
 them. The one deliberate exception is `src/mocks`, which mirrors the readiness formula so the
 fixture data is internally consistent - it is labelled as a mirror in the file.
 
+> **`src/mocks` is a mirror, never a source.** Several parts of this app were written against the
+> mock router before the service behind them existed, and the mock then became the de-facto spec:
+> `Scenario` grew `chaosTypes`/`expectedOutcome`/`estimatedSeconds` that `GET /sim/v1/scenarios`
+> has never returned, `SimulationRun` renamed `merchants`/`transactions` to
+> `merchantCount`/`transactionCount` and invented a `stats` object, and `metricsApi.funnel` was
+> typed as a bare `FunnelMetrics` when the gateway returns `{metrics, stages, aiAdmissionRate,
+> autoPrepareRate}`. All three shipped, all three typechecked, and all three failed only in the
+> browser against the real backend - two of them by taking a whole route down with
+> `Cannot read properties of undefined`. When a type in `src/lib/types` and a live response
+> disagree, curl the service and believe the service.
+
 ---
 
 ## 3. Stack

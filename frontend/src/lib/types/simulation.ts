@@ -3,6 +3,7 @@
  * Mirrors `SimulationRunEntity` / `ChaosInjectionEntity` in platform-persistence.
  */
 import type { Iso8601 } from './common';
+import type { GapType, ReadinessBand } from './readiness';
 
 export type ChaosType =
   | 'DUPLICATE_EVENT'
@@ -78,8 +79,13 @@ export interface SimulationRunRequest {
 export interface SimulationRun {
   runId: string;
   seed: number;
-  merchantCount: number;
-  transactionCount: number;
+  /**
+   * The run's inputs, named exactly as `SimulationRunRequest` names them (contract 8.5).
+   * These were once `merchantCount`/`transactionCount` here and `merchants`/`transactions` on
+   * the wire, so the runs table rendered "undefined m - undefined tx" for every row.
+   */
+  merchants: number;
+  transactions: number;
   days: number;
   /** Dispute rate in basis points (integer), as stored. */
   disputeRateBps: number;
@@ -87,16 +93,18 @@ export interface SimulationRun {
   scenarioKey: string | null;
   status: SimulationStatus;
   progressPercent: number;
+  /** Total the plan intends to emit; `eventsEmitted` climbs toward it while RUNNING. */
+  eventsPlanned: number;
   eventsEmitted: number;
   transactionsCreated: number;
   evidenceCreated: number;
   disputesCreated: number;
+  createdAt: Iso8601;
   startedAt: Iso8601 | null;
   finishedAt: Iso8601 | null;
   requestedBy: string | null;
   errorMessage: string | null;
   params: Record<string, unknown>;
-  stats: Record<string, unknown>;
 }
 
 /** Body of `POST /sim/v1/chaos` - contract 8.5. */
@@ -144,13 +152,41 @@ export interface ReplayResult {
   startedAt: Iso8601;
 }
 
-/** `GET /sim/v1/scenarios` - curated demo scenarios. */
+/**
+ * What a scenario claims it will produce (contract 8.5).
+ *
+ * This is an assertion target, not decoration: the scenario states its band, gap types and AI
+ * path up front, so a run either reproduces its own description or visibly does not.
+ */
+export interface ScenarioExpectation {
+  readinessBand: ReadinessBand;
+  scoreMin: number;
+  scoreMax: number;
+  gapTypes: GapType[];
+  /** `DETERMINISTIC` means the case short-circuits without ever reaching a model. */
+  aiPath: string;
+  classification: string;
+  recommendedAction: string;
+}
+
+/**
+ * `GET /sim/v1/scenarios` - curated demo scenarios.
+ *
+ * There is no `chaosTypes`/`expectedOutcome`/`estimatedSeconds`: those three lived only in this
+ * app's mock router, which predates the simulator. Reading `chaosTypes` off a real response threw
+ * and took the whole console down. Chaos is injected through `POST /chaos`, not through scenarios.
+ */
 export interface Scenario {
   key: string;
   title: string;
   description: string;
-  /** What a judge should watch for while it runs. */
-  expectedOutcome: string;
-  chaosTypes: ChaosType[];
-  estimatedSeconds: number;
+  reasonCode: string;
+  seed: number;
+  merchants: number;
+  transactions: number;
+  days: number;
+  startAt: Iso8601;
+  expected: ScenarioExpectation;
+  /** One line on what makes this scenario worth watching. */
+  demoNote: string;
 }

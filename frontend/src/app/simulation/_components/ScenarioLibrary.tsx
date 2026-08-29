@@ -86,27 +86,50 @@ export function ScenarioLibrary({ onScenarioStarted }: ScenarioLibraryProps) {
                 <h3 className="text-sm font-semibold text-foreground">{scenario.title}</h3>
                 <span className="inline-flex shrink-0 items-center gap-1 text-2xs text-muted-foreground">
                   <Timer className="size-3" aria-hidden />
-                  {scenario.estimatedSeconds}s
+                  {scenario.transactions} tx
                 </span>
               </div>
 
               <p className="text-xs text-muted-foreground">{scenario.description}</p>
 
+              {/*
+                The expectation block is the point of the card: it is stated before the run, so
+                the run either reproduces it or visibly does not. Band and classification are the
+                claim; `aiPath` is the cost claim - DETERMINISTIC means no model was needed.
+              */}
               <div className="rounded-md border border-primary/30 bg-primary/5 p-2.5">
                 <p className="flex items-center gap-1.5 text-2xs font-medium uppercase tracking-wide text-primary">
                   <Target className="size-3" aria-hidden />
-                  Expected outcome
+                  Expected
                 </p>
-                <p className="mt-1 text-xs text-foreground">{scenario.expectedOutcome}</p>
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  <Badge variant="subtle" className="text-2xs">
+                    {humanizeEnum(scenario.expected.readinessBand)}
+                  </Badge>
+                  <span className="tabular text-2xs text-muted-foreground">
+                    score {scenario.expected.scoreMin}-{scenario.expected.scoreMax}
+                  </span>
+                  <Badge variant="subtle" className="text-2xs">
+                    {humanizeEnum(scenario.expected.aiPath)}
+                  </Badge>
+                </div>
+                <p className="mt-1.5 text-xs text-foreground">
+                  {humanizeEnum(scenario.expected.classification)} -{' '}
+                  {humanizeEnum(scenario.expected.recommendedAction)}
+                </p>
               </div>
 
-              <div className="flex flex-wrap gap-1.5">
-                {scenario.chaosTypes.map((type) => (
-                  <Badge key={type} variant="subtle" className="text-2xs">
-                    {humanizeEnum(type)}
-                  </Badge>
-                ))}
-              </div>
+              {scenario.expected.gapTypes.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {scenario.expected.gapTypes.map((type) => (
+                    <Badge key={type} variant="subtle" className="text-2xs">
+                      {humanizeEnum(type)}
+                    </Badge>
+                  ))}
+                </div>
+              ) : null}
+
+              <p className="text-2xs leading-relaxed text-muted-foreground">{scenario.demoNote}</p>
 
               <Button
                 size="sm"
@@ -131,7 +154,11 @@ export function ScenarioLibrary({ onScenarioStarted }: ScenarioLibraryProps) {
         description={
           pending ? (
             <>
-              {pending.description} Watch for: {pending.expectedOutcome}
+              {pending.description} Watch for: readiness{' '}
+              {humanizeEnum(pending.expected.readinessBand)} at score{' '}
+              {pending.expected.scoreMin}-{pending.expected.scoreMax}, classified{' '}
+              {humanizeEnum(pending.expected.classification)} via the{' '}
+              {humanizeEnum(pending.expected.aiPath)} path.
             </>
           ) : null
         }

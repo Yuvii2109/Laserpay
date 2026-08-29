@@ -21,6 +21,29 @@ export interface FunnelMetrics {
   denied: number;
 }
 
+/** One rung of the ramp, as the server computed it. */
+export interface FunnelStage {
+  name: string;
+  count: number;
+  /** Share of the previous stage that reached this one, in [0,1]. */
+  conversionFromPrevious: number;
+}
+
+/**
+ * What `GET /metrics/funnel` actually returns (contract 8.1).
+ *
+ * The counters are nested under `metrics`; `stages` and the two rates are derived server-side
+ * so every client draws the same ramp from the same arithmetic. This type used to be declared
+ * as a bare `FunnelMetrics`, so every read went through the wrong level of the object and came
+ * back `undefined` - a `200` response and a dead page.
+ */
+export interface FunnelResponse {
+  metrics: FunnelMetrics;
+  stages: FunnelStage[];
+  aiAdmissionRate: number;
+  autoPrepareRate: number;
+}
+
 export interface FunnelQuery {
   merchantId?: string;
   from?: Iso8601;

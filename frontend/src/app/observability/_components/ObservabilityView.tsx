@@ -76,10 +76,13 @@ export function ObservabilityView() {
     enabled: Boolean(merchantId),
   });
 
-  const funnel = funnelQuery.data;
-  const admissionRate = funnel ? aiAdmissionRate(funnel) : 0;
+  // The counters live under `metrics`; the server also derives the two rates so that every
+  // client draws the same ramp from the same arithmetic (contract 8.1). Fall back to computing
+  // them here only if an older gateway omits them.
+  const funnel = funnelQuery.data?.metrics;
+  const admissionRate = funnelQuery.data?.aiAdmissionRate ?? (funnel ? aiAdmissionRate(funnel) : 0);
   const reduction = funnel ? 1 - admissionRate : 0;
-  const autoRate = funnel ? autoPrepareRate(funnel) : 0;
+  const autoRate = funnelQuery.data?.autoPrepareRate ?? (funnel ? autoPrepareRate(funnel) : 0);
   const totalFrames = Object.values(counts).reduce((sum, value) => sum + value, 0);
 
   const gatewayReachable = !(

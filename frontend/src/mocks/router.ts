@@ -470,24 +470,27 @@ function resolveSimulator(request: MockRequest): unknown {
         const run = {
           runId: `SIM-${String(data.simulationRuns.length + 1).padStart(6, '0')}`,
           seed: Number(body['seed'] ?? 42),
-          merchantCount: Number(body['merchants'] ?? 1),
-          transactionCount: Number(body['transactions'] ?? 100),
+          merchants: Number(body['merchants'] ?? 1),
+          transactions: Number(body['transactions'] ?? 100),
           days: Number(body['days'] ?? 1),
-          disputeRateBps: Math.round(Number(body['disputeRate'] ?? 0.03) * 10_000),
+          // Basis points on the way in, basis points on the way out (contract 8.5). `disputeRate`
+          // is a deprecated alias for the same unit, so it is read as bps too, not scaled.
+          disputeRateBps: Math.round(Number(body['disputeRateBps'] ?? body['disputeRate'] ?? 300)),
           failureProfile: (body['failureProfile'] as string) ?? 'NONE',
           scenarioKey: (body['scenarioKey'] as string) ?? null,
           status: 'RUNNING' as const,
           progressPercent: 0,
+          eventsPlanned: 0,
           eventsEmitted: 0,
           transactionsCreated: 0,
           evidenceCreated: 0,
           disputesCreated: 0,
+          createdAt: new Date().toISOString(),
           startedAt: new Date().toISOString(),
           finishedAt: null,
           requestedBy: (body['requestedBy'] as string) ?? 'console',
           errorMessage: null,
           params: body,
-          stats: {},
         };
         data.simulationRuns.unshift(run);
         return run;
@@ -548,24 +551,25 @@ function resolveSimulator(request: MockRequest): unknown {
       const run: SimulationRun = {
         runId: `SIM-${String(data.simulationRuns.length + 1).padStart(6, '0')}`,
         seed: 42,
-        merchantCount: 2,
-        transactionCount: 120,
-        days: 7,
+        merchants: scenario.merchants,
+        transactions: scenario.transactions,
+        days: scenario.days,
         disputeRateBps: 900,
-        failureProfile: scenario.chaosTypes[0] ?? 'NONE',
+        failureProfile: `SCENARIO:${scenario.key}`,
         scenarioKey: scenario.key,
         status: 'RUNNING',
         progressPercent: 0,
+        eventsPlanned: 0,
         eventsEmitted: 0,
         transactionsCreated: 0,
         evidenceCreated: 0,
         disputesCreated: 0,
+        createdAt: new Date().toISOString(),
         startedAt: new Date().toISOString(),
         finishedAt: null,
         requestedBy: 'console',
         errorMessage: null,
         params: { scenarioKey: scenario.key },
-        stats: {},
       };
       data.simulationRuns.unshift(run);
       return run;

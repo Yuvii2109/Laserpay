@@ -68,7 +68,7 @@ export function SimulationConsole({ initialRunId }: { initialRunId: string | nul
       queryClient.setQueryData(queryKeys.simulation.run(run.runId), run);
       void queryClient.invalidateQueries({ queryKey: queryKeys.simulation.runs() });
       toast.success(`Run ${run.runId} started`, {
-        description: `seed ${run.seed} · ${run.transactionCount} transactions`,
+        description: `seed ${run.seed} · ${run.transactions} transactions`,
       });
     },
     onError: (error: Error) => toast.error('Run failed to start', { description: error.message }),
@@ -114,7 +114,7 @@ export function SimulationConsole({ initialRunId }: { initialRunId: string | nul
       hideBelowSm: true,
       cell: (row) => (
         <span className="tabular text-2xs text-muted-foreground">
-          {row.merchantCount}m · {row.transactionCount}tx · {row.days}d
+          {row.merchants}m · {row.transactions}tx · {row.days}d
         </span>
       ),
     },

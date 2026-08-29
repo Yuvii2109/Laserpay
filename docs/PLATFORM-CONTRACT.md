@@ -364,6 +364,28 @@ GET    /gaps                                       ?merchantId&type&severity  (a
 GET    /metrics/funnel                             events->candidates->ambiguous->AI->human
 ```
 
+**`GET /metrics/funnel` returns a composite, not a bare `FunnelMetrics`:**
+
+```json
+{
+  "metrics":          { "merchantId", "from", "to", "events", "candidates",
+                        "ambiguous", "aiInvestigated", "humanReviewed",
+                        "autoPrepared", "denied" },
+  "stages":           [ { "name", "count", "conversionFromPrevious" } ],
+  "aiAdmissionRate":  0.0,
+  "autoPrepareRate":  0.0
+}
+```
+
+The counters live under `metrics`; `stages` and the two rates are derived server-side so that
+every client draws the same ramp from the same arithmetic. This is a composite resource, not an
+envelope around a single object, so it does not contradict the anti-envelope rule in 8.5.
+
+> The frontend typed this response as a bare `FunnelMetrics` and read `funnel.events` from the
+> top level. Every field came back `undefined`, and the observability page died on
+> `Cannot read properties of undefined (reading 'toLocaleString')` - a blank screen, no failed
+> request, nothing in the network tab but a `200`.
+
 Streaming:
 
 ```
@@ -437,6 +459,32 @@ overlaid onto the returned object's counters rather than being carried beside th
 
 `POST /scenarios/{key}/run` is the one exception and returns `{"run": …, "scenario": …}`,
 because the caller needs the scenario's expectations to assert against.
+
+**The run object counts its inputs as `merchants` / `transactions`**, matching the `POST /runs`
+request body field for field. Not `merchantCount` / `transactionCount`: a request and the run it
+produces describe the same numbers and must not rename them in transit.
+
+**A scenario object is:**
+
+```json
+{
+  "key", "title", "description", "reasonCode", "seed",
+  "merchants", "transactions", "days", "startAt",
+  "expected": { "readinessBand", "scoreMin", "scoreMax", "gapTypes",
+                "aiPath", "classification", "recommendedAction" },
+  "demoNote"
+}
+```
+
+`expected` is the assertion target: a scenario states up front which band, gap types, AI path and
+classification it should produce, so a run either reproduces its own description or visibly does
+not. There is no `chaosTypes`, `expectedOutcome` or `estimatedSeconds` field - chaos is injected
+through `POST /chaos`, independently of scenarios.
+
+> Those three field names existed only in the frontend's mock router, which was written before
+> the simulator was. The real `GET /scenarios` never carried them, so `scenario.chaosTypes.map()`
+> threw `Cannot read properties of undefined (reading 'map')` and took the whole Simulation
+> console down with it.
 
 ### 8.6 `ai-reasoning-service` (Python FastAPI) - `http://localhost:8000`
 

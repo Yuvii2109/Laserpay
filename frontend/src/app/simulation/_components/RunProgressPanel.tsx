@@ -103,7 +103,7 @@ export function RunProgressPanel({ runId, onRunFinished }: RunProgressPanelProps
             <span className="tabular">seed {run.seed}</span>
             <span>·</span>
             <span className="tabular">
-              {run.merchantCount} merchants · {run.transactionCount} transactions · {run.days} days
+              {run.merchants} merchants · {run.transactions} transactions · {run.days} days
             </span>
             <span>·</span>
             <span className="tabular">{run.disputeRateBps} bps dispute rate</span>
@@ -183,12 +183,17 @@ export function RunProgressPanel({ runId, onRunFinished }: RunProgressPanelProps
         </p>
       ) : null}
 
-      {Object.keys(run.stats ?? {}).length > 0 ? (
+      {/*
+        `params` is the run's full input, seed and failure mix included. It is what makes a run
+        reproducible, so it is worth showing: re-running these exact params rebuilds this exact
+        world. (There is no separate `stats` field on the wire; the counters above are it.)
+      */}
+      {Object.keys(run.params ?? {}).length > 0 ? (
         <details className="mt-3">
           <summary className="cursor-pointer text-2xs text-muted-foreground">
-            Run statistics
+            Run parameters (seed and failure mix)
           </summary>
-          <JsonViewer className="mt-2" value={run.stats} defaultExpandedDepth={2} maxHeight="14rem" />
+          <JsonViewer className="mt-2" value={run.params} defaultExpandedDepth={2} maxHeight="14rem" />
         </details>
       ) : null}
 
